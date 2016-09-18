@@ -1,17 +1,18 @@
 // ==UserScript==
 // @name        Twitter
 // @namespace   TabNoc
-// @require	https://code.jquery.com/jquery-2.1.1.min.js
 // @description Marking of already readed Tweets and some other nice features 		©2016 TabNoc
 // @include     http*://twitter.com/*
-// @version     1.12.1_03082016
-// @require	https://gist.github.com/mnpingpong/db75cb485365388ead60/raw/1fb9026a8e2f0781d72df09eb10b1310c68cff5c/GM__.js
-// @require		http://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
-// require	GM__.js
-// require	ImageHover_org.js
-// @require		https://dl.dropbox.com/s/g4z7c4vvzq8c204/ImageHover.js
+// @version     1.12.2_18092016
+// @require     https://code.jquery.com/jquery-2.1.1.min.js
+// @require     https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
+// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
+// @require		https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/ImageHover.js
+// add @ to change to Local Solutions
+// require      GM__.js
+// require      ImageHover_org.js
 // @resource	Impromptu http://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.css
-// @updateURL  https://dl.dropbox.com/s/o7vhka2thidmtww/Twitter.user.js
+// @updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Twitter/Twitter.user.js
 // @noframes
 // @grant       GM_getResourceText
 // @grant       GM_setValue
