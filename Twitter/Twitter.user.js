@@ -3,12 +3,12 @@
 // @namespace   TabNoc
 // @description Marking of already readed Tweets and some other nice features 		©2016 TabNoc
 // @include     http*://twitter.com/*
-// @version     1.12.2_18092016
+// @version     1.12.3_24092016
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
 // @require		https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/ImageHover.js
-// add @ to change to Local Solutions
+// add @ to switch to local solutions
 // require      GM__.js
 // require      ImageHover_org.js
 // @resource	Impromptu http://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.css
@@ -23,14 +23,27 @@
 // @run-at      document-end
 // ==/UserScript==
 
+/*
+ChangeList started at 24.09.2016
+
+24.09.2016 - 1.12.3
+[Global]
+changed:	- Date.prototype.timeNow is now only added if not already existing
+			- prototype existing check now uses non converting operator (===) and checks if it's "undefined" not "null"
+added:		- String.prototype.replaceAll -> Firefox 49 removed possibility to add flags to String.prototype.replace("param1", "param2", "flags->deleted") cause non-standard implementation
+
+[checkElement]
+fixed:		- unsafeWindow.TabNoc.HTML.TweetsDropDownButtons.replace("{element}", ElementID, "g") is using depricated flags argument, changed to String.prototype.replaceAll("{element}", ElementID)
+*/
+
+
 // STatistics.Name -> Merge over element.Tweet_from
 
 try {
-	if (String.prototype.contains == null) {String.prototype.contains = String.prototype.includes;}
-	Date.prototype.timeNow = function () {
-		return ((this.getHours() < 10) ? "0" : "") + this.getHours() + ":" + ((this.getMinutes() < 10) ? "0" : "") + this.getMinutes() + ":" + ((this.getSeconds() < 10) ? "0" : "") + this.getSeconds();
-	}
-
+	if (String.prototype.contains === undefined) {String.prototype.contains = String.prototype.includes;}
+	if (String.prototype.replaceAll === undefined) {String.prototype.replaceAll = function(search, replacement) {var target = this; return target.replace(new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), 'g'), replacement);};}
+	if (Date.prototype.timeNow === undefined) {Date.prototype.timeNow = function () {return ((this.getHours() < 10) ? "0" : "") + this.getHours() + ":" + ((this.getMinutes() < 10) ? "0" : "") + this.getMinutes() + ":" + ((this.getSeconds() < 10) ? "0" : "") + this.getSeconds();}}
+	
 	TabNoc = {
 		console: {
 			cache: [],
@@ -428,7 +441,7 @@ try {
 		
 		// this consumes huge amounts of time  |  first time call: (100 elements ~ 35 ms)  |  later call: (100 elements ~ 0 ms)
 		if (checkElement.getAttribute("TabNoc_DropDownButtons") != "true") {
-			$(checkElement).find(".dropdown-menu")[0].children[1].innerHTML += unsafeWindow.TabNoc.HTML.TweetsDropDownButtons.replace("{element}", ElementID, "g");
+			$(checkElement).find(".dropdown-menu")[0].children[1].innerHTML += unsafeWindow.TabNoc.HTML.TweetsDropDownButtons.replaceAll("{element}", ElementID);
 			checkElement.setAttribute("TabNoc_DropDownButtons", "true");
 			{
 				var baseFixElement = $(checkElement).find(".dropdown-menu")[0].children[1].children;
@@ -498,10 +511,10 @@ try {
 
 			var elements = $(".js-stream-tweet");
 
-			var fromIndex = from == null ? 0 : elements.toArray().findIndex(function (element) { return element.getAttribute("data-item-id") == from; });
+			var fromIndex = (from == null) ? 0 : elements.toArray().findIndex(function (element) { return element.getAttribute("data-item-id") == from; });
 			if (fromIndex == -1) throw "from(" + from + ") were not found";
 
-			var tillIndex = till == null ? elements.length : (elements.toArray().findIndex(function (element) { return element.getAttribute("data-item-id") == till; }) + 1);
+			var tillIndex = (till == null) ? elements.length : (elements.toArray().findIndex(function (element) { return element.getAttribute("data-item-id") == till; }) + 1);
 			if (tillIndex == -1) throw "till(" + till + ") were not found";
 			tillIndex > elements.length ? elements.length : tillIndex;
 
