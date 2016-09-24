@@ -6,7 +6,7 @@
 // @include     https://www.youtube.com/channel/*/videos*
 // @include     https://www.youtube.com/watch?v=*
 // @include     https://www.youtube.com/results?*
-// @version     1.3.1_03.08.2016
+// @version     1.3.3_22092016
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
 // @updateURL   https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/Youtube/MarkOpenedVideos.user.js
@@ -14,10 +14,27 @@
 // @grant       GM_getValue
 // @grant       GM_deleteValue
 // @grant       GM_registerMenuCommand
+// @noframes
 // ==/UserScript==
 
+/*
+ChangeList started at 20.09.2016
 
-//TODO: - getTabNoc() -> implement it also on other scripts
+20.09.2016 - 1.3.2
+[SubscriptionPage]
+added:	- NotWantedVideos
+		- HideAlreadyWatchedVideos
+[Global]
+added:	- @noframes
+		
+22.09.2016 - 1.3.3
+[SubscriptionPage]
+added: 	- MenuCommand(HideWatchedVideos)
+		- possibility to force startCheckElements 
+*/
+
+
+//TODO: - getTabNoc() -> implement it also on other scripts ||anm.: in eigene Datei exportiren, aufruf durch main, mit angabe des namens als parameter, und rückgabeobjekt(TabNoc) anschließend aufruf durch script durch rückgabeobject, bei anlegen checken b bereits vorhanden, dann integrieren, sonst erstellen
 //		- Update Statistics DataBase (Merge over Video Id; use only WatchLength or merge Watch length and new property amount of views)
 try {
 	if (String.prototype.contains == null) {String.prototype.contains = String.prototype.includes;}
@@ -99,7 +116,10 @@ try {
 			MarkAfterScan: true,
 			OpenInNewTabWhenScanned: true,
 			TimerInterval: 5000,
-			UninterestingVideos: (["Challenge WBS:", "Recht für YouTuber:"])
+			UninterestingVideos: (["Challenge WBS:", "Recht für YouTuber:"]),
+			NotWantedVideos: (["Arumba Plays DOTA", "Europa Universalis IV", "Let's Play Crusader Kings 2"]),
+			DeleteNotWantedVideos: false,
+			HideAlreadyWatchedVideos: false
 		},
 
 		HTML: {
@@ -143,6 +163,11 @@ try {
 		//GM_addStyle(".display-none{display:none}");
 		//TODO?!?! Visited
 		//GM_addStyle(".display-none{display:none}");
+		
+		GM_registerMenuCommand("Hide Watched Videos", function () {
+			TabNoc_test.Settings.HideAlreadyWatchedVideos = true;
+			startCheckElements(true, true);
+		});
 
 		GM_registerMenuCommand("Markieren", function () {
 			startCheckElements(true);
@@ -154,8 +179,8 @@ try {
 		});
 	}
 
-	function startCheckElements(ToggleState) {
-		if (document.hidden === false) {
+	function startCheckElements(ToggleState, force) {
+		if (document.hidden === false || force === true) {
 			//### Videos ###
 			var videoIdArray = GM_getValue("Videos");
 			if (videoIdArray == null || videoIdArray == "") {
@@ -177,7 +202,7 @@ try {
 			}
 			
 			var elements = TabNoc_test.Variables.MultiRow ? $(".yt-shelf-grid-item") : $(".item-section");
-			if (TabNoc_test.Variables.lastCheckItemCount !== elements.length || 
+			if (force === true || TabNoc_test.Variables.lastCheckItemCount !== elements.length || 
 			TabNoc_test.Variables.lastCheckVideoIdAmount !== videoIdArray.length || 
 			TabNoc_test.Variables.lastCheckWatchedVideoAmount !== watchedVideosArray.length) {
 				execTime(checkElements, videoIdArray.reverse(), elements, ToggleState, watchedVideosArray.reverse());
@@ -232,10 +257,16 @@ try {
 		if (ToggleState === true) {
 			if (v_ID != -1) {
 				setColor("rgb(151, 255, 139)");
+				if (TabNoc_test.Settings.HideAlreadyWatchedVideos === true) {
+					checkElement.style.display = "none";
+				}
 				return true;
 			} 
 			else if (wv_ID != -1) {
 				setColor("rgb(166, 235, 158)");
+				if (TabNoc_test.Settings.HideAlreadyWatchedVideos === true) {
+					checkElement.style.display = "none";
+				}
 				return true;
 			}
 		}
@@ -246,6 +277,17 @@ try {
 		for (var i = 0; i < TabNoc_test.Settings.UninterestingVideos.length; i++) {
 			if ($(checkElement).find(".yt-uix-sessionlink.yt-ui-ellipsis")[0].textContent.includes(TabNoc_test.Settings.UninterestingVideos[i])) {
 				setColor("rgb(255, 175, 175)");
+			}
+		}
+		for (var i = 0; i < TabNoc_test.Settings.NotWantedVideos.length; i++) {
+			if ($(checkElement).find(".yt-uix-sessionlink.yt-ui-ellipsis")[0].textContent.includes(TabNoc_test.Settings.NotWantedVideos[i])) {
+				//disableVideo 
+				if (TabNoc_test.Settings.DeleteNotWantedVideos === true) {
+					$(checkElement).remove();
+				}
+				else if(TabNoc_test.Settings.DeleteNotWantedVideos === false) {
+					checkElement.style.display = "none";
+				}
 			}
 		}
 		
@@ -479,7 +521,6 @@ alert("watched");
 	// ### https://www.youtube.com/watch?v=* ###
 
 	// ### https://www.youtube.com/results?* ### 
-	
 	function SearchResultLoader(){
 		console.log("MarkOpenedVideos.user.js loading");
 		try {
@@ -527,7 +568,6 @@ alert("watched");
 			}
 		}
 	}
-	
 	// ### https://www.youtube.com/results?* ### 
 	
 	function UpdateDataBase() {
@@ -636,6 +676,7 @@ alert("watched");
 		}
 		
 		else {
+			alert("MarkOpenedVideos.user.js:Main()->No LoadObject found!");
 			console.info("No LoadObject found!");
 		}
 	}
