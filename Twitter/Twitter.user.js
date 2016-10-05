@@ -38,6 +38,8 @@ fixed:		- unsafeWindow.TabNoc.HTML.TweetsDropDownButtons.replace("{element}", El
 05.10.2016 - 1.12.4
 [ImageHover]
 bugfix:		- TwitterFlags or Emoticons are no longer displayed as file removed
+[Global]
+added:		- Version information on load
 */
 
 
@@ -674,7 +676,7 @@ try {
 	}
 	
 	function Main() {
-		console.log("Twitter.user.js loading");
+		console.info("Twitter.user.js[v" + GM_info.script.version + ", Autoupdate: " + GM_info.scriptWillUpdate + "] loading");
 		
 		registerTabNoc();
 
