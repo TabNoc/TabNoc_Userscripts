@@ -1,5 +1,5 @@
 function getImageHoverVersion(){
-	return "v1.0.0-18092016";
+	return "v1.0.1-05102016";
 }
 
 try {
@@ -125,12 +125,17 @@ try {
 					(function (index) {
 						// OnMouseOver Event
 						TabNoc.Settings.ImageHover.HoverEventElements[index].element.onmouseover = function (element) {
-							var target = element.target;
-							if (target && target.nodeName == "IMG" && !TabNoc.Variables.FullSizeImage) {
-								if (TabNoc.Variables.isShiftDown) {
-									TabNoc.Variables.FullSizeImage = true;
+							try {
+								var target = element.target;
+								if (target && target.nodeName == "IMG" && !TabNoc.Variables.FullSizeImage) {
+									if (TabNoc.Variables.isShiftDown) {
+										TabNoc.Variables.FullSizeImage = true;
+									}
+									ImageHover.show(target, TabNoc.Settings.ImageHover.HoverEventElements[index].getUserArgs(target));
 								}
-								ImageHover.show(target, TabNoc.Settings.ImageHover.HoverEventElements[index].getUserArgs(target));
+							} catch (exc) {
+								console.error(exc);
+								alert("ImageHover.js->TabNoc.Settings.ImageHover.HoverEventElements[index:" + index + "].element.onmouseover()\r\n" + exc);
 							}
 						}
 						// OnMouseOut Event
@@ -267,6 +272,7 @@ try {
 					imageHoverElement.style.top = window.pageYOffset + "px";
 				}),
 				checkLoadStart : (function (imageHoverElement, eventElement) {
+					// Check if the Image is alreadyy loaded (then return void and calling ImageHover.onLoadStart) else setRecursiveTimeout over 15ms and return Timer(pointless, only 15ms alive)
 					return imageHoverElement.naturalWidth ? void ImageHover.onLoadStart(imageHoverElement, eventElement) : setTimeout(ImageHover.checkLoadStart, 15, imageHoverElement, eventElement)
 				}),
 				timeout : null

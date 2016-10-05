@@ -34,6 +34,10 @@ added:		- String.prototype.replaceAll -> Firefox 49 removed possibility to add f
 
 [checkElement]
 fixed:		- unsafeWindow.TabNoc.HTML.TweetsDropDownButtons.replace("{element}", ElementID, "g") is using depricated flags argument, changed to String.prototype.replaceAll("{element}", ElementID)
+
+05.10.2016 - 1.12.4
+[ImageHover]
+bugfix:		- TwitterFlags or Emoticons are no longer displayed as file removed
 */
 
 
@@ -317,7 +321,7 @@ try {
 		if (unsafeWindow.TabNoc.Settings.Personal.ImageHover === true) {
 			AddImageHover({
 				getElementSrc : function (eventElement, addLargeToSrc) {
-					return (eventElement.className.includes("avatar ") ? (eventElement.getAttribute("src").replace("_normal", "_400x400").replace("_bigger", "_400x400")) : (eventElement.getAttribute("src").replace(":thumb", "") + (addLargeToSrc == true ? ":large" : "")))
+					return (eventElement.className.includes("avatar ") ? (eventElement.getAttribute("src").replace("_normal", "_400x400").replace("_bigger", "_400x400")) : (eventElement.getAttribute("src").replace(":thumb", "") + (addLargeToSrc === true ? ":large" : "")))
 				},
 				getParentNode : function (eventElement) {
 					return eventElement.parentNode.className == " is-preview" ? eventElement.parentNode.parentNode : eventElement.parentNode;
@@ -332,7 +336,7 @@ try {
 						condition : true,
 						element : $("#stream-items-id")[0],
 						getUserArgs : function (target) {
-							return !target.className.includes("avatar ");
+							return !(target.className.includes("avatar ") || target.className.includes("twitter-hashflag"));
 						}
 					}, {
 						condition : ($(".PhotoRail-mediaBox").length > 0),
