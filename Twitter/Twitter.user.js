@@ -3,7 +3,7 @@
 // @namespace   TabNoc
 // @description Marking of already readed Tweets and some other nice features 		©2016 TabNoc
 // @include     http*://twitter.com/*
-// @version     1.12.4_05102016
+// @version     1.12.5_09102016
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
@@ -37,6 +37,11 @@ fixed:		- unsafeWindow.TabNoc.HTML.TweetsDropDownButtons.replace("{element}", El
 bugfix:		- TwitterFlags or Emoticons are no longer displayed as file removed
 [Global]
 added:		- Version information on load
+
+09.10.2016 - 1.12.5
+[Global]
+added:		- Possibility to Scan Ranges
+added:		- Feedback after Scanning
 */
 
 
@@ -58,7 +63,9 @@ try {
 			WatchedTime: 0,
 			LoadedWatchedTime: 0,
 			SavedWatchedTime: 0,
-			TimeSaveCycle: 0
+			TimeSaveCycle: 0,
+			
+			ScanRangeElement: null
 		},
 
 		Settings: {
@@ -99,10 +106,10 @@ try {
 
 			StyleMarked: "background-color:rgb(151, 255, 139);background-image:linear-gradient(rgb(255, 255, 255), transparent)",
 			StyleMustScanning: "background-color:rgb(255, 138, 138);background-image:linear-gradient(rgb(255, 255, 255), transparent)",
-			TweetsDropDownButtons: '<br/><button class="dropdown-link js-dropdown-toggle" onclick="getAllElements({element});return true;">Bis hier Markieren [/\\]</button><button class="dropdown-link js-dropdown-toggle" onclick="getAllElements(null, {element});return true;">Ab hier Markieren [\\/]</button>'
+			TweetsDropDownButtons: '<br/><button class="dropdown-link js-dropdown-toggle" onclick="getAllElements({element});return true;">Bis hier Markieren [/\\]</button><button class="dropdown-link js-dropdown-toggle" onclick="getAllElements(null, {element});return true;">Ab hier Markieren [\\/]</button><button class="dropdown-link js-dropdown-toggle" onclick="scanRange({element});return true;">Markierbereich</button>'
 		}
 	};
-
+	
 	function registerTabNoc() {
 		unsafeWindow.TabNoc = cloneInto(TabNoc, unsafeWindow, {
 			wrapReflectors: true, cloneFunctions: true
@@ -116,6 +123,10 @@ try {
 		// Markieren
 		exportFunction(startCheckElements, unsafeWindow, {
 			defineAs: "startCheckElements"
+		});
+		// Bereich Scannen
+		exportFunction(scanRange, unsafeWindow, {
+			defineAs: "scanRange"
 		});
 
 		GM_registerMenuCommand("Automatik Aus-/Einschalten", function () {
@@ -174,25 +185,7 @@ try {
 			});
 		});
 
-		GM_registerMenuCommand("Rückgängig", function () {
-			try {
-				if (unsafeWindow.TabNoc.Variables.OldTwitterSaveData == "") {
-					alert("Es befindet sich keine Sicherung im Speicher.\r\nRückgängig machen nicht möglich!");
-					return;
-				}
-				
-				if (confirm("Der Alte Speicherstand beinhaltet " + eval(unsafeWindow.TabNoc.Variables.OldTwitterSaveData).length + " Elemente (Aktuell " + eval(GM_getValue("Twitter")).length + ")")) {
-					var oldState = unsafeWindow.TabNoc.Variables.MarkToggleState;
-					startCheckElements(false);
-					GM_setValue("Twitter", unsafeWindow.TabNoc.Variables.OldTwitterSaveData);
-					startCheckElements(oldState);
-					unsafeWindow.TabNoc.Variables.OldTwitterSaveData = "";
-				}
-			} catch (exc) {
-				console.error(exc);
-				alert(exc);
-			}
-		});
+		GM_registerMenuCommand("Rückgängig", Undo);
 /*
 		GM_registerMenuCommand("[DEV]", function () {
 			try {
@@ -309,7 +302,27 @@ try {
 			});
 		}
 	}
-
+	
+	function Undo() {
+		try {
+			if (unsafeWindow.TabNoc.Variables.OldTwitterSaveData == "") {
+				alert("Es befindet sich keine Sicherung im Speicher.\r\nRückgängig machen nicht möglich!");
+				return;
+			}
+			
+			if (confirm("Der Alte Speicherstand beinhaltet " + eval(unsafeWindow.TabNoc.Variables.OldTwitterSaveData).length + " Elemente (Aktuell " + eval(GM_getValue("Twitter")).length + ")")) {
+				var oldState = unsafeWindow.TabNoc.Variables.MarkToggleState;
+				startCheckElements(false);
+				GM_setValue("Twitter", unsafeWindow.TabNoc.Variables.OldTwitterSaveData);
+				startCheckElements(oldState);
+				unsafeWindow.TabNoc.Variables.OldTwitterSaveData = "";
+			}
+		} catch (exc) {
+			console.error(exc);
+			alert(exc);
+		}
+	}
+	
 	function startCheckElements(ToggleState, force) {
 		try {
 			ManageActiveTime();
@@ -361,7 +374,7 @@ try {
 			alert(exc);
 		}
 	}
-
+	
 	function checkElements(elementIdArray, ToggleState, elements) {
 		var UnScannedElements = 0;
 
@@ -397,7 +410,7 @@ try {
 
 		return UnScannedElements;
 	}
-
+	
 	function checkElement(checkElement, elementIdArray, ToggleState) {
 		//return true if checkedElement is already Scanned
 
@@ -432,7 +445,7 @@ try {
 		markUninterestingTweets(checkElement);
 		return false;
 	}
-
+	
 	function markUninterestingTweets(checkElement) {
 		if (unsafeWindow.TabNoc.Settings.Personal.ScanUninterestingTweet == true) {
 			var data = $(checkElement).find(".TweetTextSize");
@@ -453,10 +466,66 @@ try {
 			}
 		}
 	}
-
+	
+	var Feedback = {
+		messageTimeout : null,
+		showMessage : (function (message, type, time, onClickFunction) {
+			Feedback.hideMessage();
+			var element = document.createElement("div");
+			element.id = "feedback";
+			element.title = "Dismiss";
+			var style = "";
+			if (type == "notify") {
+				style = "background-color: #00A550;";
+			} else if (type == "error") {
+				style = "background-color: #C41E3A;";
+			}
+			element.setAttribute("style", "position: fixed; top: 10px; text-align: center; width: 100%; z-index: 9999;");
+			element.innerHTML = '<span style="' + style + ' border-radius: 5px; cursor: pointer; color: #fff; padding: 3px 6px; font-size: 16px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); text-shadow: 0 1px rgba(0, 0, 0, 0.2);">' + message.replaceAll("\r\n", "<br>") + "</span>";
+			element.addEventListener("click", onClickFunction || Feedback.hideMessage, !1);
+			document.body.appendChild(element);
+			time && (Feedback.messageTimeout = setTimeout(Feedback.hideMessage, time));
+		}),
+		hideMessage : (function () {
+			var element = document.getElementById("feedback");
+			element && (Feedback.messageTimeout && (clearTimeout(Feedback.messageTimeout), Feedback.messageTimeout = null), element.removeEventListener("click", Feedback.hideMessage, !1), document.body.removeChild(element))
+		}),
+		error : (function (message, time, onClickFunction) {
+			Feedback.showMessage(message || "Something went wrong", "error", (time == null ? 8000 : time), onClickFunction)
+		}),
+		notify : (function (message, time, onClickFunction) {
+			Feedback.showMessage(message, "notify", (time == null ? 5000 : time), onClickFunction)
+		})
+	};
+	
+	function scanRange(element){
+		try {
+			if (unsafeWindow.TabNoc.Variables.ScanRangeElement === null) {
+				// show Messsage (maybe with ImageHover.Feedback)
+				unsafeWindow.TabNoc.Variables.ScanRangeElement = element;
+			}
+			else {
+				if (confirm("Elemente Markieren?") === true) {
+					if (element > getAllElements(unsafeWindow.TabNoc.Variables.ScanRangeElement)) {
+						getAllElements(unsafeWindow.TabNoc.Variables.ScanRangeElement, element);
+					}
+					else {
+						getAllElements(element, unsafeWindow.TabNoc.Variables.ScanRangeElement);
+					}
+					unsafeWindow.TabNoc.Variables.ScanRangeElement = null;
+				}
+			}
+		}
+		catch (exc) {
+			console.error(exc);
+			alert(exc);
+		}
+	}
+	
 	function getAllElements(from, till) {
 		try {
 			var start = new Date().getTime();
+			var amount = 0;
 
 			var ElementIds = GM_getValue("Twitter");
 			if (ElementIds == null || ElementIds == "") {
@@ -496,6 +565,7 @@ try {
 
 					if (ElementIds.indexOf(currentElementId) == -1) {
 						ElementIds.push(currentElementId);
+						amount++;
 					}
 					exec(AddTweetStatistics, element, Tweets);
 				} else {
@@ -509,6 +579,8 @@ try {
 			if (unsafeWindow.TabNoc.Settings.MarkAfterScan) {
 				startCheckElements(true, true);
 			}
+			
+			Feedback.notify("Es wurde" + (amount === 1 ? "" : "n") + " " + amount + " Element" + (amount === 1 ? "" : "e") + " eingelesen.      >Rückgängig<", 20000, Undo);
 
 			var time = new Date().getTime() - start;
 			console.log('getAllElements() Execution time: ' + time);
@@ -518,7 +590,7 @@ try {
 			alert(exc);
 		}
 	}
-
+	
 	function AddTweetStatistics(element, Tweets) {
 		element = element.children[0];
 		var TweetID = element.getAttribute("data-tweet-id");
@@ -543,7 +615,7 @@ try {
 			Tweeter.push(TweetObj);
 		}
 	}
-
+	
 	function setUpperTweetsThrottled(wait) {
 		
 		var MinTopValue = $(".ProfileCanopy-inner").length == 1 ? 127 : $(".global-nav-inner")[0].getClientRects()[0].bottom;
@@ -592,7 +664,7 @@ try {
 			}
 		};
 	};
-
+	
 	function ManageActiveTime(){
 		if (document.hidden == false && document.hasFocus()) {
 			if (unsafeWindow.TabNoc.Variables.WatchedTime == 0) {
@@ -702,7 +774,7 @@ try {
 			element.setAttribute("onclick", "");
 		}
 	}
-
+	
 	if ($(".TwitterCardsGrid").length == 0) {
 		$(returnExec(Main));
 		console.log("Twitter.user.js readed");
