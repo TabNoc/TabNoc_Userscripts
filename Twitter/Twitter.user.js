@@ -43,46 +43,7 @@ added:		- Version information on load
 // STatistics.Name -> Merge over element.Tweet_from
 
 try {
-	if (String.prototype.contains === undefined) {String.prototype.contains = String.prototype.includes;}
-	if (String.prototype.replaceAll === undefined) {String.prototype.replaceAll = function(search, replacement) {var target = this; return target.replace(new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), 'g'), replacement);};}
-	if (Date.prototype.timeNow === undefined) {Date.prototype.timeNow = function () {return ((this.getHours() < 10) ? "0" : "") + this.getHours() + ":" + ((this.getMinutes() < 10) ? "0" : "") + this.getMinutes() + ":" + ((this.getSeconds() < 10) ? "0" : "") + this.getSeconds();}}
-	
 	TabNoc = {
-		console: {
-			cache: [],
-			add: function (msg, when) {
-				if (when != false) {
-					TabNoc.console.cache.push(new Date().timeNow() + " : " + msg);
-				}
-				return when != false;
-			},
-			get: function (amount) {
-				var returnval = "\r\n";
-				var tmp = "";
-				var counter = 0;
-				amount = typeof (amount) != "number" ? Number.MAX_SAFE_INTEGER : amount
-
-				TabNoc.console.cache.reverse();
-				while ((tmp = TabNoc.console.cache.pop()) != null && counter < amount) {
-					++counter;
-					returnval += tmp + "\r\n";
-				}
-
-				TabNoc.console.cache.reverse();
-
-				return returnval;
-			},
-			register: function () {
-				if (unsafeWindow.console.log.toString() == "function (){}") {
-					exportFunction(function (msg) { console.log(msg); }, unsafeWindow.console, {
-						defineAs: "log"
-					});
-					return true;
-				}
-				return false;
-			}
-		},
-
 		Variables: {
 			startTime: new Date(),
 			checkElementsInterval: null,

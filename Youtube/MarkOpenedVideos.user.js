@@ -37,7 +37,6 @@ added: 	- MenuCommand(HideWatchedVideos)
 //TODO: - getTabNoc() -> implement it also on other scripts ||anm.: in eigene Datei exportiren, aufruf durch main, mit angabe des namens als parameter, und rückgabeobjekt(TabNoc) anschließend aufruf durch script durch rückgabeobject, bei anlegen checken b bereits vorhanden, dann integrieren, sonst erstellen
 //		- Update Statistics DataBase (Merge over Video Id; use only WatchLength or merge Watch length and new property amount of views)
 try {
-	if (String.prototype.contains == null) {String.prototype.contains = String.prototype.includes;}
 	function getTabNoc(){
 		if (unsafeWindow.TabNoc_ == null) {
 			unsafeWindow.TabNoc_ = ({});
