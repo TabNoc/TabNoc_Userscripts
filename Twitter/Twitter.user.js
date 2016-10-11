@@ -3,7 +3,7 @@
 // @namespace   TabNoc
 // @description Marking of already readed Tweets and some other nice features 		©2016 TabNoc
 // @include     http*://twitter.com/*
-// @version     1.12.6_11102016
+// @version     1.12.6_1_11102016
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
@@ -46,6 +46,10 @@ added:		- Feedback after Scanning
 11.10.2016 - 1.12.6
 [Global]
 bugfix: 	- some buttons not working correctly
+
+11.10.2016 - 1.12.6.1
+[Global]
+bugfix:		- ActiveTime only displays hours till 24h
 */
 
 
@@ -727,7 +731,7 @@ try {
 				amount = Math.round(amount * 1000);
 				var seconds = amount % 60;
 				var minutes = ((amount - seconds) % (60 * 60)) / 60;
-				var hours = ((amount - seconds - (minutes * 60)) % (60 * 60 * 24)) / (60 * 60);
+				var hours = ((amount - seconds - (minutes * 60)) % (60 * 60)) / (60 * 60); // ((amount - seconds - (minutes * 60)) % (60 * 60 * 24)) / (60 * 60); this old code displays hours of day
 				return (hours > 0 ? hours + "h " : "") + ((minutes > 0 || hours > 0) ? minutes + "min " : "") + ((seconds > 0 || minutes > 0 || hours > 0) ? seconds + "sek" : "");
 			};
 			
