@@ -3,7 +3,7 @@
 // @namespace   TabNoc
 // @description Marking of already readed Tweets and some other nice features 		©2016 TabNoc
 // @include     http*://twitter.com/*
-// @version     1.12.5_09102016
+// @version     1.12.6_11102016
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
@@ -42,6 +42,10 @@ added:		- Version information on load
 [Global]
 added:		- Possibility to Scan Ranges
 added:		- Feedback after Scanning
+
+11.10.2016 - 1.12.6
+[Global]
+bugfix: 	- some buttons not working correctly
 */
 
 
@@ -461,7 +465,7 @@ try {
 			checkElement.setAttribute("TabNoc_DropDownButtons", "true");
 			{
 				var baseFixElement = $(checkElement).find(".dropdown-menu")[0].children[1].children;
-				var fixElements = [baseFixElement[baseFixElement.length - 2], baseFixElement[baseFixElement.length - 1]];
+				var fixElements = [baseFixElement[baseFixElement.length - 3], baseFixElement[baseFixElement.length - 2], baseFixElement[baseFixElement.length - 1]];
 				for (ii = 0; ii < fixElements.length; ii++) {
 					// Quickfix buttons
 					var FixElement = fixElements[ii];
@@ -545,7 +549,7 @@ try {
 			}
 			else {
 				if (confirm("Elemente Markieren?") === true) {
-					if (element > getAllElements(unsafeWindow.TabNoc.Variables.ScanRangeElement)) {
+					if (element < unsafeWindow.TabNoc.Variables.ScanRangeElement) {
 						getAllElements(unsafeWindow.TabNoc.Variables.ScanRangeElement, element);
 					}
 					else {
@@ -619,7 +623,7 @@ try {
 				startCheckElements(true, true);
 			}
 			
-			Feedback.notify("Es wurde" + (amount === 1 ? "" : "n") + " " + amount + " Element" + (amount === 1 ? "" : "e") + " eingelesen.      >Rückgängig<", 20000, Undo);
+			Feedback.notify("Es wurde" + (amount === 1 ? "" : "n") + " " + amount + " Element" + (amount === 1 ? "" : "e") + " eingelesen.      >Rückgängig<", 20000, (function(){Undo();Feedback.hideMessage();}));
 
 			var time = new Date().getTime() - start;
 			console.log('getAllElements() Execution time: ' + time);
