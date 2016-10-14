@@ -1,63 +1,10 @@
 function getImageHoverVersion(){
-	return "v1.0.1-05102016";
+	return "v1.1.0-14102016";
 }
 
 try {
-	function setTabNoc(obj) {
-		var ScriptName = "ImageHover.js";
-
-		if (unsafeWindow.TabNoc_ == null) {
-			unsafeWindow.TabNoc_ = cloneInto(({}), unsafeWindow, {
-					wrapReflectors : true,
-					cloneFunctions : true
-				});
-		}
-		if (unsafeWindow.TabNoc_[ScriptName] == null) {
-			unsafeWindow.TabNoc_[ScriptName] = cloneInto(({}), unsafeWindow.TabNoc_, {
-					wrapReflectors : true,
-					cloneFunctions : true
-				});
-		}
-
-		unsafeWindow.TabNoc_[ScriptName] = cloneInto(obj, unsafeWindow.TabNoc_, {
-				wrapReflectors : true,
-				cloneFunctions : true
-			});
-	}
-
-	TabNoc = {
-		ScriptName : "ImageHover.js",
-
-		get Variables() {
-			return unsafeWindow.TabNoc_[TabNoc.ScriptName].Variables;
-		},
-		set Variables(obj) {},
-
-		get Settings() {
-			return unsafeWindow.TabNoc_[TabNoc.ScriptName].Settings;
-		},
-		set Settings(obj) {},
-	}
-
-	setTabNoc({
-		Variables : {
-			FullSizeImage : false,
-			isShiftDown : false
-		},
-
-		Settings : {
-			unmuteWebm : true,
-			$ : {
-				prettySeconds : (function (inputSeconds) {
-					var minutes = Math.floor(inputSeconds / 60);
-					var seconds = Math.round(inputSeconds - 60 * minutes);
-					return [minutes, seconds];
-				})
-			},
-			ImageHover : null
-		}
-	});
-
+	var TabNoc_ImageHover = ({});
+	
 	function checkAndLoadConfig(Config) {
 		if (Config == null) {
 			throw "Config is missing";
@@ -105,8 +52,43 @@ try {
 				return false;
 			}
 		}
-
-		TabNoc.Settings.ImageHover = Config;
+		
+		var localTabNoc = ({
+			Variables : {
+				FullSizeImage : false,
+				isShiftDown : false
+			},
+			Settings : {
+				unmuteWebm : true,
+				$ : {
+					prettySeconds : (function (inputSeconds) {
+						var minutes = Math.floor(inputSeconds / 60);
+						var seconds = Math.round(inputSeconds - 60 * minutes);
+						return [minutes, seconds];
+					})
+				},
+				Config : Config
+			}
+		});
+		TabNoc_ImageHover = localTabNoc;
+		
+		// unsafeWindow.tmpCloneInto = cloneInto(localTabNoc, unsafeWindow, {
+			// wrapReflectors: true, cloneFunctions: true
+		// });
+		// TabNoc.Variables.ImageHover = unsafeWindow.tmpCloneInto;
+		// console.log(TabNoc);
+		
+		// unsafeWindow.TabNoc_ImageHover --> TabNoc.Variables.ImageHover
+		
+		// TabNoc.Variables.ImageHover = cloneInto(localTabNoc, TabNoc.Variables, {
+			// wrapReflectors: true, cloneFunctions: true
+		// });
+		// console.log(TabNoc);
+		
+		// unsafeWindow.TabNoc_ImageHover = cloneInto(localTabNoc, unsafeWindow, {
+			// wrapReflectors: true, cloneFunctions: true
+		// });
+		// console.log(TabNoc);
 		return true;
 	}
 
@@ -116,55 +98,54 @@ try {
 			if (!checkAndLoadConfig(Config)) {
 				return;
 			}
-			
-			TabNoc.Variables.isShiftDown = TabNoc.Settings.ImageHover.StartShiftState;
+			console.log(TabNoc);
+			TabNoc_ImageHover.Variables.isShiftDown = TabNoc_ImageHover.Settings.Config.StartShiftState;
 			
 			// Add Event Listener
-			for (i = 0; i < TabNoc.Settings.ImageHover.HoverEventElements.length; i++) {
-				if (TabNoc.Settings.ImageHover.HoverEventElements[i].condition === true) {
-					(function (index) {
-						// OnMouseOver Event
-						TabNoc.Settings.ImageHover.HoverEventElements[index].element.onmouseover = function (element) {
-							try {
-								var target = element.target;
-								if (target && target.nodeName == "IMG" && !TabNoc.Variables.FullSizeImage) {
-									if (TabNoc.Variables.isShiftDown) {
-										TabNoc.Variables.FullSizeImage = true;
-									}
-									ImageHover.show(target, TabNoc.Settings.ImageHover.HoverEventElements[index].getUserArgs(target));
-								}
-							} catch (exc) {
-								console.error(exc);
-								alert("ImageHover.js->TabNoc.Settings.ImageHover.HoverEventElements[index:" + index + "].element.onmouseover()\r\n" + exc);
-							}
-						}
-						// OnMouseOut Event
-						TabNoc.Settings.ImageHover.HoverEventElements[index].element.onmouseout = function (element) {
+			for (i = 0; i < TabNoc_ImageHover.Settings.Config.HoverEventElements.length; i++) {
+				if (TabNoc_ImageHover.Settings.Config.HoverEventElements[i].condition === true) {
+					var index = i;
+					// OnMouseOver Event
+					TabNoc_ImageHover.Settings.Config.HoverEventElements[index].element.onmouseover = function (element) {
+						try {
 							var target = element.target;
 							if (target && target.nodeName == "IMG" && !TabNoc.Variables.FullSizeImage) {
-								ImageHover.hide();
+								if (TabNoc_ImageHover.Variables.isShiftDown) {
+									TabNoc_ImageHover.Variables.FullSizeImage = true;
+								}
+								ImageHover.show(target, TabNoc_ImageHover.Settings.Config.HoverEventElements[index].getUserArgs(target));
 							}
+						} catch (exc) {
+							console.error(exc);
+							alert("ImageHover.js->TabNoc_ImageHover.Settings.Config.HoverEventElements[index:" + index + "].element.onmouseover()\r\n" + exc);
 						}
-					})(i);
+					}
+					// OnMouseOut Event
+					TabNoc_ImageHover.Settings.Config.HoverEventElements[index].element.onmouseout = function (element) {
+						var target = element.target;
+						if (target && target.nodeName == "IMG" && !TabNoc_ImageHover.Variables.FullSizeImage) {
+							ImageHover.hide();
+						}
+					}
 				}
 			}
 
-			if (TabNoc.Settings.ImageHover.ShiftKeyShowsImageFullSize) {
+			if (TabNoc_ImageHover.Settings.Config.ShiftKeyShowsImageFullSize) {
 				document.body.onkeydown = function (e) {
-					if (e.keyCode === 16 || (TabNoc.Settings.ImageHover.CapsLockKeepsImageFullSize && e.keyCode === 20)) {
-						TabNoc.Variables.isShiftDown = true;
-					} else if (TabNoc.Settings.ImageHover.PressStrgOrEscToCloseFullSizeImage && (e.keyCode === 27 || e.keyCode === 17)) {
+					if (e.keyCode === 16 || (TabNoc_ImageHover.Settings.Config.CapsLockKeepsImageFullSize && e.keyCode === 20)) {
+						TabNoc_ImageHover.Variables.isShiftDown = true;
+					} else if (TabNoc_ImageHover.Settings.Config.PressStrgOrEscToCloseFullSizeImage && (e.keyCode === 27 || e.keyCode === 17)) {
 						ImageHover.hide();
 						setTimeout(function () {
-							TabNoc.Variables.FullSizeImage = false;
-						}, TabNoc.Settings.ImageHover.WaitTimeAfterClickFullSizeImage);
+							TabNoc_ImageHover.Variables.FullSizeImage = false;
+						}, TabNoc_ImageHover.Settings.Config.WaitTimeAfterClickFullSizeImage);
 					}
 				};
 				document.body.onkeyup = function (e) {
 					if (e.keyCode === 16) {
-						TabNoc.Variables.isShiftDown = false;
+						TabNoc_ImageHover.Variables.isShiftDown = false;
 						ImageHover.hide();
-						TabNoc.Variables.FullSizeImage = false;
+						TabNoc_ImageHover.Variables.FullSizeImage = false;
 					}
 				};
 			}
@@ -172,7 +153,7 @@ try {
 			var ImageHover = {
 				show : (function (eventElement, userArgs) {
 					try {
-						var ElementSrc = TabNoc.Settings.ImageHover.getElementSrc(eventElement, userArgs);
+						var ElementSrc = TabNoc_ImageHover.Settings.Config.getElementSrc(eventElement, userArgs);
 						var webmMatch = ElementSrc.match(/\.(?:webm|pdf)$/);
 
 						if (webmMatch && webmMatch[0] == ".webm") {
@@ -184,7 +165,7 @@ try {
 						imageHoverElement.onerror = ImageHover.onLoadError;
 						imageHoverElement.src = ElementSrc;
 						imageHoverElement.setAttribute("style", "position: absolute; max-width: 100%; max-height: 100%; top: 0px; right: 0px; z-index: 9002;");
-						TabNoc.Settings.ImageHover.imageHoverBg && (imageHoverElement.style.backgroundColor = "inherit");
+						TabNoc_ImageHover.Settings.Config.imageHoverBg && (imageHoverElement.style.backgroundColor = "inherit");
 						document.body.appendChild(imageHoverElement);
 						if ("withCredentials" in new XMLHttpRequest) {
 							imageHoverElement.style.display = "none";
@@ -209,10 +190,10 @@ try {
 					i;
 					t = document.createElement("video"),
 					t.id = "image-hover",
-					TabNoc.Settings.ImageHover.imageHoverBg && (t.style.backgroundColor = "inherit"),
+					TabNoc_ImageHover.Settings.Config.imageHoverBg && (t.style.backgroundColor = "inherit"),
 					t.src = "A" !== e.nodeName ? e.parentNode.getAttribute("href") : e.getAttribute("href"),
 					t.loop = !0,
-					t.muted = !TabNoc.Settings.ImageHover.unmuteWebm,
+					t.muted = !TabNoc_ImageHover.Settings.Config.unmuteWebm,
 					t.autoplay = !0,
 					t.onerror = ImageHover.onLoadError,
 					t.onloadedmetadata = function () {
@@ -223,12 +204,12 @@ try {
 					t.style.maxWidth = i + "px",
 					t.style.top = window.pageYOffset + "px",
 					document.body.appendChild(t),
-					TabNoc.Settings.ImageHover.unmuteWebm && (t.volume = .5)
+					TabNoc_ImageHover.Settings.Config.unmuteWebm && (t.volume = .5)
 				}),
 				showWebMDuration : (function (e, t) {
 					if (e.parentNode) {
 						var a,
-						i = TabNoc.Settings.ImageHover.$.prettySeconds(e.duration);
+						i = TabNoc_ImageHover.Settings.Config.$.prettySeconds(e.duration);
 						a = e.mozHasAudio === !0 || e.webkitAudioDecodedByteCount > 0 || e.audioTracks && e.audioTracks.length ? " (audio)" : "",
 						Tip.show(t, i[0] + ":" + ("0" + i[1]).slice(-2) + a)
 					}
@@ -239,7 +220,7 @@ try {
 				onLoadStart : (function (imageHoverElement, eventElement) {
 					// On every Site different
 					// Node from wich the BoundingClientRect comes
-					var ParentNode = TabNoc.Settings.ImageHover.getParentNode(eventElement);
+					var ParentNode = TabNoc_ImageHover.Settings.Config.getParentNode(eventElement);
 
 					var optimalFromW = $('body').innerWidth() - ParentNode.getBoundingClientRect().right - 10;
 					// gibt an was mit der breite erreicht werden kann(wenn src groß genug)
@@ -255,15 +236,15 @@ try {
 						imageHoverElement.style.maxHeight = optimalFromH + "px";
 					}
 
-					if (TabNoc.Settings.ImageHover.ShiftKeyShowsImageFullSize && TabNoc.Variables.isShiftDown) {
+					if (TabNoc_ImageHover.Settings.Config.ShiftKeyShowsImageFullSize && TabNoc_ImageHover.Variables.isShiftDown) {
 						imageHoverElement.style.maxHeight = "100%";
 						imageHoverElement.style.maxWidth = "100%";
-						if (TabNoc.Settings.ImageHover.ClickOnFullSizeImageToClose) {
+						if (TabNoc_ImageHover.Settings.Config.ClickOnFullSizeImageToClose) {
 							imageHoverElement.onclick = function (e) {
 								ImageHover.hide();
 								setTimeout(function () {
-									TabNoc.Variables.FullSizeImage = false;
-								}, TabNoc.Settings.ImageHover.WaitTimeAfterClickFullSizeImage);
+									TabNoc_ImageHover.Variables.FullSizeImage = false;
+								}, TabNoc_ImageHover.Settings.Config.WaitTimeAfterClickFullSizeImage);
 							};
 						}
 					}
@@ -307,11 +288,13 @@ try {
 					Feedback.showMessage(message, "notify", time || 3000)
 				})
 			};
+			setTabNoc(TabNoc);
 		} catch (exc) {
 			console.error(exc);
 			alert("ImageHover.js->AddImageHover()\r\n" + exc);
 		}
 	}
+	console.log("Readed ImageHover " + getImageHoverVersion() + " by TabNoc")
 } catch (exc) {
 	console.error(exc);
 	alert("ImageHover.js\r\n" + exc);
