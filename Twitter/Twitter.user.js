@@ -44,6 +44,14 @@ added:		- Version information on load
 added:		- Possibility to Scan Ranges
 added:		- Feedback after Scanning
 
+11.10.2016 - 1.12.6
+[Global]
+bugfix: 	- some buttons not working correctly
+
+11.10.2016 - 1.12.6.1 - 1.12.6.2
+[Global]
+bugfix:		- ActiveTime only displays hours till 24h
+
 14.10.2016 - 1.13.0
 [Global]
 changed:	- Configuration will be created from multiScript object provider
@@ -427,7 +435,7 @@ try {
 			checkElement.setAttribute("TabNoc_DropDownButtons", "true");
 			{
 				var baseFixElement = $(checkElement).find(".dropdown-menu")[0].children[1].children;
-				var fixElements = [baseFixElement[baseFixElement.length - 2], baseFixElement[baseFixElement.length - 1]];
+				var fixElements = [baseFixElement[baseFixElement.length - 3], baseFixElement[baseFixElement.length - 2], baseFixElement[baseFixElement.length - 1]];
 				for (ii = 0; ii < fixElements.length; ii++) {
 					// Quickfix buttons
 					var FixElement = fixElements[ii];
@@ -585,7 +593,7 @@ try {
 				startCheckElements(true, true);
 			}
 			
-			Feedback.notify("Es wurde" + (amount === 1 ? "" : "n") + " " + amount + " Element" + (amount === 1 ? "" : "e") + " eingelesen.      >Rückgängig<", 20000, Undo);
+			Feedback.notify("Es wurde" + (amount === 1 ? "" : "n") + " " + amount + " Element" + (amount === 1 ? "" : "e") + " eingelesen.      >Rückgängig<", 10000, (function(){Undo();Feedback.hideMessage();}));
 
 			var time = new Date().getTime() - start;
 			console.log('getAllElements() Execution time: ' + time);
@@ -689,7 +697,7 @@ try {
 				amount = Math.round(amount * 1000);
 				var seconds = amount % 60;
 				var minutes = ((amount - seconds) % (60 * 60)) / 60;
-				var hours = ((amount - seconds - (minutes * 60)) % (60 * 60 * 24)) / (60 * 60);
+				var hours = (amount - seconds - (minutes * 60)) / (60 * 60); // ((amount - seconds - (minutes * 60)) % (60 * 60 * 24)) / (60 * 60); this old code displays hours of day
 				return (hours > 0 ? hours + "h " : "") + ((minutes > 0 || hours > 0) ? minutes + "min " : "") + ((seconds > 0 || minutes > 0 || hours > 0) ? seconds + "sek" : "");
 			};
 			
