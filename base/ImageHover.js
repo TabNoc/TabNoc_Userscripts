@@ -132,20 +132,32 @@ try {
 
 			if (TabNoc_ImageHover.Settings.Config.ShiftKeyShowsImageFullSize) {
 				document.body.onkeydown = function (e) {
-					if (e.keyCode === 16 || (TabNoc_ImageHover.Settings.Config.CapsLockKeepsImageFullSize && e.keyCode === 20)) {
-						TabNoc_ImageHover.Variables.isShiftDown = true;
-					} else if (TabNoc_ImageHover.Settings.Config.PressStrgOrEscToCloseFullSizeImage && (e.keyCode === 27 || e.keyCode === 17)) {
-						ImageHover.hide();
-						setTimeout(function () {
-							TabNoc_ImageHover.Variables.FullSizeImage = false;
-						}, TabNoc_ImageHover.Settings.Config.WaitTimeAfterClickFullSizeImage);
+					try {
+						if (e.keyCode === 16 || (TabNoc_ImageHover.Settings.Config.CapsLockKeepsImageFullSize && e.keyCode === 20)) {
+							TabNoc_ImageHover.Variables.isShiftDown = true;
+						} else if (TabNoc_ImageHover.Settings.Config.PressStrgOrEscToCloseFullSizeImage && (e.keyCode === 27 || e.keyCode === 17)) {
+							ImageHover.hide();
+							setTimeout(function () {
+								TabNoc_ImageHover.Variables.FullSizeImage = false;
+							}, TabNoc_ImageHover.Settings.Config.WaitTimeAfterClickFullSizeImage);
+						}
+					}
+					catch (exc) {
+						console.error(exc);
+						alert("ImageHover.js->document.body.onkeydown\r\n" + exc);
 					}
 				};
 				document.body.onkeyup = function (e) {
-					if (e.keyCode === 16) {
-						TabNoc_ImageHover.Variables.isShiftDown = false;
-						ImageHover.hide();
-						TabNoc_ImageHover.Variables.FullSizeImage = false;
+					try {
+						if (e.keyCode === 16) {
+							TabNoc_ImageHover.Variables.isShiftDown = false;
+							ImageHover.hide();
+							TabNoc_ImageHover.Variables.FullSizeImage = false;
+						}
+					}
+					catch (exc) {
+						console.error(exc);
+						alert("ImageHover.js->document.body.onkeyup\r\n" + exc);
 					}
 				};
 			}

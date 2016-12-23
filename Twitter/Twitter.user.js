@@ -3,7 +3,7 @@
 // @namespace   TabNoc
 // @description Marking of already readed Tweets and some other nice features 		©2016 TabNoc
 // @include     http*://twitter.com/*
-// @version     1.13.0_14102016
+// @version     1.13.1_14102016
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js

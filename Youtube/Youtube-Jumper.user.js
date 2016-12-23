@@ -11,7 +11,7 @@
 // add @ to switch to local solutions
 // require		GM__.js
 // @resource	Impromptu http://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.css
-// @resource	TabNocCSS TabNoc.css
+// @resource	TabNocCSS https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/Implement-TabNoc.js/Youtube/TabNoc.css
 // @grant       GM_getResourceText
 // @grant       GM_addStyle
 // @grant       GM_setValue
@@ -24,6 +24,7 @@
 //TODO: add playbackspeed slider right to the volume slider
 
 try {
+	if (String.prototype.contains == null) {String.prototype.contains = String.prototype.includes;}
 	this.$ = this.jQuery = jQuery.noConflict(true);
 	var movie_player = unsafeWindow.document.getElementById("movie_player");
 
@@ -81,8 +82,8 @@ try {
 
 			//Video Quality
 			ChangeVideoQualityOnLoad : true,
-			PreferedVideoQuality : "hd720", //"hd1080", "hd720", "large", "medium", "small", "tiny" ...
-			SecondPreferedVideoQuality : "hd1080", //"hd1080", "hd720", "large", "medium", "small", "tiny" ...
+			PreferedVideoQuality : "hd1080", //"hd1080", "hd720", "large", "medium", "small", "tiny" ...
+			SecondPreferedVideoQuality : "hd720", //"hd1080", "hd720", "large", "medium", "small", "tiny" ...
 
 			// ChangeVideoSizeToLarge : true,
 
@@ -388,14 +389,14 @@ try {
 			} else {
 				AddGreyDetector({
 					CallBack : (function (amount) {
-						console.log("VideoGreyDetector Triggered");
+						console.log("VideoGreyDetector Triggered: " + amount);
 						movie_player.seekTo(movie_player.getCurrentTime() + 12 + (document.title.contains("Dr. Carsten Föhlisch") ? 5 : 0));
 					}),
 					Interval : 50,
 					DetectorInterval : null,
 					CopySizePercentage : 10,
 					BaseVideo : document.getElementsByClassName("html5-main-video")[0],
-					TriggerAmount : 200, //min 257, //500, //550,		22.09.2016, YT has changed the player? older vids don't functions ether
+					TriggerAmount : 450, //200, //min 257, //500, //550,		22.09.2016, YT has changed the player? older vids don't functions ether
 					TriggerDarkPercentage : 70,
 					StopIntervalAfterTrigger : true,
 				});
@@ -498,7 +499,7 @@ alert("appling skipTime, maybe delete it if not used");
 			
 		// change VideoQuality
 		if (unsafeWindow.TabNoc.Settings.ChangeVideoQualityOnLoad === true) {
-			if (movie_player.getPlaybackQuality() !== unsafeWindow.TabNoc.Settings.PreferedVideoQuality) { //when the VideoQuality is not the same as the PreferedVideoQuality
+			if (movie_player.getPlaybackQuality() !== unsafeWindow.TabNoc.Settings.PreferedVideoQuality || true) { //when the VideoQuality is not the same as the PreferedVideoQuality
 				// I have to Workaround because:
 				// movie_player.getAvailableQualityLevels().some(function(x){return x === unsafeWindow.TabNoc.Settings.PreferedVideoQuality;})
 				// throws an Error: Permission denied to access object
@@ -507,7 +508,7 @@ alert("appling skipTime, maybe delete it if not used");
 					for (let x of movie_player.getAvailableQualityLevels()) { if (x === Quality) {result = true;}}
 					return result;
 				}
-				if (isVideoQualityAvailible(unsafeWindow.TabNoc.Settings.PreferedVideoQuality) === true && screen.width > 1680) { // when the PreferedVideoQuality can be choosen
+				if (isVideoQualityAvailible(unsafeWindow.TabNoc.Settings.PreferedVideoQuality) === true && screen.width > 1680 && movie_player.getPlaybackRate() < 1.5) { // when the PreferedVideoQuality can be choosen
 					movie_player.setPlaybackQuality(unsafeWindow.TabNoc.Settings.PreferedVideoQuality); //choose the PreferedVideoQuality
 				} else {
 					if (isVideoQualityAvailible(unsafeWindow.TabNoc.Settings.SecondPreferedVideoQuality) === true) { // when the SecondPreferedVideoQuality can be choosen
@@ -519,9 +520,10 @@ alert("appling skipTime, maybe delete it if not used");
 				}
 			}
 			if ($(".ytp-size-button")[0].getAttribute("title") === "Standardansicht") {
+				var factor = 1.4;
 //TODO implement minimize button (discard the changes)
-				var newHeigth = parseInt(document.getElementsByClassName("video-stream html5-main-video")[0].style.height.replace("px", "")) * 1.2 + "px";
-				var newWidth = (newWidthInt = parseInt(document.getElementsByClassName("video-stream html5-main-video")[0].style.width.replace("px", "")) * 1.2) + "px";
+				var newHeigth = parseInt(document.getElementsByClassName("video-stream html5-main-video")[0].style.height.replace("px", "")) * factor + "px";
+				var newWidth = (newWidthInt = parseInt(document.getElementsByClassName("video-stream html5-main-video")[0].style.width.replace("px", "")) * factor) + "px";
 				var newLeft = document.getElementById("player-api").style.left = ((newWidthInt / 2) * -1) + "px";
 
 				// Hintergrund(der schwarze kasten)
@@ -643,7 +645,7 @@ alert("appling skipTime, maybe delete it if not used");
 		unsafeWindow.TabNoc.Variables.remainingTimeString = "";
 		
 		// Zeitwert-string formatieren
-		remainingTime = Math.floor((remainingTime - unsafeWindow.TabNoc.Variables.EndTime) / movie_player.getPlaybackRate());
+		remainingTime = Math.floor((remainingTime - unsafeWindow.TabNoc.Variables.EndTime) / movie_player.children[0].children[0].playbackRate); //movie_player.getPlaybackRate());
 		if (remainingTime >= 60) { // über einer Minute
 			unsafeWindow.TabNoc.Variables.remainingTimeString += Math.floor(remainingTime / 60)
 			if (remainingTime < 120) {
