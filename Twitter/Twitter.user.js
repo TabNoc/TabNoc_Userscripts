@@ -1,9 +1,9 @@
-// ==UserScript==
+﻿// ==UserScript==
 // @name        Twitter
 // @namespace   TabNoc
-// @description Marking of already readed Tweets and some other nice features 		©2016 TabNoc
+// @description Marking of already readed Tweets and some other nice features 		©2017 TabNoc
 // @include     http*://twitter.com/*
-// @version     1.13.1_14102016
+// @version     1.13.2_26012017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
@@ -52,9 +52,13 @@ bugfix: 	- some buttons not working correctly
 [Global]
 bugfix:		- ActiveTime only displays hours till 24h
 
-14.10.2016 - 1.13.0
+14.10.2016 - 1.13.0 - 1.13.1
 [Global]
 changed:	- Configuration will be created from multiScript object provider
+
+26.01.2017 - 1.13.2
+[Global]
+added:		- Promoted Tweets were blocked and the User will be informed about the amount
 */
 
 
@@ -390,6 +394,7 @@ try {
 	
 	function checkElements(elementIdArray, ToggleState, elements) {
 		var UnScannedElements = 0;
+		var RemovedElements = 0;
 
 		if (ToggleState == null) {
 			ToggleState = TabNoc.Variables.MarkToggleState;
@@ -406,7 +411,12 @@ try {
 				//check if Adware
 				if (element.className.includes("expanded-conversation") ?
 					element.children[0].children[0].className.includes("promoted-tweet") :
-					element.className.includes("promoted-tweet")) continue;
+					element.className.includes("promoted-tweet") && element.style.display != "none") {
+						element.style.display = "none";
+						console.log("promotedTweet");
+						RemovedElements++;
+						continue;
+					}
 
 				UnScannedElements = checkElement(element, elementIdArray, ToggleState) === true ? UnScannedElements : UnScannedElements + 1;
 			} else {
@@ -421,6 +431,10 @@ try {
 
 		$("#btn_Scannen_Text")[0].textContent = "Scannen" + (UnScannedElements > 0 ? ":" + UnScannedElements : "");
 
+		if (RemovedElements > 0) {
+			Feedback.showMessage(RemovedElements + " Elemente entfernt (Werbung)!!!", "error", 10000);
+		}
+		
 		return UnScannedElements;
 	}
 	
