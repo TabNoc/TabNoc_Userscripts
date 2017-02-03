@@ -432,7 +432,7 @@ try {
 		$("#btn_Scannen_Text")[0].textContent = "Scannen" + (UnScannedElements > 0 ? ":" + UnScannedElements : "");
 
 		if (RemovedElements > 0) {
-			Feedback.showMessage(RemovedElements + " Elemente entfernt (Werbung)!!!", "error", 10000);
+			Feedback.showMessage(RemovedElements + " Elemente entfernt (Werbung)!!!", "error", 20000);
 		}
 		
 		return UnScannedElements;

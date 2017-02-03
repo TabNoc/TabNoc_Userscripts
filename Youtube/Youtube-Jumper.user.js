@@ -1,4 +1,4 @@
-// ==UserScript==
+﻿// ==UserScript==
 // @name        Youtube-Jumper
 // @description ©Marco Neuthor 2016
 // @include     http*://www.youtube.*/watch?*
@@ -82,6 +82,7 @@ try {
 
 			//Video Quality
 			ChangeVideoQualityOnLoad : true,
+			DisableVideoQualityUpgradeWhenDoubledSpeed : false,
 			PreferedVideoQuality : "hd1080", //"hd1080", "hd720", "large", "medium", "small", "tiny" ...
 			SecondPreferedVideoQuality : "hd720", //"hd1080", "hd720", "large", "medium", "small", "tiny" ...
 
@@ -380,17 +381,18 @@ try {
 		if (Name === "Kanzlei WBS") {
 			unsafeWindow.TabNoc.Variables.EndTime = 17 + 7;
 			movie_player.setPlaybackRate(1.25 + (document.title.contains("Recht für YouTuber") || document.title.contains("Challenge WBS") ? 0.25 : 0));
-			if (false) {
-				// unsafeWindow.TabNoc.Variables.SkipTime = 18; // neuerdings am anfang sprechgedöns -> erhöhen
-				unsafeWindow.TabNoc.Variables.SkipOver.push({
-					start : 5,
-					end : 18//20
-				});
+			if (document.title.contains("| Fernsehauftritt bei ")) {
+				unsafeWindow.TabNoc.Variables.SkipTime = 24; // neuerdings am anfang sprechgedöns -> erhöhen
+				unsafeWindow.TabNoc.Variables.EndTime += 12;
+				// unsafeWindow.TabNoc.Variables.SkipOver.push({
+					// start : 5,
+					// end : 18//20
+				// });
 			} else {
 				AddGreyDetector({
 					CallBack : (function (amount) {
 						console.log("VideoGreyDetector Triggered: " + amount);
-						movie_player.seekTo(movie_player.getCurrentTime() + 12 + (document.title.contains("Dr. Carsten Föhlisch") ? 5 : 0));
+						movie_player.seekTo(movie_player.getCurrentTime() + 11 + (document.title.contains("Dr. Carsten Föhlisch") ? 5 : 0));
 					}),
 					Interval : 50,
 					DetectorInterval : null,
@@ -508,7 +510,7 @@ alert("appling skipTime, maybe delete it if not used");
 					for (let x of movie_player.getAvailableQualityLevels()) { if (x === Quality) {result = true;}}
 					return result;
 				}
-				if (isVideoQualityAvailible(unsafeWindow.TabNoc.Settings.PreferedVideoQuality) === true && screen.width > 1680 && movie_player.getPlaybackRate() < 1.5) { // when the PreferedVideoQuality can be choosen
+				if (isVideoQualityAvailible(unsafeWindow.TabNoc.Settings.PreferedVideoQuality) === true && screen.width > 1680 && !(movie_player.getPlaybackRate() > 1.5 && unsafeWindow.TabNoc.Settings.DisableVideoQualityUpgradeWhenDoubledSpeed === true)) { // when the PreferedVideoQuality can be choosen
 					movie_player.setPlaybackQuality(unsafeWindow.TabNoc.Settings.PreferedVideoQuality); //choose the PreferedVideoQuality
 				} else {
 					if (isVideoQualityAvailible(unsafeWindow.TabNoc.Settings.SecondPreferedVideoQuality) === true) { // when the SecondPreferedVideoQuality can be choosen
