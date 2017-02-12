@@ -2,7 +2,7 @@
 // @name        Youtube-Jumper
 // @description ©Marco Neuthor 2017
 // @include     http*://www.youtube.*/watch?*
-// @version     v2.1.3.1
+// @version     v2.1.3.2
 // @require		https://code.jquery.com/jquery-2.1.1.min.js
 // @require		https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
@@ -22,6 +22,14 @@
 // ==/UserScript==
 
 //TODO: add playbackspeed slider right to the volume slider
+
+/*
+ChangeList started at 12.02.2017
+
+12.02.2017 - v2.1.3.2
+[ManageTimes]
+	- changed: WBS Fernsehauftritt wird nun besser erkannt
+*/
 
 try {
 	if (String.prototype.contains == null) {String.prototype.contains = String.prototype.includes;}
@@ -381,7 +389,7 @@ try {
 		if (Name === "Kanzlei WBS") {
 			unsafeWindow.TabNoc.Variables.EndTime = 17 + 7;
 			movie_player.setPlaybackRate(1.25 + (document.title.contains("Recht für YouTuber") || document.title.contains("Challenge WBS") ? 0.25 : 0));
-			if (document.title.contains("| Fernsehauftritt bei ")) {
+			if (document.title.contains("| Fernsehauftritt bei")) {
 				unsafeWindow.TabNoc.Variables.SkipTime = 24; // neuerdings am anfang sprechgedöns -> erhöhen
 				unsafeWindow.TabNoc.Variables.EndTime += 12;
 				// unsafeWindow.TabNoc.Variables.SkipOver.push({
