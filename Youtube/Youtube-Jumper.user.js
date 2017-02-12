@@ -1,8 +1,8 @@
 ﻿// ==UserScript==
 // @name        Youtube-Jumper
-// @description ©Marco Neuthor 2016
+// @description ©Marco Neuthor 2017
 // @include     http*://www.youtube.*/watch?*
-// @version     v2.1.3
+// @version     v2.1.3.1
 // @require		https://code.jquery.com/jquery-2.1.1.min.js
 // @require		https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
