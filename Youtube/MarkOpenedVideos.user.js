@@ -6,12 +6,13 @@
 // @include     https://www.youtube.com/channel/*/videos*
 // @include     https://www.youtube.com/watch?v=*
 // @include     https://www.youtube.com/results?*
-// @version     1.3.4_23122016
+// @version     2.0.0_13022017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
 // @updateURL   https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/Youtube/MarkOpenedVideos.user.js
 // @grant       GM_setValue
 // @grant       GM_getValue
+// @grant       GM_listValue
 // @grant       GM_deleteValue
 // @grant       GM_registerMenuCommand
 // @noframes
@@ -34,8 +35,15 @@ added: 	- MenuCommand(HideWatchedVideos)
 		
 23.12.2016 - 1.3.4
 fixed:	- fixed StyleChanges from Youtube
+
+		
+13.02.2017 - 2.0.0
+	changed:	- completly rewritten Storage, renamed all DatabaseTables, updated UpdateDatabase (dropped Support for old Versions)
+	changed:	- implemented TabNoc.js
 */
 
+//TODO: TabNoc.js implementieren
+//TODO: Die Reihenfolge der Arrays in der ParameterListe anpassen, damit es besser aussieht (da kann man noch mehr optmieren, bestimmt ;) )
 
 //TODO: - getTabNoc() -> implement it also on other scripts ||anm.: in eigene Datei exportiren, aufruf durch main, mit angabe des namens als parameter, und rückgabeobjekt(TabNoc) anschließend aufruf durch script durch rückgabeobject, bei anlegen checken b bereits vorhanden, dann integrieren, sonst erstellen
 //		- Update Statistics DataBase (Merge over Video Id; use only WatchLength or merge Watch length and new property amount of views)
@@ -184,21 +192,11 @@ try {
 
 	function startCheckElements(ToggleState, force) {
 		if (document.hidden === false || force === true) {
-			//### Videos ###
-			var videoIdArray = GM_getValue("Videos");
-			if (videoIdArray == null || videoIdArray == "") {
-				videoIdArray = "([])";
-				GM_setValue("Videos", "([])");
-			}
-			videoIdArray = eval(videoIdArray);
+			// ### Scanned-Videos ###
+			scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "({})");
 			
-			//### Watched-Videos ###
-			var watchedVideosArray = GM_getValue("Watched-Videos");
-			if (watchedVideosArray == null || watchedVideosArray == "") {
-				watchedVideosArray = "([])";
-				GM_setValue("Watched-Videos", "([])");
-			}
-			watchedVideosArray = eval(watchedVideosArray);
+			// ### Watched-Videos ###
+			watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "({})");
 
 			if ($(".item-section").find(".yt-uix-tile-link").length == 0) {
 				TabNoc_test.Variables.MultiRow = true;
@@ -206,18 +204,18 @@ try {
 			
 			var elements = TabNoc_test.Variables.MultiRow ? $(".yt-shelf-grid-item") : $(".item-section");
 			if (force === true || TabNoc_test.Variables.lastCheckItemCount !== elements.length || 
-			TabNoc_test.Variables.lastCheckVideoIdAmount !== videoIdArray.length || 
-			TabNoc_test.Variables.lastCheckWatchedVideoAmount !== watchedVideosArray.length) {
-				execTime(checkElements, videoIdArray.reverse(), elements, ToggleState, watchedVideosArray.reverse());
+			TabNoc_test.Variables.lastCheckVideoIdAmount !== scannedVideoArray.length || 
+			TabNoc_test.Variables.lastCheckWatchedVideoAmount !== watchedVideoArray.length) {
+				execTime(checkElements, scannedVideoArray.reverse(), elements, ToggleState, watchedVideoArray.reverse());
 				
-				TabNoc_test.Variables.lastCheckVideoIdAmount = videoIdArray.length;
-				TabNoc_test.Variables.lastCheckWatchedVideoAmount = watchedVideosArray.length;
+				TabNoc_test.Variables.lastCheckVideoIdAmount = scannedVideoArray.length;
+				TabNoc_test.Variables.lastCheckWatchedVideoAmount = watchedVideoArray.length;
 				TabNoc_test.Variables.lastCheckItemCount = elements.length;
 			}
 		}
 	}
 
-	function checkElements(videoIdArray, elements, ToggleState, watchedVideosArray) {
+	function checkElements(scannedVideoArray, elements, ToggleState, watchedVideoArray) {
 		var UnScannedElements = 0;
 
 		if (ToggleState == null) {
@@ -230,22 +228,22 @@ try {
 			if (element.className == "undefined") { continue; }
 			
 			if (element.className.includes("item-section") || element.className.includes("yt-shelf-grid-item")) {
-				UnScannedElements = checkElement(element, videoIdArray, ToggleState, watchedVideosArray) == true ? UnScannedElements : UnScannedElements + 1;
+				UnScannedElements = checkElement(element, scannedVideoArray, ToggleState, watchedVideoArray) == true ? UnScannedElements : UnScannedElements + 1;
 			} else {
 				console.warn(element);
 			}
 		}
 		TabNoc_test.Variables.MarkToggleState = ToggleState;
 
-		console.log((elements.length - UnScannedElements) + " Marked Elements | " + UnScannedElements + " UnMarked Elements | Total " + elements.length + " Elements (" + videoIdArray.length + " Videos listed | " + watchedVideosArray.length + " Videos watched)")
+		console.log((elements.length - UnScannedElements) + " Marked Elements | " + UnScannedElements + " UnMarked Elements | Total " + elements.length + " Elements (" + scannedVideoArray.length + " Videos listed | " + watchedVideoArray.length + " Videos watched)")
 	}
 
-	function checkElement(checkElement, videoIdArray, ToggleState, watchedVideosArray) {
+	function checkElement(checkElement, scannedVideoArray, ToggleState, watchedVideoArray) {
 		//return true if checkedElement is already Scanned
 		var SearchString = $(checkElement).find("." + (TabNoc_test.Variables.MultiRow ? "yt-uix-sessionlink" : "yt-uix-tile-link"))[0].getAttribute("href").replace("/watch?v=", "").split("&list")[0].split("&t=")[0];
 		
-		var v_ID = videoIdArray.indexOf(SearchString);
-		var wv_ID = watchedVideosArray.indexOf(SearchString);
+		var v_ID = scannedVideoArray.indexOf(SearchString);
+		var wv_ID = watchedVideoArray.indexOf(SearchString);
 		
 		var setColor = function(color) {
 			$(checkElement).css("background-color", color);
@@ -303,23 +301,10 @@ try {
 			
 			var OpenInNewTabsArray = [];
 
-			//### Videos ###
-			var videoIdArray = GM_getValue("Videos");
-			if (videoIdArray == null || videoIdArray == "") {
-				videoIdArray = "([])";
-				GM_setValue("Videos", "([])");
-			}
-			TabNoc_test.Variables.OldSaveData = videoIdArray;
-			videoIdArray = eval(videoIdArray);
+			// ### Scanned-Videos ###
+			scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "({})");
+			TabNoc_test.Variables.OldSaveData = scannedVideoArray.toSource();
 			
-			//### Watched-Videos ###
-			var watchedVideosArray = GM_getValue("Watched-Videos");
-			if (watchedVideosArray == null || watchedVideosArray == "") {
-				watchedVideosArray = "([])";
-				GM_setValue("Watched-Videos", "([])");
-			}
-			watchedVideosArray = eval(watchedVideosArray);
-
 			var elements = $(".item-section");
 
 			var fromIndex = from == null ? 0 : elements.toArray().findIndex(function (element) { return $(element).find(".yt-uix-tile-link")[0].getAttribute("href") == from; });
@@ -334,8 +319,8 @@ try {
 				if (element.className.includes("item-section")) {
 					var currentElementId = $(element).find(".yt-uix-tile-link")[0].getAttribute("href");
 					
-					if (videoIdArray.indexOf(currentElementId) == -1) {
-						videoIdArray.push(currentElementId);
+					if (scannedVideoArray.indexOf(currentElementId) == -1) {
+						scannedVideoArray.push(currentElementId);
 						//Open in new Tab
 						if (TabNoc_test.Settings.OpenInNewTabWhenScanned === true) {
 							OpenInNewTabsArray.push({href:currentElementId, name:$(element).find(".branded-page-module-title-link")[0].textContent.trim()});
@@ -346,7 +331,7 @@ try {
 				}
 			}
 
-			GM_setValue("Videos", videoIdArray.toSource());
+			GM_setValue("ScannedVideoArray", scannedVideoArray.toSource());
 			
 			if (confirm(OpenInNewTabsArray.length + " neue Tabs öffnen?") == true) {
 				for (i = 0; i < OpenInNewTabsArray.length; i++) {
@@ -406,14 +391,6 @@ try {
 	
 	function WatchingVideo(){
 		try {
-			// ### Watched-Videos ###
-			var Videos = GM_getValue("Watched-Videos");
-			if (Videos == null || Videos == "") {
-				Videos = "([])";
-				GM_setValue("Watched-Videos", "([])");
-			}
-			Videos = eval(Videos);
-			
 			// prepare Current VideoStatisticsObject
 			TabNoc_test.Variables.VideoStatisticsObject = {
 				VideoID: unsafeWindow.document.getElementById("movie_player").getVideoData().video_id,
@@ -424,9 +401,8 @@ try {
 			}.toSource();
 			
 			
-			if (Videos.indexOf(eval(TabNoc_test.Variables.VideoStatisticsObject).VideoID) == -1) {
-				Videos.push(eval(TabNoc_test.Variables.VideoStatisticsObject).VideoID);
-				GM_setValue("Watched-Videos", Videos.toSource());
+			if (GetVideoWatched(null, eval(TabNoc_test.Variables.VideoStatisticsObject).VideoID) === false) {
+				PushVideoObject(null, null, eval(TabNoc_test.Variables.VideoStatisticsObject), true);
 			}
 			else {
 alert("watched");
@@ -444,23 +420,45 @@ alert("watched");
 		}
 	}
 	
-	function MarkWatchedVideos() {
-		// ### Videos ###
-		var videoIdArray = GM_getValue("Videos");
-		if (videoIdArray == null || videoIdArray == "") {
-			videoIdArray = "([])";
-			GM_setValue("Videos", "([])");
+	function GetVideoWatched(watchedVideoArray, videoID) {
+		if (watchedVideoArray === null) {
+			watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "({})");
 		}
-		videoIdArray = eval(videoIdArray);
+		return watchedVideoArray.indexOf(videoID) !== -1;
+	}
+	
+	function PushVideoObject(videoObjectDictionary, watchedVideoArray, videoObject, save) {
+		if (videoObjectDictionary === null) {
+			videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
+		}
+		if (watchedVideoArray === null) {
+			watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "({})");
+		}
+		
+		var today = new Date().toLocaleDateString();
+		if (videoObjectDictionary[today] === undefined) {
+			videoObjectDictionary[today] = ([]);
+		}
+		
+		if (videoObjectDictionary[today].indexOf(videoObject) === -1) {
+			videoObjectDictionary[today].push(videoObject);
+		}
+		if (watchedVideoArray[today].indexOf(videoObject.VideoID) === -1) {
+			watchedVideoArray.push(videoObject.VideoID);
+		}
+		
+		if (save === true) {
+			GM_setValue("VideoObjectDictionary", videoObjectDictionary.toSource());
+			GM_setValue("WatchedVideoArray", watchedVideoArray.toSource());
+		}
+	}
+	
+	function MarkWatchedVideos() {
+		// ### Scanned-Videos ###
+		scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "({})");
 		
 		// ### Watched-Videos ###
-		var watchedVideosArray = GM_getValue("Watched-Videos");
-		if (watchedVideosArray == null || watchedVideosArray == "") {
-			watchedVideosArray = "([])";
-			GM_setValue("Watched-Videos", "([])");
-		}
-		watchedVideosArray = eval(watchedVideosArray);
-
+		watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "({})");
 		
 		var elements = $(".video-list-item");
 		if (elements.length == undefined || elements.length <= 1) {
@@ -472,10 +470,10 @@ alert("watched");
 			if (href == null) {
 				href = element.children[0].getAttribute("href");
 			}
-			if (href != null && href != "" && watchedVideosArray.indexOf(href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) != -1) {
-				elements[i].style.backgroundColor = "rgb(166, 235, 158)";
+			if (href != null && href != "" && GetVideoWatched(watchedVideoArray, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
+				setColor(elements[i], "rgb(166, 235, 158)");
 			}
-			else if (href != null && href != "" && videoIdArray.indexOf(href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) != -1) {
+			else if (href != null && href != "" && GetVideoWatched(scannedVideoArray, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
 				setColor(elements[i], "rgb(151, 255, 139)");
 			}
 		}
@@ -488,6 +486,7 @@ alert("watched");
 			try{
 				if (unsafeWindow.document.getElementById("movie_player").getPlayerState() == 1 /*Playing*/) {
 					TabNoc_test.Variables.WatchedLength += 1;
+					TabNoc_test.Variables.HasSavedDataOnEnd = false;
 				}
 				if (unsafeWindow.document.getElementById("movie_player").getPlayerState() == 0 && TabNoc_test.Variables.HasSavedDataOnEnd === false) {
 					SaveVideoStatistics();
@@ -503,19 +502,10 @@ alert("watched");
 	function SaveVideoStatistics(){
 		if (TabNoc_test.Variables.VideoStatisticsObject == null){return false;}
 		try {
-			//### VideoStatistics ###
-			var videoStatistics = GM_getValue("VideoStatistics");
-			if (videoStatistics == null || videoStatistics == "") {
-				videoStatistics = "([])";
-				GM_setValue("VideoStatistics", "([])");
-			}
-			videoStatistics = eval(videoStatistics);
-			
 			VideoStatisticsObject = eval(TabNoc_test.Variables.VideoStatisticsObject);
 			VideoStatisticsObject.WatchedLength = TabNoc_test.Variables.WatchedLength;
-			videoStatistics.push(VideoStatisticsObject);
 			
-			GM_setValue("VideoStatistics", videoStatistics.toSource());
+			PushVideoObject(null, null, VideoStatisticsObject, true);
 		} catch (exc) {
 			console.error(exc);
 			alert(exc);
@@ -543,30 +533,20 @@ alert("watched");
 			$(checkElement).find(".yt-uix-tile-link, .yt-lockup-description").css("background-color", color);
 		};
 		
-		// ### Videos ###
-		var videoIdArray = GM_getValue("Videos");
-		if (videoIdArray == null || videoIdArray == "") {
-			videoIdArray = "([])";
-			GM_setValue("Videos", "([])");
-		}
-		videoIdArray = eval(videoIdArray);
+		// ### Scanned-Videos ###
+		scannedVideoArray = eval(GM_getValue("Scanned-Videos") || "({})");
 		
 		// ### Watched-Videos ###
-		var watchedVideosArray = GM_getValue("Watched-Videos");
-		if (watchedVideosArray == null || watchedVideosArray == "") {
-			watchedVideosArray = "([])";
-			GM_setValue("Watched-Videos", "([])");
-		}
-		watchedVideosArray = eval(watchedVideosArray);
+		watchedVideoArray = eval(GM_getValue("Watched-Videos") || "({})");
 		
 		var elements = $(".yt-lockup-video");
 		for (i = 0; i < elements.length; i++) {
 			var element = elements[i].children[0].children[0].children[0];
 			var href = element.getAttribute("href");
-			if (href != null && href != "" && watchedVideosArray.indexOf(href.replace("/watch?v=", "").split("&list")[0]) != -1) {
+			if (href != null && href != "" && GetVideoWatched(watchedVideoArray, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
 				setColor(elements[i], "rgb(166, 235, 158)");
 			}
-			else if (href != null && href != "" && videoIdArray.indexOf(href.replace("/watch?v=", "").split("&list")[0]) != -1) {
+			else if (href != null && href != "" && GetVideoWatched(scannedVideoArray, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
 				setColor(elements[i], "rgb(151, 255, 139)");
 			}
 		}
@@ -574,37 +554,72 @@ alert("watched");
 	// ### https://www.youtube.com/results?* ### 
 	
 	function UpdateDataBase() {
-		var CurrentVersion_Videos = 0;
-		var CurrentVersion_WatchedVideos = 2;
+		var CurrentVersion_WatchedVideoArray = 0;
+		var CurrentVersion_ScannedVideoArray = 0;
+		var CurrentVersion_VideoObjectDictionary = 0;
 		
-		// ### Watched-Videos-Version ###
-		var Version_WatchedVideos = GM_getValue("Watched-Videos-Version");
-		if (Version_WatchedVideos == null || Version_WatchedVideos == "") {
-			Version_WatchedVideos = 0;
-		}
-		Version_WatchedVideos = eval(Version_WatchedVideos);
+		// ### WatchedVideoArray-Version ###
+		Version_WatchedVideoArray = eval(GM_getValue("WatchedVideoArray-Version") || -1);
 		
-		// ### Videos-Version ###
-		var Version_Videos = GM_getValue("Videos-Version");
-		if (Version_Videos == null || Version_Videos == "") {
-			Version_Videos = 0;
-		}
-		Version_Videos = eval(Version_Videos);
+		// ### ScannedVideoArray-Version ###
+		Version_ScannedVideoArray = eval(GM_getValue("ScannedVideoArray-Version") || -1);
 		
-		if (Version_Videos != CurrentVersion_Videos) {
-			// ### Videos ###
-			var Videos = GM_getValue("Videos");
-			if (Videos == null || Videos == "") {
-				Videos = "([])";
+		// ### VideoObjectDictionary-Version ###
+		Version_VideoObjectDictionary = eval(GM_getValue("VideoObjectDictionary-Version") || -1);
+		
+		//TODO: Die Einträge aus WatchedVideoArray entfernen welche nicht in VideoObjectDictionary stehen
+		//TODO: ScannedVideoArray komplett entfernen, PRÜFEN!!!
+		
+		// ### WatchedVideoArray ###
+		if (Version_WatchedVideoArray != CurrentVersion_WatchedVideoArray) {
+			if (Version_WatchedVideoArray === -1) {
+				// aus der alten Tabelle '' importieren, same DataStructure
+				
+				// ### Watched-Videos ###
+				WatchedVideos = eval(GM_getValue("Watched-Videos") || null);
+				
+				if (WatchedVideos !== null) {
+					GM_setValue("WatchedVideoArray", WatchedVideos.toSource());
+					GM_setValue("WatchedVideoArray-Version-(-1)", WatchedVideos.toSource());
+					
+					if (GM_listValues().indexOf("Watched-Videos") !== -1) {
+						GM_deleteValue("Watched-Videos");
+					}
+					
+					if (GM_listValues().indexOf("Watched-Videos-Version-0") !== -1) {
+						GM_deleteValue("Watched-Videos-Version-0");
+					}
+					
+					if (GM_listValues().indexOf("Watched-Videos") !== -1) {
+						GM_deleteValue("Watched-Videos-Version-1");
+					}
+					
+					if (GM_listValues().indexOf("Watched-Videos") !== -1) {
+						GM_deleteValue("Watched-Videos-Version");
+					}
+					
+					GM_setValue("WatchedVideoArray-Version", 0);
+					alert("DataBase:'WatchedVideoArray' die alten Daten wurden erfolgreich importiert!\r\nDie Datenbank wurde von alten Daten bereinigt.");
+				}
+				else {
+					alert("DataBase:'WatchedVideoArray' sucessfully initialised!");
+				}
 			}
-			Videos = eval(Videos);
-			
-			switch (Version_Videos) {
-				default:
-					throw new Exception("No Update Implemeneted!");
-					break;
+			else {
+				// ### WatchedVideoArray ###
+				WatchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
+				
+				switch (Version_WatchedVideoArray) {
+					default:
+						throw new Exception("No Update Implemeneted!");
+						break;
+				}
 			}
 		}
+		// ### WatchedVideoArray ###
+		
+		//TODO: hier weitermachen
+		
 		
 		if (Version_WatchedVideos != CurrentVersion_WatchedVideos) {
 			// ### Watched-Videos ###
