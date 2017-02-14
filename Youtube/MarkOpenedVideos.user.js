@@ -1,4 +1,4 @@
-﻿// ==UserScript==
+// ==UserScript==
 // @name        MarkOpenedVideos
 // @namespace   TabNoc
 // @include     https://www.youtube.com/feed/subscriptions*
@@ -9,10 +9,11 @@
 // @version     2.0.0_13022017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
+// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/Implement-TabNoc.js/base/TabNoc.js
 // @updateURL   https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/Youtube/MarkOpenedVideos.user.js
 // @grant       GM_setValue
 // @grant       GM_getValue
-// @grant       GM_listValue
+// @grant       GM_listValues
 // @grant       GM_deleteValue
 // @grant       GM_registerMenuCommand
 // @noframes
@@ -38,69 +39,11 @@ fixed:	- fixed StyleChanges from Youtube
 
 		
 13.02.2017 - 2.0.0
-	changed:	- completly rewritten Storage, renamed all DatabaseTables, updated UpdateDatabase (dropped Support for old Versions)
+	changed:	- completly rewritten Storage, renamed all DatabaseTables, updated UpdateDataBase (dropped Support for old Versions)
 	changed:	- implemented TabNoc.js
 */
 
-//TODO: TabNoc.js implementieren
-//TODO: Die Reihenfolge der Arrays in der ParameterListe anpassen, damit es besser aussieht (da kann man noch mehr optmieren, bestimmt ;) )
-
-//TODO: - getTabNoc() -> implement it also on other scripts ||anm.: in eigene Datei exportiren, aufruf durch main, mit angabe des namens als parameter, und rückgabeobjekt(TabNoc) anschließend aufruf durch script durch rückgabeobject, bei anlegen checken b bereits vorhanden, dann integrieren, sonst erstellen
-//		- Update Statistics DataBase (Merge over Video Id; use only WatchLength or merge Watch length and new property amount of views)
 try {
-	if (String.prototype.contains == null) {String.prototype.contains = String.prototype.includes;}
-	function getTabNoc(){
-		if (unsafeWindow.TabNoc_ == null) {
-			unsafeWindow.TabNoc_ = ({});
-		}
-		if (unsafeWindow.TabNoc_["MarkOpenedVideos.user.js"] == null) {
-			unsafeWindow.TabNoc_["MarkOpenedVideos.user.js"] = {};
-		}
-		return unsafeWindow.TabNoc_["MarkOpenedVideos.user.js"];
-	}
-	
-	function setTabNoc(obj){
-		var ScriptName = "MarkOpenedVideos.user.js";
-		
-		if (unsafeWindow.TabNoc_ == null) {
-			unsafeWindow.TabNoc_ = cloneInto(({}), unsafeWindow, {
-				wrapReflectors: true
-			});
-		}
-		if (unsafeWindow.TabNoc_[ScriptName] == null) {
-			unsafeWindow.TabNoc_[ScriptName] = cloneInto(({}), unsafeWindow.TabNoc_, {
-				wrapReflectors: true
-			});
-		}
-		
-		unsafeWindow.TabNoc_[ScriptName] = cloneInto(obj, unsafeWindow.TabNoc_, {
-			wrapReflectors: true
-		});
-	}
-	
-	unsafeWindow.TabNoc_ = cloneInto(({}), unsafeWindow, {
-		wrapReflectors: true
-	});
-
-	TabNoc_test = {
-		ScriptName : "MarkOpenedVideos.user.js",
-		
-		get Variables(){
-			return unsafeWindow.TabNoc_[TabNoc_test.ScriptName].Variables;
-		},
-		set Variables(obj){},
-		
-		get Settings(){
-			return unsafeWindow.TabNoc_[TabNoc_test.ScriptName].Settings;
-		},
-		set Settings(obj){},
-		
-		get HTML(){
-			return unsafeWindow.TabNoc_[TabNoc_test.ScriptName].Settings;
-		},
-		set HTML(obj){},
-	}
-	
 	setTabNoc({
 		Variables: {
 			MarkToggleState: true,
@@ -143,10 +86,10 @@ try {
 		try {
 			registerTabNoc();
 			
-			TabNoc_test.Variables.checkElementsInterval = setInterval(returnExec(function () {
-				startCheckElements(TabNoc_test.Variables.MarkToggleState);
-			}), TabNoc_test.Settings.TimerInterval);
-			startCheckElements(TabNoc_test.Variables.MarkToggleState);
+			TabNoc.Variables.checkElementsInterval = setInterval(returnExec(function () {
+				startCheckElements(TabNoc.Variables.MarkToggleState);
+			}), TabNoc.Settings.TimerInterval);
+			startCheckElements(TabNoc.Variables.MarkToggleState);
 			console.log("MarkOpenedVideos.user.js executed");
 
 			console.log("MarkOpenedVideos.user.js done");
@@ -176,13 +119,13 @@ try {
 		//GM_addStyle(".display-none{display:none}");
 		
 		GM_registerMenuCommand("Hide Watched Videos", function () {
-			TabNoc_test.Settings.HideAlreadyWatchedVideos = true;
+			TabNoc.Settings.HideAlreadyWatchedVideos = true;
 			startCheckElements(true, true);
 		});
 
 		GM_registerMenuCommand("Markieren", function () {
 			startCheckElements(true);
-			// startCheckElements(!TabNoc_test.Variables.MarkToggleState);
+			// startCheckElements(!TabNoc.Variables.MarkToggleState);
 		});
 
 		GM_registerMenuCommand("Einlesen", function () {
@@ -193,101 +136,101 @@ try {
 	function startCheckElements(ToggleState, force) {
 		if (document.hidden === false || force === true) {
 			// ### Scanned-Videos ###
-			scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "({})");
+			scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
 			
 			// ### Watched-Videos ###
-			watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "({})");
+			watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
 
 			if ($(".item-section").find(".yt-uix-tile-link").length == 0) {
-				TabNoc_test.Variables.MultiRow = true;
+				TabNoc.Variables.MultiRow = true;
 			}
 			
-			var elements = TabNoc_test.Variables.MultiRow ? $(".yt-shelf-grid-item") : $(".item-section");
-			if (force === true || TabNoc_test.Variables.lastCheckItemCount !== elements.length || 
-			TabNoc_test.Variables.lastCheckVideoIdAmount !== scannedVideoArray.length || 
-			TabNoc_test.Variables.lastCheckWatchedVideoAmount !== watchedVideoArray.length) {
-				execTime(checkElements, scannedVideoArray.reverse(), elements, ToggleState, watchedVideoArray.reverse());
+			var elements = TabNoc.Variables.MultiRow ? $(".yt-shelf-grid-item") : $(".item-section");
+			if (force === true || TabNoc.Variables.lastCheckItemCount !== elements.length || 
+			TabNoc.Variables.lastCheckVideoIdAmount !== scannedVideoArray.length || 
+			TabNoc.Variables.lastCheckWatchedVideoAmount !== watchedVideoArray.length) {
+				execTime(checkElements, watchedVideoArray.reverse(), scannedVideoArray.reverse(), elements, ToggleState);
 				
-				TabNoc_test.Variables.lastCheckVideoIdAmount = scannedVideoArray.length;
-				TabNoc_test.Variables.lastCheckWatchedVideoAmount = watchedVideoArray.length;
-				TabNoc_test.Variables.lastCheckItemCount = elements.length;
+				TabNoc.Variables.lastCheckVideoIdAmount = scannedVideoArray.length;
+				TabNoc.Variables.lastCheckWatchedVideoAmount = watchedVideoArray.length;
+				TabNoc.Variables.lastCheckItemCount = elements.length;
 			}
 		}
 	}
 
-	function checkElements(scannedVideoArray, elements, ToggleState, watchedVideoArray) {
+	function checkElements(watchedVideoArray, scannedVideoArray, elements, ToggleState) {
 		var UnScannedElements = 0;
 
 		if (ToggleState == null) {
-			ToggleState = TabNoc_test.Variables.MarkToggleState;
+			ToggleState = TabNoc.Variables.MarkToggleState;
 		}
 		
 		for (i = 0; i < elements.length; i++) {
-			var element = elements[i];
+			var currentElement = elements[i];
 
-			if (element.className == "undefined") { continue; }
+			if (currentElement.className == "undefined") { continue; }
 			
-			if (element.className.includes("item-section") || element.className.includes("yt-shelf-grid-item")) {
-				UnScannedElements = checkElement(element, scannedVideoArray, ToggleState, watchedVideoArray) == true ? UnScannedElements : UnScannedElements + 1;
+			if (currentElement.className.includes("item-section") || currentElement.className.includes("yt-shelf-grid-item")) {
+				UnScannedElements = checkElement(watchedVideoArray, scannedVideoArray, currentElement, ToggleState) == true ? UnScannedElements : UnScannedElements + 1;
 			} else {
-				console.warn(element);
+				console.warn(currentElement);
 			}
 		}
-		TabNoc_test.Variables.MarkToggleState = ToggleState;
+		TabNoc.Variables.MarkToggleState = ToggleState;
 
 		console.log((elements.length - UnScannedElements) + " Marked Elements | " + UnScannedElements + " UnMarked Elements | Total " + elements.length + " Elements (" + scannedVideoArray.length + " Videos listed | " + watchedVideoArray.length + " Videos watched)")
 	}
 
-	function checkElement(checkElement, scannedVideoArray, ToggleState, watchedVideoArray) {
+	function checkElement(watchedVideoArray, scannedVideoArray, currentElement, ToggleState) {
 		//return true if checkedElement is already Scanned
-		var SearchString = $(checkElement).find("." + (TabNoc_test.Variables.MultiRow ? "yt-uix-sessionlink" : "yt-uix-tile-link"))[0].getAttribute("href").replace("/watch?v=", "").split("&list")[0].split("&t=")[0];
+		var SearchString = $(currentElement).find("." + (TabNoc.Variables.MultiRow ? "yt-uix-sessionlink" : "yt-uix-tile-link"))[0].getAttribute("href").replace("/watch?v=", "").split("&list")[0].split("&t=")[0];
 		
 		var v_ID = scannedVideoArray.indexOf(SearchString);
 		var wv_ID = watchedVideoArray.indexOf(SearchString);
 		
 		var setColor = function(color) {
-			$(checkElement).css("background-color", color);
-			if (TabNoc_test.Variables.MultiRow) {
-				$(checkElement).find(".yt-lockup-title, .yt-uix-sessionlink, .yt-lockup-byline").css("background-color", color);//yt-lockup-byline yt-uix-sessionlink yt-lockup-title
+			$(currentElement).css("background-color", color);
+			if (TabNoc.Variables.MultiRow) {
+				$(currentElement).find(".yt-lockup-title, .yt-uix-sessionlink, .yt-lockup-byline").css("background-color", color);//yt-lockup-byline yt-uix-sessionlink yt-lockup-title
 			}
 			else {
-				$(checkElement).find(".yt-uix-tile-link, .yt-lockup-description").css("background-color", color);
+				$(currentElement).find(".yt-uix-tile-link, .yt-lockup-description").css("background-color", color);
 			}
 		};
 		
 		if (ToggleState === true) {
 			if (v_ID != -1) {
 				setColor("rgb(151, 255, 139)");
-				if (TabNoc_test.Settings.HideAlreadyWatchedVideos === true) {
-					checkElement.style.display = "none";
+				if (TabNoc.Settings.HideAlreadyWatchedVideos === true) {
+					currentElement.style.display = "none";
 				}
 				return true;
 			} 
 			else if (wv_ID != -1) {
 				setColor("rgb(166, 235, 158)");
-				if (TabNoc_test.Settings.HideAlreadyWatchedVideos === true) {
-					checkElement.style.display = "none";
+				if (TabNoc.Settings.HideAlreadyWatchedVideos === true) {
+					currentElement.style.display = "none";
 				}
 				return true;
 			}
 		}
 		else {
-			checkElement.children[0].setAttribute("style", "");
+			currentElement.children[0].setAttribute("style", "");
 		}
 		
-		for (var i = 0; i < TabNoc_test.Settings.UninterestingVideos.length; i++) {
-			if ($(checkElement).find(".yt-uix-sessionlink.yt-ui-ellipsis")[0].textContent.includes(TabNoc_test.Settings.UninterestingVideos[i])) {
+		for (var i = 0; i < TabNoc.Settings.UninterestingVideos.length; i++) {
+			if ($(currentElement).find(".yt-uix-sessionlink.yt-ui-ellipsis")[0].textContent.includes(TabNoc.Settings.UninterestingVideos[i])) {
 				setColor("rgb(255, 175, 175)");
 			}
 		}
-		for (var i = 0; i < TabNoc_test.Settings.NotWantedVideos.length; i++) {
-			if ($(checkElement).find(".yt-uix-sessionlink.yt-ui-ellipsis")[0].textContent.includes(TabNoc_test.Settings.NotWantedVideos[i])) {
+		for (var i = 0; i < TabNoc.Settings.NotWantedVideos.length; i++) {
+			if ($(currentElement).find(".yt-uix-sessionlink.yt-ui-ellipsis")[0].textContent.includes(TabNoc.Settings.NotWantedVideos[i])) {
 				//disableVideo 
-				if (TabNoc_test.Settings.DeleteNotWantedVideos === true) {
-					$(checkElement).remove();
+				if (TabNoc.Settings.DeleteNotWantedVideos === true) {
+					$(currentElement).remove();
 				}
-				else if(TabNoc_test.Settings.DeleteNotWantedVideos === false) {
-					checkElement.style.display = "none";
+				else if(TabNoc.Settings.DeleteNotWantedVideos === false) {
+					currentElement.style.display = "none";
 				}
 			}
 		}
@@ -302,8 +245,8 @@ try {
 			var OpenInNewTabsArray = [];
 
 			// ### Scanned-Videos ###
-			scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "({})");
-			TabNoc_test.Variables.OldSaveData = scannedVideoArray.toSource();
+			scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
+			TabNoc.Variables.OldSaveData = scannedVideoArray.toSource();
 			
 			var elements = $(".item-section");
 
@@ -322,7 +265,7 @@ try {
 					if (scannedVideoArray.indexOf(currentElementId) == -1) {
 						scannedVideoArray.push(currentElementId);
 						//Open in new Tab
-						if (TabNoc_test.Settings.OpenInNewTabWhenScanned === true) {
+						if (TabNoc.Settings.OpenInNewTabWhenScanned === true) {
 							OpenInNewTabsArray.push({href:currentElementId, name:$(element).find(".branded-page-module-title-link")[0].textContent.trim()});
 						}
 					}
@@ -341,7 +284,7 @@ try {
 				}
 			}
 			
-			if (TabNoc_test.Settings.MarkAfterScan) {
+			if (TabNoc.Settings.MarkAfterScan) {
 				startCheckElements(true);
 			}
 
@@ -366,18 +309,18 @@ try {
 			
 			document.body.setAttribute("onbeforeunload", "SaveVideoStatistics();" + document.body.getAttribute("onbeforeunload"));
 			
-			TabNoc_test.Variables.VideoChangeCheckInterval = setInterval(returnExec(function() {
-				if (unsafeWindow.document.getElementById("movie_player").getVideoData().video_id != TabNoc_test.Variables.OldVideoID) {
+			TabNoc.Variables.VideoChangeCheckInterval = setInterval(returnExec(function() {
+				if (unsafeWindow.document.getElementById("movie_player").getVideoData().video_id != TabNoc.Variables.OldVideoID) {
 					// Save Old Statistics
-					if (TabNoc_test.Variables.WatchedLengthInterval != null) {
-						clearInterval(TabNoc_test.Variables.WatchedLengthInterval);
+					if (TabNoc.Variables.WatchedLengthInterval != null) {
+						clearInterval(TabNoc.Variables.WatchedLengthInterval);
 					}
 					SaveVideoStatistics();
-					TabNoc_test.Variables.WatchedLengthInterval = null;
-					TabNoc_test.Variables.WatchedLength = null;
+					TabNoc.Variables.WatchedLengthInterval = null;
+					TabNoc.Variables.WatchedLength = null;
 					
 					// Start On New Link
-					TabNoc_test.Variables.OldVideoID = unsafeWindow.document.getElementById("movie_player").getVideoData().video_id;
+					TabNoc.Variables.OldVideoID = unsafeWindow.document.getElementById("movie_player").getVideoData().video_id;
 					WatchingVideo();
 				}
 			}), 1000);
@@ -392,7 +335,7 @@ try {
 	function WatchingVideo(){
 		try {
 			// prepare Current VideoStatisticsObject
-			TabNoc_test.Variables.VideoStatisticsObject = {
+			TabNoc.Variables.VideoStatisticsObject = {
 				VideoID: unsafeWindow.document.getElementById("movie_player").getVideoData().video_id,
 				VideoTitle: unsafeWindow.document.getElementById("movie_player").getVideoData().title,
 				VideoAuthor: unsafeWindow.document.getElementById("movie_player").getVideoData().author,
@@ -401,8 +344,8 @@ try {
 			}.toSource();
 			
 			
-			if (GetVideoWatched(null, eval(TabNoc_test.Variables.VideoStatisticsObject).VideoID) === false) {
-				PushVideoObject(null, null, eval(TabNoc_test.Variables.VideoStatisticsObject), true);
+			if (GetVideoWatched(null, eval(TabNoc.Variables.VideoStatisticsObject).VideoID) === false) {
+				PushVideoObject(null, null, eval(TabNoc.Variables.VideoStatisticsObject), true);
 			}
 			else {
 alert("watched");
@@ -420,11 +363,11 @@ alert("watched");
 		}
 	}
 	
-	function GetVideoWatched(watchedVideoArray, videoID) {
-		if (watchedVideoArray === null) {
-			watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "({})");
+	function GetVideoWatched(watchedVideoArray, VideoID) {
+		if (watchedVideoArray === null || watchedVideoArray === undefined) {
+			watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
 		}
-		return watchedVideoArray.indexOf(videoID) !== -1;
+		return watchedVideoArray.indexOf(VideoID) !== -1;
 	}
 	
 	function PushVideoObject(videoObjectDictionary, watchedVideoArray, videoObject, save) {
@@ -432,7 +375,7 @@ alert("watched");
 			videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
 		}
 		if (watchedVideoArray === null) {
-			watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "({})");
+			watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
 		}
 		
 		var today = new Date().toLocaleDateString();
@@ -455,10 +398,10 @@ alert("watched");
 	
 	function MarkWatchedVideos() {
 		// ### Scanned-Videos ###
-		scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "({})");
+		scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
 		
 		// ### Watched-Videos ###
-		watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "({})");
+		watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
 		
 		var elements = $(".video-list-item");
 		if (elements.length == undefined || elements.length <= 1) {
@@ -480,17 +423,17 @@ alert("watched");
 	}
 	
 	function StartVideoWatchLengthCollection(){
-		TabNoc_test.Variables.WatchedLength = 0;
-		TabNoc_test.Variables.HasSavedDataOnEnd = false;
-		TabNoc_test.Variables.WatchedLengthInterval = setInterval(function(){
+		TabNoc.Variables.WatchedLength = 0;
+		TabNoc.Variables.HasSavedDataOnEnd = false;
+		TabNoc.Variables.WatchedLengthInterval = setInterval(function(){
 			try{
 				if (unsafeWindow.document.getElementById("movie_player").getPlayerState() == 1 /*Playing*/) {
-					TabNoc_test.Variables.WatchedLength += 1;
-					TabNoc_test.Variables.HasSavedDataOnEnd = false;
+					TabNoc.Variables.WatchedLength += 1;
+					TabNoc.Variables.HasSavedDataOnEnd = false;
 				}
-				if (unsafeWindow.document.getElementById("movie_player").getPlayerState() == 0 && TabNoc_test.Variables.HasSavedDataOnEnd === false) {
+				if (unsafeWindow.document.getElementById("movie_player").getPlayerState() == 0 && TabNoc.Variables.HasSavedDataOnEnd === false) {
 					SaveVideoStatistics();
-					TabNoc_test.Variables.HasSavedDataOnEnd = true;
+					TabNoc.Variables.HasSavedDataOnEnd = true;
 				}
 			} catch (exc) {
 				console.error(exc);
@@ -500,10 +443,10 @@ alert("watched");
 	}
 	
 	function SaveVideoStatistics(){
-		if (TabNoc_test.Variables.VideoStatisticsObject == null){return false;}
+		if (TabNoc.Variables.VideoStatisticsObject == null){return false;}
 		try {
-			VideoStatisticsObject = eval(TabNoc_test.Variables.VideoStatisticsObject);
-			VideoStatisticsObject.WatchedLength = TabNoc_test.Variables.WatchedLength;
+			VideoStatisticsObject = eval(TabNoc.Variables.VideoStatisticsObject);
+			VideoStatisticsObject.WatchedLength = TabNoc.Variables.WatchedLength;
 			
 			PushVideoObject(null, null, VideoStatisticsObject, true);
 		} catch (exc) {
@@ -533,11 +476,11 @@ alert("watched");
 			$(checkElement).find(".yt-uix-tile-link, .yt-lockup-description").css("background-color", color);
 		};
 		
-		// ### Scanned-Videos ###
-		scannedVideoArray = eval(GM_getValue("Scanned-Videos") || "({})");
+		// ### ScannedVideoArray ###
+		var scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
 		
-		// ### Watched-Videos ###
-		watchedVideoArray = eval(GM_getValue("Watched-Videos") || "({})");
+		// ### WatchedVideoArray ###
+		var watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
 		
 		var elements = $(".yt-lockup-video");
 		for (i = 0; i < elements.length; i++) {
@@ -559,20 +502,20 @@ alert("watched");
 		var CurrentVersion_VideoObjectDictionary = 0;
 		
 		// ### WatchedVideoArray-Version ###
-		Version_WatchedVideoArray = eval(GM_getValue("WatchedVideoArray-Version") || -1);
+		Version_WatchedVideoArray = eval(GM_getValue("WatchedVideoArray-Version"));
 		
 		// ### ScannedVideoArray-Version ###
-		Version_ScannedVideoArray = eval(GM_getValue("ScannedVideoArray-Version") || -1);
+		Version_ScannedVideoArray = eval(GM_getValue("ScannedVideoArray-Version"));
 		
 		// ### VideoObjectDictionary-Version ###
-		Version_VideoObjectDictionary = eval(GM_getValue("VideoObjectDictionary-Version") || -1);
+		Version_VideoObjectDictionary = eval(GM_getValue("VideoObjectDictionary-Version"));
 		
-		//TODO: Die Einträge aus WatchedVideoArray entfernen welche nicht in VideoObjectDictionary stehen
 		//TODO: ScannedVideoArray komplett entfernen, PRÜFEN!!!
 		
 		// ### WatchedVideoArray ###
 		if (Version_WatchedVideoArray != CurrentVersion_WatchedVideoArray) {
-			if (Version_WatchedVideoArray === -1) {
+			console.info("Es wurde ein Versionsunterschied der Datenbank-Tabelle WatchedVideoArray gefunden (alt: " + Version_WatchedVideoArray + " | aktuell: " + CurrentVersion_WatchedVideoArray + ")");
+			if (Version_WatchedVideoArray === undefined) {
 				// aus der alten Tabelle '' importieren, same DataStructure
 				
 				// ### Watched-Videos ###
@@ -599,9 +542,12 @@ alert("watched");
 					}
 					
 					GM_setValue("WatchedVideoArray-Version", 0);
+					console.log("Die Version der Tabelle WatchedVideoArray wurde auf " + GM_getValue("WatchedVideoArray-Version") + " geändert");
 					alert("DataBase:'WatchedVideoArray' die alten Daten wurden erfolgreich importiert!\r\nDie Datenbank wurde von alten Daten bereinigt.");
 				}
 				else {
+					GM_setValue("WatchedVideoArray-Version", 0);
+					console.log("Die Version der Tabelle WatchedVideoArray wurde auf " + GM_getValue("WatchedVideoArray-Version") + " geändert");
 					alert("DataBase:'WatchedVideoArray' sucessfully initialised!");
 				}
 			}
@@ -611,68 +557,178 @@ alert("watched");
 				
 				switch (Version_WatchedVideoArray) {
 					default:
-						throw new Exception("No Update Implemeneted!");
+						throw("No Update Implemeneted!");
 						break;
 				}
 			}
 		}
 		// ### WatchedVideoArray ###
 		
-		//TODO: hier weitermachen
-		
-		
-		if (Version_WatchedVideos != CurrentVersion_WatchedVideos) {
-			// ### Watched-Videos ###
-			var WatchedVideos = GM_getValue("Watched-Videos");
-			if (WatchedVideos == null || WatchedVideos == "") {
-				WatchedVideos = "([])";
-			}
-			WatchedVideos = eval(WatchedVideos);
-			
-			switch (Version_WatchedVideos) {
-				case 0:
-					// "/watch?v=" entfernt
-					var new_WatchedVideos = ([]);
-					for (i = 0; i < WatchedVideos.length; i++) {
-						new_WatchedVideos.push(WatchedVideos[i].replace("/watch?v=", "").split("&list")[0]);
-					}
-					GM_setValue("Watched-Videos-Version-0", WatchedVideos.toSource());
-					GM_setValue("Watched-Videos-Version", 1);
-					GM_setValue("Watched-Videos", new_WatchedVideos.toSource());
-					alert("DataBase:'Watched-Videos' Updated from Version 0 to Version 1.\r\nSucceeded!");
-				break;
+		// ### ScannedVideoArray ###
+		if (Version_ScannedVideoArray != CurrentVersion_ScannedVideoArray) {
+			console.info("Es wurde ein Versionsunterschied der Datenbank-Tabelle ScannedVideoArray gefunden (alt: " + Version_ScannedVideoArray + " | aktuell: " + CurrentVersion_ScannedVideoArray + ")");
+			if (Version_ScannedVideoArray === undefined) {
+				// ### Videos ###
+				var Videos = eval(GM_getValue("Videos") || null);
 				
-				case 1:
-					// Watched Videos auffüllen mit Elementen von VideoStatistics
-					var new_WatchedVideos = ([]);
-					var VideoStatistics = eval(GM_getValue("VideoStatistics"))
+				if (Videos !== null) {
+					var ScannedVideoArray = ([]);
+					var removed = 0;
 					
-					for (i = 0; i < WatchedVideos.length; i++) {
-						if (WatchedVideos[i] != null)
-							new_WatchedVideos.push(WatchedVideos[i]);
-					}
-					
-					for (i = 0; i < VideoStatistics.length; i++) {
-						var Link = VideoStatistics[i].VideoLink;
-						var Id = VideoStatistics[i].VideoID;
-						
-						var Video = ((Link != "" && Link != null ) ? Link : Id).replace("/watch?v=", "").split("&list")[0];
-						
-						if (new_WatchedVideos.indexOf(Video) == -1) {
-							new_WatchedVideos.push(Video);
+					for (var element in Videos) {
+						element = Videos[element].replace("/watch?v=", "").split("&list")[0].split("&t=")[0];
+						if (ScannedVideoArray.indexOf(element) === -1) {
+							ScannedVideoArray.push(element);
+						} else {
+							removed++;
 						}
 					}
-				
-					GM_setValue("Watched-Videos-Version-1", WatchedVideos.toSource());
-					GM_setValue("Watched-Videos-Version", 2);
-					GM_setValue("Watched-Videos", new_WatchedVideos.toSource());
-					alert("DataBase:'Watched-Videos' Updated from Version 1 to Version 2.\r\n\r\nAdded Elements:" + (new_WatchedVideos.length - WatchedVideos.length) + "\r\n\r\n\r\n\t\t\t\t\t\tSucceeded!");
-				break;
-				
-				default:
-					throw "No Update Implemeneted!";
-				break;
+					
+					GM_setValue("ScannedVideoArray", ScannedVideoArray.toSource());
+					GM_setValue("ScannedVideoArray-Version-(-1)", Videos.toSource());
+					
+					if (GM_listValues().indexOf("Videos") !== -1) {
+						GM_deleteValue("Videos");
+					}
+					
+					if (GM_listValues().indexOf("Videos-Version") !== -1) {
+						GM_deleteValue("Videos-Version");
+					}
+					
+					GM_setValue("ScannedVideoArray-Version", 0);
+					console.log("Die Version der Tabelle ScannedVideoArray wurde auf " + GM_getValue("ScannedVideoArray-Version") + " geändert");
+					alert("DataBase:'ScannedVideoArray' die alten Daten wurden erfolgreich importiert!\r\nDie Datenbank wurde von alten Daten bereinigt.\r\nEs wurden " + removed + " doppelte Einträge entfernt.");
+				}
+				else {
+					GM_setValue("ScannedVideoArray-Version", 0);
+					console.log("Die Version der Tabelle ScannedVideoArray wurde auf " + GM_getValue("ScannedVideoArray-Version") + " geändert");
+					alert("DataBase:'ScannedVideoArray' sucessfully initialised!");
+				}
 			}
+			else {
+				// ### ScannedVideoArray ###
+				ScannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
+				
+				switch (Version_ScannedVideoArray) {
+					default:
+						throw("No Update Implemeneted!");
+						break;
+				}
+			}
+		}
+		// ### ScannedVideoArray ###
+		
+		// ### VideoObjectDictionary ###
+		if (Version_VideoObjectDictionary != CurrentVersion_VideoObjectDictionary) {
+			console.info("Es wurde ein Versionsunterschied der Datenbank-Tabelle VideoObjectDictionary gefunden (alt: " + Version_VideoObjectDictionary + " | aktuell: " + CurrentVersion_VideoObjectDictionary + ")");
+			if (Version_VideoObjectDictionary === undefined) {
+				
+				// ### VideoStatistics ###
+				VideoStatistics = eval(GM_getValue("VideoStatistics") || null);
+				
+				if (VideoStatistics !== null) {
+					GM_setValue("VideoObjectDictionary-Version-(-1)", VideoStatistics.toSource());
+					var newStructure = ({"unknown": ([])});
+					var removed = 0;
+					
+					for (var element in VideoStatistics) {
+						newStructure["unknown"].push(VideoStatistics[element]);
+					}
+					
+					GM_setValue("VideoObjectDictionary-Version", 0);
+					console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + GM_getValue("VideoObjectDictionary-Version") + " geändert");
+					alert("DataBase:'VideoObjectDictionary' die alten Daten wurden erfolgreich importiert!\r\nDie Datenbank wurde von alten Daten bereinigt.");
+					
+					GM_setValue("VideoObjectDictionary", newStructure.toSource());
+				}
+				else {
+					GM_setValue("VideoObjectDictionary-Version", 0);
+					console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + GM_getValue("VideoObjectDictionary-Version") + " geändert");
+					alert("DataBase:'VideoObjectDictionary' sucessfully initialised!");
+				}
+			}
+			else {
+				// ### VideoObjectDictionary ###
+				VideoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "([])");
+				
+				// Dieser Code entfernt alle Einträge, welche keinen Objekt eintrag haben (allerdings sind es bei mir ~1500, das ist ziemlich viel
+				{
+					/*
+					// ### ScannedVideoArray ###
+					var scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
+					
+					// ### WatchedVideoArray ###
+					var watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
+					
+					console.log("scannedVideoArray");
+					console.log(scannedVideoArray);
+					
+					console.log("newStructure");
+					console.log(newStructure);
+					
+					// ### ScannedVideoArray aufräumen ###
+					for (var element in scannedVideoArray) {
+						var found = false;
+						var VideoID = scannedVideoArray[element];
+						for (var elements in newStructure["unknown"]) {
+							if (newStructure["unknown"][elements].VideoID === VideoID) {
+								found = true;
+								break;
+							}
+						}
+						if (found === false) {
+// console.log("Das Element von scannedVideoArray hat keinen Eintrag im VideoObjectDictionary: " + VideoID);
+							scannedVideoArray.pop(VideoID);
+							removed++;
+						}
+					}
+					// ### ScannedVideoArray aufräumen ###
+					
+// console.log("watchedVideoArray");
+// console.log(watchedVideoArray);
+					
+					// ### WatchedVideoArray aufräumen ###
+					for (var element in watchedVideoArray) {
+						var found = false;
+						var VideoID = watchedVideoArray[element];
+						for (var elements in newStructure["unknown"]) {
+							if (newStructure["unknown"][elements].VideoID === VideoID) {
+								found = true;
+								break;
+							}
+						}
+						if (found === false) {
+// console.log("Das Element von watchedVideoArray hat keinen Eintrag im VideoObjectDictionary: " + VideoID);
+							watchedVideoArray.pop(VideoID);
+							removed++;
+						}
+					}
+					// ### WatchedVideoArray aufräumen ###
+					
+// console.log("watchedVideoArray");
+// console.log(watchedVideoArray);
+// console.log("scannedVideoArray");
+// console.log(scannedVideoArray);
+					
+					GM_setValue("VideoObjectDictionary-Version", 0);
+					console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + GM_getValue("VideoObjectDictionary-Version") + " geändert");
+					alert("DataBase:'VideoObjectDictionary' die alten Daten wurden erfolgreich importiert!\r\nDie Datenbank wurde von alten Daten bereinigt, ganz alte Videos (Es wurden " + removed + " gefunden) werden jetzt als nicht angesehen markiert.");
+					*/
+				}
+					
+				switch (Version_WatchedVideoArray) {
+					default:
+						throw("No Update Implemeneted!");
+						break;
+				}
+			}
+		}
+		// ### VideoObjectDictionary ###
+		
+		if (CurrentVersion_WatchedVideoArray != eval(GM_getValue("WatchedVideoArray-Version")) ||
+			CurrentVersion_ScannedVideoArray != eval(GM_getValue("ScannedVideoArray-Version")) ||
+			CurrentVersion_VideoObjectDictionary != eval(GM_getValue("VideoObjectDictionary-Version"))) {
+				UpdateDataBase();
 		}
 	}
 	
