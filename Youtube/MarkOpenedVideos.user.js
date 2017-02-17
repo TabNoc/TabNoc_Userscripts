@@ -533,11 +533,11 @@ alert("watched");
 						GM_deleteValue("Watched-Videos-Version-0");
 					}
 					
-					if (GM_listValues().indexOf("Watched-Videos") !== -1) {
+					if (GM_listValues().indexOf("Watched-Videos-Version-1") !== -1) {
 						GM_deleteValue("Watched-Videos-Version-1");
 					}
 					
-					if (GM_listValues().indexOf("Watched-Videos") !== -1) {
+					if (GM_listValues().indexOf("Watched-Videos-Version") !== -1) {
 						GM_deleteValue("Watched-Videos-Version");
 					}
 					
@@ -630,6 +630,10 @@ alert("watched");
 					GM_setValue("VideoObjectDictionary-Version-(-1)", VideoStatistics.toSource());
 					var newStructure = ({"unknown": ([])});
 					var removed = 0;
+					
+					if (GM_listValues().indexOf("VideoStatistics") !== -1) {
+						GM_deleteValue("VideoStatistics");
+					}
 					
 					for (var element in VideoStatistics) {
 						newStructure["unknown"].push(VideoStatistics[element]);
