@@ -1,12 +1,13 @@
-// ==UserScript==
+﻿// ==UserScript==
 // @name        Twitter
 // @namespace   TabNoc
-// @description Marking of already readed Tweets and some other nice features 		©2016 TabNoc
+// @description Marking of already readed Tweets and some other nice features 		©2017 TabNoc
 // @include     http*://twitter.com/*
-// @version     1.12.6_2_11102016
+// @version     1.13.2_26012017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
+// @require		https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/Implement-TabNoc.js/base/TabNoc.js
 // @require		https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/ImageHover.js
 // @resource	Impromptu http://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.css
 // @updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Twitter/Twitter.user.js
@@ -30,7 +31,7 @@ changed:	- Date.prototype.timeNow is now only added if not already existing
 added:		- String.prototype.replaceAll -> Firefox 49 removed possibility to add flags to String.prototype.replace("param1", "param2", "flags->deleted") cause non-standard implementation
 
 [checkElement]
-fixed:		- unsafeWindow.TabNoc.HTML.TweetsDropDownButtons.replace("{element}", ElementID, "g") is using depricated flags argument, changed to String.prototype.replaceAll("{element}", ElementID)
+fixed:		- TabNoc.HTML.TweetsDropDownButtons.replace("{element}", ElementID, "g") is using depricated flags argument, changed to String.prototype.replaceAll("{element}", ElementID)
 
 05.10.2016 - 1.12.4
 [ImageHover]
@@ -50,52 +51,21 @@ bugfix: 	- some buttons not working correctly
 11.10.2016 - 1.12.6.1 - 1.12.6.2
 [Global]
 bugfix:		- ActiveTime only displays hours till 24h
+
+14.10.2016 - 1.13.0 - 1.13.1
+[Global]
+changed:	- Configuration will be created from multiScript object provider
+
+26.01.2017 - 1.13.2
+[Global]
+added:		- Promoted Tweets were blocked and the User will be informed about the amount
 */
 
 
 // STatistics.Name -> Merge over element.Tweet_from
 
 try {
-	if (String.prototype.contains === undefined) {String.prototype.contains = String.prototype.includes;}
-	if (String.prototype.replaceAll === undefined) {String.prototype.replaceAll = function(search, replacement) {var target = this; return target.replace(new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), 'g'), replacement);};}
-	if (Date.prototype.timeNow === undefined) {Date.prototype.timeNow = function () {return ((this.getHours() < 10) ? "0" : "") + this.getHours() + ":" + ((this.getMinutes() < 10) ? "0" : "") + this.getMinutes() + ":" + ((this.getSeconds() < 10) ? "0" : "") + this.getSeconds();}}
-	
-	TabNoc = {
-		console: {
-			cache: [],
-			add: function (msg, when) {
-				if (when != false) {
-					TabNoc.console.cache.push(new Date().timeNow() + " : " + msg);
-				}
-				return when != false;
-			},
-			get: function (amount) {
-				var returnval = "\r\n";
-				var tmp = "";
-				var counter = 0;
-				amount = typeof (amount) != "number" ? Number.MAX_SAFE_INTEGER : amount
-
-				TabNoc.console.cache.reverse();
-				while ((tmp = TabNoc.console.cache.pop()) != null && counter < amount) {
-					++counter;
-					returnval += tmp + "\r\n";
-				}
-
-				TabNoc.console.cache.reverse();
-
-				return returnval;
-			},
-			register: function () {
-				if (unsafeWindow.console.log.toString() == "function (){}") {
-					exportFunction(function (msg) { console.log(msg); }, unsafeWindow.console, {
-						defineAs: "log"
-					});
-					return true;
-				}
-				return false;
-			}
-		},
-
+	setTabNoc({
 		Variables: {
 			startTime: new Date(),
 			checkElementsInterval: null,
@@ -155,10 +125,10 @@ try {
 			StyleMustScanning: "background-color:rgb(255, 138, 138);background-image:linear-gradient(rgb(255, 255, 255), transparent)",
 			TweetsDropDownButtons: '<br/><button class="dropdown-link js-dropdown-toggle" onclick="getAllElements({element});return true;">Bis hier Markieren [/\\]</button><button class="dropdown-link js-dropdown-toggle" onclick="getAllElements(null, {element});return true;">Ab hier Markieren [\\/]</button><button class="dropdown-link js-dropdown-toggle" onclick="scanRange({element});return true;">Markierbereich</button>'
 		}
-	};
+	});
 	
 	function registerTabNoc() {
-		unsafeWindow.TabNoc = cloneInto(TabNoc, unsafeWindow, {
+		TabNoc = cloneInto(TabNoc, unsafeWindow, {
 			wrapReflectors: true, cloneFunctions: true
 		});
 
@@ -177,12 +147,12 @@ try {
 		});
 
 		GM_registerMenuCommand("Automatik Aus-/Einschalten", function () {
-			if (unsafeWindow.TabNoc.Variables.Active == true) {
+			if (TabNoc.Variables.Active == true) {
 				startCheckElements(false);
-				setTimeout(function () { unsafeWindow.TabNoc.Variables.Active = false; alert("Die Automatische Tweet-Überprüfung wurde deaktiviert!"); }, 250);
+				setTimeout(function () { TabNoc.Variables.Active = false; alert("Die Automatische Tweet-Überprüfung wurde deaktiviert!"); }, 250);
 			}
 			else {
-				unsafeWindow.TabNoc.Variables.Active = true;
+				TabNoc.Variables.Active = true;
 				startCheckElements(true);
 				alert("Die Automatische Tweet-Überprüfung wurde aktiviert!");
 			}
@@ -218,12 +188,12 @@ try {
 					var newPersonalSettings = prompt("TabNoc.Settings.Personal", obj);
 					
 					if (newPersonalSettings != null) {
-						unsafeWindow.TabNoc.Settings.Personal = cloneInto(eval(newPersonalSettings), unsafeWindow.TabNoc.Settings, {
+						TabNoc.Settings.Personal = cloneInto(eval(newPersonalSettings), TabNoc.Settings, {
 							wrapReflectors: true
 						});
 
-						GM__setValue("TabNoc.Settings.Personal", unsafeWindow.TabNoc.Settings.Personal.toSource());
-						startCheckElements(unsafeWindow.TabNoc.Variables.MarkToggleState, true);
+						GM__setValue("TabNoc.Settings.Personal", TabNoc.Settings.Personal.toSource());
+						startCheckElements(TabNoc.Variables.MarkToggleState, true);
 					}
 				} catch (exc) {
 					console.error(exc);
@@ -309,7 +279,7 @@ try {
 		if (Personal.ImageHover == null || typeof(Personal.ImageHover) != "boolean") Personal.ImageHover = true;
 		
 		// load Personal Settings
-		unsafeWindow.TabNoc.Settings.Personal = cloneInto(Personal, unsafeWindow.TabNoc.Settings, {
+		TabNoc.Settings.Personal = cloneInto(Personal, TabNoc.Settings, {
 			wrapReflectors: true
 		});
 		
@@ -318,7 +288,7 @@ try {
 			alert("Updated Personal Settings from:\r\n" + oldPersonal + "\r\nto:\r\n" + Personal.toSource());
 		}
 		
-		if (unsafeWindow.TabNoc.Settings.Personal.ImageHover === true) {
+		if (TabNoc.Settings.Personal.ImageHover === true) {
 			AddImageHover({
 				getElementSrc : function (eventElement, addLargeToSrc) {
 					return (eventElement.className.includes("avatar ") ? (eventElement.getAttribute("src").replace("_normal", "_400x400").replace("_bigger", "_400x400")) : (eventElement.getAttribute("src").replace(":thumb", "") + (addLargeToSrc === true ? ":large" : "")))
@@ -352,17 +322,17 @@ try {
 	
 	function Undo() {
 		try {
-			if (unsafeWindow.TabNoc.Variables.OldTwitterSaveData == "") {
+			if (TabNoc.Variables.OldTwitterSaveData == "") {
 				alert("Es befindet sich keine Sicherung im Speicher.\r\nRückgängig machen nicht möglich!");
 				return;
 			}
 			
-			if (confirm("Der Alte Speicherstand beinhaltet " + eval(unsafeWindow.TabNoc.Variables.OldTwitterSaveData).length + " Elemente (Aktuell " + eval(GM_getValue("Twitter")).length + ")")) {
-				var oldState = unsafeWindow.TabNoc.Variables.MarkToggleState;
+			if (confirm("Der Alte Speicherstand beinhaltet " + eval(TabNoc.Variables.OldTwitterSaveData).length + " Elemente (Aktuell " + eval(GM_getValue("Twitter")).length + ")")) {
+				var oldState = TabNoc.Variables.MarkToggleState;
 				startCheckElements(false);
-				GM_setValue("Twitter", unsafeWindow.TabNoc.Variables.OldTwitterSaveData);
+				GM_setValue("Twitter", TabNoc.Variables.OldTwitterSaveData);
 				startCheckElements(oldState);
-				unsafeWindow.TabNoc.Variables.OldTwitterSaveData = "";
+				TabNoc.Variables.OldTwitterSaveData = "";
 			}
 		} catch (exc) {
 			console.error(exc);
@@ -373,7 +343,7 @@ try {
 	function startCheckElements(ToggleState, force) {
 		try {
 			ManageActiveTime();
-			if (document.hidden === false && unsafeWindow.TabNoc.Variables.Active === true && document.hasFocus()) {
+			if (document.hidden === false && TabNoc.Variables.Active === true && document.hasFocus()) {
 				var start = new Date().getTime();
 
 				var elementIdArray = eval(GM_getValue("Twitter"));
@@ -381,31 +351,31 @@ try {
 				var elements = $(".js-stream-tweet");
 
 				// Überprüfung ob es sich nur um einen Tweet oder ähnliches handelt
-				if (PermaLinkTweet && unsafeWindow.TabNoc.Variables.HiddenButtons == false) {
+				if (PermaLinkTweet && TabNoc.Variables.HiddenButtons == false) {
 					$("#floatingButtons")[0].setAttribute("class", "display-none");
-					unsafeWindow.TabNoc.Variables.HiddenButtons = true;
+					TabNoc.Variables.HiddenButtons = true;
 				}
-				else if (!PermaLinkTweet && unsafeWindow.TabNoc.Variables.HiddenButtons == true) {
+				else if (!PermaLinkTweet && TabNoc.Variables.HiddenButtons == true) {
 					$("#floatingButtons")[0].setAttribute("class", "");
-					unsafeWindow.TabNoc.Variables.HiddenButtons = false;
+					TabNoc.Variables.HiddenButtons = false;
 				}
 				
 				var MinTopValue = $(".ProfileCanopy-inner").length == 1 ? 127 : $(".global-nav-inner")[0].getClientRects()[0].bottom;
 				var MaxTopValue = document.documentElement.clientHeight;
-				if (unsafeWindow.TabNoc.Settings.Personal.HideUninterestingTweets == true) {
+				if (TabNoc.Settings.Personal.HideUninterestingTweets == true) {
 					var currentTopValue = document.getElementsByClassName("stream-footer")[0].getClientRects()[0].top;
 					if (currentTopValue < MaxTopValue && currentTopValue > MinTopValue) {
 						document.getElementsByClassName("try-again-after-whale")[0].click()
 					}
 				}
-				if (unsafeWindow.TabNoc.Variables.HiddenButtons == false && (
-					unsafeWindow.TabNoc.Variables.MarkToggleState != ToggleState ||
-					unsafeWindow.TabNoc.Variables.lastCheckItemCount !== elements.length ||
-					unsafeWindow.TabNoc.Variables.lastCheckScanBufferAmount !== elementIdArray.length ||
+				if (TabNoc.Variables.HiddenButtons == false && (
+					TabNoc.Variables.MarkToggleState != ToggleState ||
+					TabNoc.Variables.lastCheckItemCount !== elements.length ||
+					TabNoc.Variables.lastCheckScanBufferAmount !== elementIdArray.length ||
 					force === true)) {
 					var UnScannedElements = checkElements(elementIdArray.reverse(), ToggleState, elements);
-					unsafeWindow.TabNoc.Variables.lastCheckScanBufferAmount = elementIdArray.length;
-					unsafeWindow.TabNoc.Variables.lastCheckItemCount = elements.length;
+					TabNoc.Variables.lastCheckScanBufferAmount = elementIdArray.length;
+					TabNoc.Variables.lastCheckItemCount = elements.length;
 					
 					var time = new Date().getTime() - start;
 
@@ -424,9 +394,10 @@ try {
 	
 	function checkElements(elementIdArray, ToggleState, elements) {
 		var UnScannedElements = 0;
+		var RemovedElements = 0;
 
 		if (ToggleState == null) {
-			ToggleState = unsafeWindow.TabNoc.Variables.MarkToggleState;
+			ToggleState = TabNoc.Variables.MarkToggleState;
 		}
 
 		for (i = 0; i < elements.length; i++) {
@@ -440,21 +411,30 @@ try {
 				//check if Adware
 				if (element.className.includes("expanded-conversation") ?
 					element.children[0].children[0].className.includes("promoted-tweet") :
-					element.className.includes("promoted-tweet")) continue;
+					element.className.includes("promoted-tweet") && element.style.display != "none") {
+						element.style.display = "none";
+						console.log("promotedTweet");
+						RemovedElements++;
+						continue;
+					}
 
 				UnScannedElements = checkElement(element, elementIdArray, ToggleState) === true ? UnScannedElements : UnScannedElements + 1;
 			} else {
 				console.warn(element);
-				unsafeWindow.TabNoc.console.add(element, true);
+				TabNoc.console.add(element, true);
 			}
 		}
 
-		unsafeWindow.TabNoc.Variables.MarkToggleState = ToggleState;
+		TabNoc.Variables.MarkToggleState = ToggleState;
 		$("#btn_Markieren")[0].children[0].children[0].setAttribute("style", ToggleState ? TabNoc.HTML.StyleMarked : "");
 		$("#btn_Scannen")[0].children[0].children[0].setAttribute("style", UnScannedElements != 0 ? TabNoc.HTML.StyleMustScanning : "");
 
 		$("#btn_Scannen_Text")[0].textContent = "Scannen" + (UnScannedElements > 0 ? ":" + UnScannedElements : "");
 
+		if (RemovedElements > 0) {
+			Feedback.showMessage(RemovedElements + " Elemente entfernt (Werbung)!!!", "error", 20000);
+		}
+		
 		return UnScannedElements;
 	}
 	
@@ -465,7 +445,7 @@ try {
 		
 		// this consumes huge amounts of time  |  first time call: (100 elements ~ 35 ms)  |  later call: (100 elements ~ 0 ms)
 		if (checkElement.getAttribute("TabNoc_DropDownButtons") != "true") {
-			$(checkElement).find(".dropdown-menu")[0].children[1].innerHTML += unsafeWindow.TabNoc.HTML.TweetsDropDownButtons.replaceAll("{element}", ElementID);
+			$(checkElement).find(".dropdown-menu")[0].children[1].innerHTML += TabNoc.HTML.TweetsDropDownButtons.replaceAll("{element}", ElementID);
 			checkElement.setAttribute("TabNoc_DropDownButtons", "true");
 			{
 				var baseFixElement = $(checkElement).find(".dropdown-menu")[0].children[1].children;
@@ -494,7 +474,7 @@ try {
 	}
 	
 	function markUninterestingTweets(checkElement) {
-		if (unsafeWindow.TabNoc.Settings.Personal.ScanUninterestingTweet == true) {
+		if (TabNoc.Settings.Personal.ScanUninterestingTweet == true) {
 			var data = $(checkElement).find(".TweetTextSize");
 			
 			if (data.length == 0) 
@@ -502,9 +482,9 @@ try {
 			
 			var TextContent = data[0].textContent;
 
-			for (var i = 0; i < unsafeWindow.TabNoc.Settings.Personal.UninterestingTweetsText.length; i++) {
-				if (TextContent.includes(unsafeWindow.TabNoc.Settings.Personal.UninterestingTweetsText[i])) {
-					if (unsafeWindow.TabNoc.Settings.Personal.HideUninterestingTweets == true) {
+			for (var i = 0; i < TabNoc.Settings.Personal.UninterestingTweetsText.length; i++) {
+				if (TextContent.includes(TabNoc.Settings.Personal.UninterestingTweetsText[i])) {
+					if (TabNoc.Settings.Personal.HideUninterestingTweets == true) {
 						checkElement.setAttribute("style", "display:none");
 					} else {
 						checkElement.setAttribute("style", "background-color:rgb(255, 138, 138)");
@@ -547,19 +527,19 @@ try {
 	
 	function scanRange(element){
 		try {
-			if (unsafeWindow.TabNoc.Variables.ScanRangeElement === null) {
+			if (TabNoc.Variables.ScanRangeElement === null) {
 				// show Messsage (maybe with ImageHover.Feedback)
-				unsafeWindow.TabNoc.Variables.ScanRangeElement = element;
+				TabNoc.Variables.ScanRangeElement = element;
 			}
 			else {
 				if (confirm("Elemente Markieren?") === true) {
-					if (element < unsafeWindow.TabNoc.Variables.ScanRangeElement) {
-						getAllElements(unsafeWindow.TabNoc.Variables.ScanRangeElement, element);
+					if (element > getAllElements(TabNoc.Variables.ScanRangeElement)) {
+						getAllElements(TabNoc.Variables.ScanRangeElement, element);
 					}
 					else {
-						getAllElements(element, unsafeWindow.TabNoc.Variables.ScanRangeElement);
+						getAllElements(element, TabNoc.Variables.ScanRangeElement);
 					}
-					unsafeWindow.TabNoc.Variables.ScanRangeElement = null;
+					TabNoc.Variables.ScanRangeElement = null;
 				}
 			}
 		}
@@ -579,7 +559,7 @@ try {
 				ElementIds = "([])";
 				GM_setValue("Twitter", "([])");
 			}
-			unsafeWindow.TabNoc.Variables.OldTwitterSaveData = ElementIds;
+			TabNoc.Variables.OldTwitterSaveData = ElementIds;
 			ElementIds = eval(ElementIds);
 
 			var Tweets = GM_getValue("Tweets");
@@ -617,17 +597,17 @@ try {
 					exec(AddTweetStatistics, element, Tweets);
 				} else {
 					console.warn(element);
-					unsafeWindow.TabNoc.console.add(element, true);
+					TabNoc.console.add(element, true);
 				}
 			}
 
 			GM_setValue("Twitter", ElementIds.toSource());
 			GM_setValue("Tweets", Tweets.toSource());
-			if (unsafeWindow.TabNoc.Settings.MarkAfterScan) {
+			if (TabNoc.Settings.MarkAfterScan) {
 				startCheckElements(true, true);
 			}
 			
-			Feedback.notify("Es wurde" + (amount === 1 ? "" : "n") + " " + amount + " Element" + (amount === 1 ? "" : "e") + " eingelesen.      >Rückgängig<", 20000, (function(){Undo();Feedback.hideMessage();}));
+			Feedback.notify("Es wurde" + (amount === 1 ? "" : "n") + " " + amount + " Element" + (amount === 1 ? "" : "e") + " eingelesen.      >Rückgängig<", 10000, (function(){Undo();Feedback.hideMessage();}));
 
 			var time = new Date().getTime() - start;
 			console.log('getAllElements() Execution time: ' + time);
@@ -714,18 +694,18 @@ try {
 	
 	function ManageActiveTime(){
 		if (document.hidden == false && document.hasFocus()) {
-			if (unsafeWindow.TabNoc.Variables.WatchedTime == 0) {
-				unsafeWindow.TabNoc.Variables.WatchedTime = GM_getValue("Time");
+			if (TabNoc.Variables.WatchedTime == 0) {
+				TabNoc.Variables.WatchedTime = GM_getValue("Time");
 				
-				if (unsafeWindow.TabNoc.Variables.WatchedTime == null) {
-					unsafeWindow.TabNoc.Variables.WatchedTime = 0;
+				if (TabNoc.Variables.WatchedTime == null) {
+					TabNoc.Variables.WatchedTime = 0;
 				}
 				
-				unsafeWindow.TabNoc.Variables.LoadedWatchedTime = unsafeWindow.TabNoc.Variables.WatchedTime;
-				unsafeWindow.TabNoc.Variables.SavedWatchedTime = unsafeWindow.TabNoc.Variables.LoadedWatchedTime;
+				TabNoc.Variables.LoadedWatchedTime = TabNoc.Variables.WatchedTime;
+				TabNoc.Variables.SavedWatchedTime = TabNoc.Variables.LoadedWatchedTime;
 			}
-			unsafeWindow.TabNoc.Variables.WatchedTime += (unsafeWindow.TabNoc.Settings.Personal.TimerInterval / 1000) / 1000;
-			unsafeWindow.TabNoc.Variables.TimeSaveCycle++;
+			TabNoc.Variables.WatchedTime += (TabNoc.Settings.Personal.TimerInterval / 1000) / 1000;
+			TabNoc.Variables.TimeSaveCycle++;
 			
 			var ConvertToTime = function (amount) {
 				amount = Math.round(amount * 1000);
@@ -735,19 +715,19 @@ try {
 				return (hours > 0 ? hours + "h " : "") + ((minutes > 0 || hours > 0) ? minutes + "min " : "") + ((seconds > 0 || minutes > 0 || hours > 0) ? seconds + "sek" : "");
 			};
 			
-			$("#TwitterTime")[0].textContent = ConvertToTime(unsafeWindow.TabNoc.Variables.WatchedTime) + "\r\n" + ConvertToTime(unsafeWindow.TabNoc.Variables.WatchedTime - unsafeWindow.TabNoc.Variables.LoadedWatchedTime);
+			$("#TwitterTime")[0].textContent = ConvertToTime(TabNoc.Variables.WatchedTime) + "\r\n" + ConvertToTime(TabNoc.Variables.WatchedTime - TabNoc.Variables.LoadedWatchedTime);
 			
 			// Nach 25 durchläufen des Intervalls z.B. 2500ms interval == 62,5 sekunden
-			if (unsafeWindow.TabNoc.Variables.TimeSaveCycle % 10 == 0) {
+			if (TabNoc.Variables.TimeSaveCycle % 10 == 0) {
 				// check ob in der zwischenzeit ein neuer wert gepeichert wurde, wenn ja diesen laden und dann abspeichern
 				var currentValue = GM_getValue("Time");
-				if (currentValue > unsafeWindow.TabNoc.Variables.SavedWatchedTime && currentValue != null) {
-					unsafeWindow.TabNoc.Variables.WatchedTime = (unsafeWindow.TabNoc.Variables.WatchedTime - unsafeWindow.TabNoc.Variables.SavedWatchedTime) + currentValue;
+				if (currentValue > TabNoc.Variables.SavedWatchedTime && currentValue != null) {
+					TabNoc.Variables.WatchedTime = (TabNoc.Variables.WatchedTime - TabNoc.Variables.SavedWatchedTime) + currentValue;
 					// differenz erhöhen, damit die lokale zeit gleich bleibt
-					unsafeWindow.TabNoc.Variables.LoadedWatchedTime += currentValue - unsafeWindow.TabNoc.Variables.SavedWatchedTime;
+					TabNoc.Variables.LoadedWatchedTime += currentValue - TabNoc.Variables.SavedWatchedTime;
 				}
-				unsafeWindow.TabNoc.Variables.SavedWatchedTime = unsafeWindow.TabNoc.Variables.WatchedTime;
-				GM_setValue("Time", unsafeWindow.TabNoc.Variables.WatchedTime);
+				TabNoc.Variables.SavedWatchedTime = TabNoc.Variables.WatchedTime;
+				GM_setValue("Time", TabNoc.Variables.WatchedTime);
 			}
 		}
 	}
@@ -757,7 +737,7 @@ try {
 		
 		registerTabNoc();
 
-		TabNoc.console.register();
+		// TabNoc.console.register();
 
 		//###floatingButtons###
 		var floatingButtons = document.createElement("div");
@@ -802,22 +782,22 @@ try {
 		unsafeWindow.document.body.appendChild(TwitterTime);
 
 		//##startCheckElements##
-		unsafeWindow.TabNoc.Variables.checkElementsInterval = setInterval(returnExec(function () {
-			startCheckElements(unsafeWindow.TabNoc.Variables.MarkToggleState);
-		}), unsafeWindow.TabNoc.Settings.Personal.TimerInterval);
-		startCheckElements(unsafeWindow.TabNoc.Variables.MarkToggleState);
+		TabNoc.Variables.checkElementsInterval = setInterval(returnExec(function () {
+			startCheckElements(TabNoc.Variables.MarkToggleState);
+		}), TabNoc.Settings.Personal.TimerInterval);
+		startCheckElements(TabNoc.Variables.MarkToggleState);
 
 		console.log("Twitter.user.js done");
 		{
 			// Quickfix btn_Scannen
 			var element = $("#btn_Scannen").children()[0].children[0];
-			element.onclick = eval("(function() {" + element.getAttribute("onclick").replace(/TabNoc/g, "unsafeWindow.TabNoc") + "})");
+			element.onclick = eval("(function() {" + element.getAttribute("onclick").replace(/TabNoc/g, "TabNoc") + "})");
 			element.setAttribute("onclick", "");
 		}
 		{
 			// Quickfix btn_Markieren
 			var element = $("#btn_Markieren").children()[0].children[0];
-			element.onclick = eval("(function() {" + element.getAttribute("onclick").replace(/TabNoc/g, "unsafeWindow.TabNoc") + "})");
+			element.onclick = eval("(function() {" + element.getAttribute("onclick").replace(/TabNoc/g, "TabNoc") + "})");
 			element.setAttribute("onclick", "");
 		}
 	}

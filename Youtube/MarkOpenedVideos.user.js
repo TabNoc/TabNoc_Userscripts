@@ -1,4 +1,4 @@
-// ==UserScript==
+﻿// ==UserScript==
 // @name        MarkOpenedVideos
 // @namespace   TabNoc
 // @include     https://www.youtube.com/feed/subscriptions*
@@ -6,7 +6,7 @@
 // @include     https://www.youtube.com/channel/*/videos*
 // @include     https://www.youtube.com/watch?v=*
 // @include     https://www.youtube.com/results?*
-// @version     1.3.3_22092016
+// @version     1.3.4_23122016
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
 // @updateURL   https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/Youtube/MarkOpenedVideos.user.js
@@ -31,6 +31,9 @@ added:	- @noframes
 [SubscriptionPage]
 added: 	- MenuCommand(HideWatchedVideos)
 		- possibility to force startCheckElements 
+		
+23.12.2016 - 1.3.4
+fixed:	- fixed StyleChanges from Youtube
 */
 
 
@@ -116,8 +119,8 @@ try {
 			MarkAfterScan: true,
 			OpenInNewTabWhenScanned: true,
 			TimerInterval: 5000,
-			UninterestingVideos: (["Challenge WBS:", "Recht für YouTuber:"]),
-			NotWantedVideos: (["Arumba Plays DOTA", "Europa Universalis IV", "Let's Play Crusader Kings 2"]),
+			UninterestingVideos: (["Recht für YouTuber:"]),
+			NotWantedVideos: (["Arumba Plays DOTA", "Europa Universalis IV", "Let's Play Crusader Kings 2", "Challenge WBS:", "Let's Play Civilization VI", "Let's Play Galactic Civilizations 3", "The Binding of Isaac ", "Civilization 6", "Endless Space", "Galactic Cililisations 3", "Civilization V", "Let's Play Stellaris", "SPAZ2"]),
 			DeleteNotWantedVideos: false,
 			HideAlreadyWatchedVideos: false
 		},
@@ -239,7 +242,7 @@ try {
 
 	function checkElement(checkElement, videoIdArray, ToggleState, watchedVideosArray) {
 		//return true if checkedElement is already Scanned
-		var SearchString = $(checkElement).find("." + (TabNoc_test.Variables.MultiRow ? "yt-uix-sessionlink" : "yt-uix-tile-link"))[0].getAttribute("href").replace("/watch?v=", "").split("&list")[0];
+		var SearchString = $(checkElement).find("." + (TabNoc_test.Variables.MultiRow ? "yt-uix-sessionlink" : "yt-uix-tile-link"))[0].getAttribute("href").replace("/watch?v=", "").split("&list")[0].split("&t=")[0];
 		
 		var v_ID = videoIdArray.indexOf(SearchString);
 		var wv_ID = watchedVideosArray.indexOf(SearchString);
@@ -247,7 +250,7 @@ try {
 		var setColor = function(color) {
 			$(checkElement).css("background-color", color);
 			if (TabNoc_test.Variables.MultiRow) {
-				$(checkElement).find(".yt-lockup-title").find(".yt-uix-sessionlink").css("background-color", color);
+				$(checkElement).find(".yt-lockup-title, .yt-uix-sessionlink, .yt-lockup-byline").css("background-color", color);//yt-lockup-byline yt-uix-sessionlink yt-lockup-title
 			}
 			else {
 				$(checkElement).find(".yt-uix-tile-link, .yt-lockup-description").css("background-color", color);
@@ -469,10 +472,10 @@ alert("watched");
 			if (href == null) {
 				href = element.children[0].getAttribute("href");
 			}
-			if (href != null && href != "" && watchedVideosArray.indexOf(href.replace("/watch?v=", "").split("&list")[0]) != -1) {
+			if (href != null && href != "" && watchedVideosArray.indexOf(href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) != -1) {
 				elements[i].style.backgroundColor = "rgb(166, 235, 158)";
 			}
-			else if (href != null && href != "" && videoIdArray.indexOf(href.replace("/watch?v=", "").split("&list")[0]) != -1) {
+			else if (href != null && href != "" && videoIdArray.indexOf(href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) != -1) {
 				setColor(elements[i], "rgb(151, 255, 139)");
 			}
 		}
@@ -683,7 +686,7 @@ alert("watched");
 	
 	Main();
 	
-	console.log("MarkOpenedVideos.user.js readed");
+	console.info("MarkOpenedVideos.user.js[v" + GM_info.script.version + ", Autoupdate: " + GM_info.scriptWillUpdate + "] readed");
 } catch (exc) {
 	console.error(exc);
 	alert(exc);
