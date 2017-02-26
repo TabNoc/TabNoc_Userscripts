@@ -3,11 +3,11 @@
 // @namespace   TabNoc
 // @description Marking of already readed Tweets and some other nice features 		©2017 TabNoc
 // @include     http*://twitter.com/*
-// @version     1.13.2_26012017
+// @version     1.13.3_26022017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
-// @require		https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/Implement-TabNoc.js/base/TabNoc.js
+// @require		https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/TabNoc.js
 // @require		https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/ImageHover.js
 // @resource	Impromptu http://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.css
 // @updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Twitter/Twitter.user.js
@@ -59,6 +59,10 @@ changed:	- Configuration will be created from multiScript object provider
 26.01.2017 - 1.13.2
 [Global]
 added:		- Promoted Tweets were blocked and the User will be informed about the amount
+
+26.02.2017 - 1.13.3
+[Global]
+fixed:		- Using master branch Implementation of TabNoc.js
 */
 
 

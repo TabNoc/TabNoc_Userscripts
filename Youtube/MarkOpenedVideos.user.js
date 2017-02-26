@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name        MarkOpenedVideos
+// @name        MarkOpenedVideos_Beta
 // @namespace   TabNoc
 // @include     https://www.youtube.com/feed/subscriptions*
 // @include     https://www.youtube.com/user/*/videos*
@@ -9,7 +9,9 @@
 // @version     2.0.1_23022017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
-// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/Implement-TabNoc.js/base/TabNoc.js
+// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/TabNoc.js
+// @require     https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
+// @resource	Impromptu http://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.css
 // @updateURL   https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/Youtube/MarkOpenedVideos.user.js
 // @grant       GM_setValue
 // @grant       GM_getValue
