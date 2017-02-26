@@ -2,16 +2,16 @@
 // @name        Youtube-Jumper
 // @description ©Marco Neuthor 2017
 // @include     http*://www.youtube.*/watch?*
-// @version     v2.1.3.2
+// @version     v2.1.4_24022017
 // @require		https://code.jquery.com/jquery-2.1.1.min.js
 // @require		https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
-// @require		VideoGreyDetector.js
-// @require		SomeOtherStuff.js
+// @require		https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/VideoGreyDetector.js
+// require		SomeOtherStuff.js
 // add @ to switch to local solutions
 // require		GM__.js
 // @resource	Impromptu http://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.css
-// @resource	TabNocCSS https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/Implement-TabNoc.js/Youtube/TabNoc.css
+// @resource	TabNocCSS https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/Youtube/TabNoc.css
 // @grant       GM_getResourceText
 // @grant       GM_addStyle
 // @grant       GM_setValue
@@ -29,6 +29,10 @@ ChangeList started at 12.02.2017
 12.02.2017 - v2.1.3.2
 [ManageTimes]
 	- changed: WBS Fernsehauftritt wird nun besser erkannt
+
+24.02.2017 - v2.1.4
+[Global]
+	- changed: Imports werden nun vom Master verwendet
 */
 
 try {
