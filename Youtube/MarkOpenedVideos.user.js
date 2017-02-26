@@ -6,7 +6,7 @@
 // @include     https://www.youtube.com/channel/*/videos*
 // @include     https://www.youtube.com/watch?v=*
 // @include     https://www.youtube.com/results?*
-// @version     2.0.0_13022017
+// @version     2.0.1_23022017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/Implement-TabNoc.js/base/TabNoc.js
@@ -41,6 +41,9 @@ fixed:	- fixed StyleChanges from Youtube
 13.02.2017 - 2.0.0
 	changed:	- completly rewritten Storage, renamed all DatabaseTables, updated UpdateDataBase (dropped Support for old Versions)
 	changed:	- implemented TabNoc.js
+	
+23.02.2017 - 2.0.1
+	added: - exported Function ResetDataBaseVersion (only visible on SubscriptionsPage)
 */
 
 try {
@@ -112,6 +115,35 @@ try {
 		//MarkWatchedVideos
 		exportFunction(MarkWatchedVideos, unsafeWindow, {
 			defineAs: "MarkWatchedVideos"
+		});
+		
+		//ResetAllTNData
+		exportFunction(function(){alert("Not Implemented!")}, unsafeWindow, {
+			defineAs: "ResetAllTNData"
+		});
+		
+		//ResetDataBaseVersion
+		exportFunction(function(){
+			if (confirm("Sollen wirklich die Versionen von allen Tabellen gelöscht werden?") !== true) {return;}
+			// ### WatchedVideoArray-Version ###
+			Version_WatchedVideoArray = eval(GM_getValue("WatchedVideoArray-Version"));
+			if (Version_WatchedVideoArray != null) {
+				GM_deleteValue("WatchedVideoArray-Version")
+			}
+			
+			// ### ScannedVideoArray-Version ###
+			Version_ScannedVideoArray = eval(GM_getValue("ScannedVideoArray-Version"));
+			if (Version_ScannedVideoArray != null) {
+				GM_deleteValue("ScannedVideoArray-Version")
+			}
+			
+			// ### VideoObjectDictionary-Version ###
+			Version_VideoObjectDictionary = eval(GM_getValue("VideoObjectDictionary-Version"));
+			if (Version_VideoObjectDictionary != null) {
+				GM_deleteValue("VideoObjectDictionary-Version")
+			}
+		}, unsafeWindow, {
+			defineAs: "ResetDataBaseVersion"
 		});
 		
 		//GM_addStyle(".display-none{display:none}");
