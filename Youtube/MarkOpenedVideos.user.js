@@ -6,18 +6,23 @@
 // @include     https://www.youtube.com/channel/*/videos*
 // @include     https://www.youtube.com/watch?v=*
 // @include     https://www.youtube.com/results?*
-// @version     2.0.1_23022017
+// @include     https://www.youtube.com/feed/history
+// @include     https://www.youtube.com/
+// @version     2.0.4_03032017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/TabNoc.js
 // @require     https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
 // @resource	Impromptu http://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.css
-// @updateURL   https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/Youtube/MarkOpenedVideos.user.js
+// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/Syncable_MarkOpendVideos/Youtube/Dialog.js
+// @updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/Syncable_MarkOpendVideos/Youtube/MarkOpenedVideos.user.js
 // @grant       GM_setValue
 // @grant       GM_getValue
 // @grant       GM_listValues
 // @grant       GM_deleteValue
 // @grant       GM_registerMenuCommand
+// @grant       GM_addStyle
+// @grant       GM_getResourceText
 // @noframes
 // ==/UserScript==
 
@@ -46,6 +51,16 @@ fixed:	- fixed StyleChanges from Youtube
 	
 23.02.2017 - 2.0.1
 	added: - exported Function ResetDataBaseVersion (only visible on SubscriptionsPage)
+	
+26.02.2017 - 2.0.2
+	fixed: 	- Renamed to Beta
+			- changed Update URL
+			
+28.02.2017 - 2.0.3
+	changed: a lot?
+	
+03.03.2017 - 2.0.4
+	rewritten Storage, again
 */
 
 try {
@@ -66,6 +81,7 @@ try {
 			lastCheckItemCount:0,
 			lastCheckVideoIdAmount:0,
 			lastCheckWatchedVideoAmount:0,
+			lastCheckVideoObjectAmount:0,
 			
 			MultiRow: false
 		},
@@ -76,9 +92,10 @@ try {
 			OpenInNewTabWhenScanned: true,
 			TimerInterval: 5000,
 			UninterestingVideos: (["Recht für YouTuber:"]),
-			NotWantedVideos: (["Arumba Plays DOTA", "Europa Universalis IV", "Let's Play Crusader Kings 2", "Challenge WBS:", "Let's Play Civilization VI", "Let's Play Galactic Civilizations 3", "The Binding of Isaac ", "Civilization 6", "Endless Space", "Galactic Cililisations 3", "Civilization V", "Let's Play Stellaris", "SPAZ2"]),
+			NotWantedVideos: (["Arumba Plays DOTA", "Europa Universalis IV", "Let's Play Crusader Kings 2", "Challenge WBS:", "Let's Play Civilization VI", "Let's Play Galactic Civilizations 3", "The Binding of Isaac ", "Civilization 6", "Endless Space", "Galactic Cililisations 3", "Civilization V", "Let's Play Stellaris", "SPAZ2", "[EU4]"]),
 			DeleteNotWantedVideos: false,
-			HideAlreadyWatchedVideos: false
+			HideAlreadyWatchedVideos: false,
+			ShowAlreadyWatchedDialog: true
 		},
 
 		HTML: {
@@ -124,6 +141,11 @@ try {
 			defineAs: "ResetAllTNData"
 		});
 		
+		//ResetAllTNData
+		exportFunction(function(){alert("Not Implemented!")}, unsafeWindow, {
+			defineAs: "ResetAllTNData"
+		});
+		
 		//ResetDataBaseVersion
 		exportFunction(function(){
 			if (confirm("Sollen wirklich die Versionen von allen Tabellen gelöscht werden?") !== true) {return;}
@@ -156,10 +178,18 @@ try {
 			TabNoc.Settings.HideAlreadyWatchedVideos = true;
 			startCheckElements(true, true);
 		});
+		
+		GM_registerMenuCommand("ImportData", function () {
+			ImportData();
+		});
+		
+		GM_registerMenuCommand("ExportData", function () {
+			alert(ExportData());
+		});
 
 		GM_registerMenuCommand("Markieren", function () {
-			startCheckElements(true);
-			// startCheckElements(!TabNoc.Variables.MarkToggleState);
+			// startCheckElements(true);
+			startCheckElements(!TabNoc.Variables.MarkToggleState);
 		});
 
 		GM_registerMenuCommand("Einlesen", function () {
@@ -169,11 +199,12 @@ try {
 
 	function startCheckElements(ToggleState, force) {
 		if (document.hidden === false || force === true) {
-			// ### Scanned-Videos ###
+			// ### ScannedVideoArray ###
 			scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
-			
-			// ### Watched-Videos ###
+			// ### WatchedVideoArray ###
 			watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
+			// ### VideoObjectDictionary ###
+			videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "([])");
 
 			if ($(".item-section").find(".yt-uix-tile-link").length == 0) {
 				TabNoc.Variables.MultiRow = true;
@@ -181,18 +212,20 @@ try {
 			
 			var elements = TabNoc.Variables.MultiRow ? $(".yt-shelf-grid-item") : $(".item-section");
 			if (force === true || TabNoc.Variables.lastCheckItemCount !== elements.length || 
-			TabNoc.Variables.lastCheckVideoIdAmount !== scannedVideoArray.length || 
-			TabNoc.Variables.lastCheckWatchedVideoAmount !== watchedVideoArray.length) {
-				execTime(checkElements, watchedVideoArray.reverse(), scannedVideoArray.reverse(), elements, ToggleState);
+					TabNoc.Variables.lastCheckVideoIdAmount !== scannedVideoArray.length || 
+					TabNoc.Variables.lastCheckWatchedVideoAmount !== watchedVideoArray.length ||
+					TabNoc.Variables.lastCheckVideoObjectAmount !== GetElementCount(videoObjectDictionary)) {
+				execTime(checkElements, watchedVideoArray.reverse(), scannedVideoArray.reverse(), videoObjectDictionary, elements, ToggleState);
 				
 				TabNoc.Variables.lastCheckVideoIdAmount = scannedVideoArray.length;
 				TabNoc.Variables.lastCheckWatchedVideoAmount = watchedVideoArray.length;
+				TabNoc.Variables.lastCheckVideoObjectAmount = GetElementCount(videoObjectDictionary);
 				TabNoc.Variables.lastCheckItemCount = elements.length;
 			}
 		}
 	}
 
-	function checkElements(watchedVideoArray, scannedVideoArray, elements, ToggleState) {
+	function checkElements(watchedVideoArray, scannedVideoArray, videoObjectDictionary, elements, ToggleState) {
 		var UnScannedElements = 0;
 
 		if (ToggleState == null) {
@@ -205,7 +238,7 @@ try {
 			if (currentElement.className == "undefined") { continue; }
 			
 			if (currentElement.className.includes("item-section") || currentElement.className.includes("yt-shelf-grid-item")) {
-				UnScannedElements = checkElement(watchedVideoArray, scannedVideoArray, currentElement, ToggleState) == true ? UnScannedElements : UnScannedElements + 1;
+				UnScannedElements = checkElement(watchedVideoArray, scannedVideoArray, videoObjectDictionary, currentElement, ToggleState) == true ? UnScannedElements : UnScannedElements + 1;
 			} else {
 				console.warn(currentElement);
 			}
@@ -215,12 +248,9 @@ try {
 		console.log((elements.length - UnScannedElements) + " Marked Elements | " + UnScannedElements + " UnMarked Elements | Total " + elements.length + " Elements (" + scannedVideoArray.length + " Videos listed | " + watchedVideoArray.length + " Videos watched)")
 	}
 
-	function checkElement(watchedVideoArray, scannedVideoArray, currentElement, ToggleState) {
+	function checkElement(watchedVideoArray, scannedVideoArray, videoObjectDictionary, currentElement, ToggleState) {
 		//return true if checkedElement is already Scanned
-		var SearchString = $(currentElement).find("." + (TabNoc.Variables.MultiRow ? "yt-uix-sessionlink" : "yt-uix-tile-link"))[0].getAttribute("href").replace("/watch?v=", "").split("&list")[0].split("&t=")[0];
-		
-		var v_ID = scannedVideoArray.indexOf(SearchString);
-		var wv_ID = watchedVideoArray.indexOf(SearchString);
+		var VideoID = $(currentElement).find("." + (TabNoc.Variables.MultiRow ? "yt-uix-sessionlink" : "yt-uix-tile-link"))[0].getAttribute("href").replace("/watch?v=", "").split("&list")[0].split("&t=")[0];
 		
 		var setColor = function(color) {
 			$(currentElement).css("background-color", color);
@@ -233,14 +263,14 @@ try {
 		};
 		
 		if (ToggleState === true) {
-			if (v_ID != -1) {
+			if (GetVideoWatched(scannedVideoArray, false, VideoID)) {
 				setColor("rgb(151, 255, 139)");
 				if (TabNoc.Settings.HideAlreadyWatchedVideos === true) {
 					currentElement.style.display = "none";
 				}
 				return true;
 			} 
-			else if (wv_ID != -1) {
+			else if (GetVideoWatched(watchedVideoArray, videoObjectDictionary, VideoID)) {
 				setColor("rgb(166, 235, 158)");
 				if (TabNoc.Settings.HideAlreadyWatchedVideos === true) {
 					currentElement.style.display = "none";
@@ -296,7 +326,7 @@ try {
 				if (element.className.includes("item-section")) {
 					var currentElementId = $(element).find(".yt-uix-tile-link")[0].getAttribute("href");
 					
-					if (scannedVideoArray.indexOf(currentElementId) == -1) {
+					if (GetVideoWatched(scannedVideoArray, false, currentElementId) === false) {
 						scannedVideoArray.push(currentElementId);
 						//Open in new Tab
 						if (TabNoc.Settings.OpenInNewTabWhenScanned === true) {
@@ -373,16 +403,15 @@ try {
 				VideoID: unsafeWindow.document.getElementById("movie_player").getVideoData().video_id,
 				VideoTitle: unsafeWindow.document.getElementById("movie_player").getVideoData().title,
 				VideoAuthor: unsafeWindow.document.getElementById("movie_player").getVideoData().author,
-				WatchedLength: -99,
-				VideoLength: unsafeWindow.document.getElementById("movie_player").getDuration()
+				Watches: [{WatchedLength: -99, Date: new Date().toLocaleString()}],
+				VideoLength: Math.floor(unsafeWindow.document.getElementById("movie_player").getDuration())
 			}.toSource();
 			
-			
-			if (GetVideoWatched(null, eval(TabNoc.Variables.VideoStatisticsObject).VideoID) === false) {
-				PushVideoObject(null, null, eval(TabNoc.Variables.VideoStatisticsObject), true);
-			}
-			else {
-alert("watched");
+			PushVideoObject(null, eval(TabNoc.Variables.VideoStatisticsObject), true);
+			if (TabNoc.Settings.ShowAlreadyWatchedDialog === true ) {
+				if (GetVideoWatched(null, null, eval(TabNoc.Variables.VideoStatisticsObject).VideoID) === true) {
+					setTimeout(function(){alert("watched");}, 10);
+				}
 			}
 			
 			// new YT version (the one with the black player) doesn't have this button
@@ -394,39 +423,6 @@ alert("watched");
 		} catch (exc) {
 			console.error(exc);
 			alert(exc);
-		}
-	}
-	
-	function GetVideoWatched(watchedVideoArray, VideoID) {
-		if (watchedVideoArray === null || watchedVideoArray === undefined) {
-			watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
-		}
-		return watchedVideoArray.indexOf(VideoID) !== -1;
-	}
-	
-	function PushVideoObject(videoObjectDictionary, watchedVideoArray, videoObject, save) {
-		if (videoObjectDictionary === null) {
-			videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
-		}
-		if (watchedVideoArray === null) {
-			watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
-		}
-		
-		var today = new Date().toLocaleDateString();
-		if (videoObjectDictionary[today] === undefined) {
-			videoObjectDictionary[today] = ([]);
-		}
-		
-		if (videoObjectDictionary[today].indexOf(videoObject) === -1) {
-			videoObjectDictionary[today].push(videoObject);
-		}
-		if (watchedVideoArray[today].indexOf(videoObject.VideoID) === -1) {
-			watchedVideoArray.push(videoObject.VideoID);
-		}
-		
-		if (save === true) {
-			GM_setValue("VideoObjectDictionary", videoObjectDictionary.toSource());
-			GM_setValue("WatchedVideoArray", watchedVideoArray.toSource());
 		}
 	}
 	
@@ -447,11 +443,11 @@ alert("watched");
 			if (href == null) {
 				href = element.children[0].getAttribute("href");
 			}
-			if (href != null && href != "" && GetVideoWatched(watchedVideoArray, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
-				setColor(elements[i], "rgb(166, 235, 158)");
+			if (href != null && href != "" && GetVideoWatched(watchedVideoArray, null, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
+				elements[i].style.backgroundColor = "rgb(166, 235, 158)";
 			}
-			else if (href != null && href != "" && GetVideoWatched(scannedVideoArray, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
-				setColor(elements[i], "rgb(151, 255, 139)");
+			else if (href != null && href != "" && GetVideoWatched(scannedVideoArray, null, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
+				elements[i].style.backgroundColor = "rgb(151, 255, 139)";
 			}
 		}
 	}
@@ -480,9 +476,9 @@ alert("watched");
 		if (TabNoc.Variables.VideoStatisticsObject == null){return false;}
 		try {
 			VideoStatisticsObject = eval(TabNoc.Variables.VideoStatisticsObject);
-			VideoStatisticsObject.WatchedLength = TabNoc.Variables.WatchedLength;
+			VideoStatisticsObject.Watches[VideoStatisticsObject.Watches.length - 1].WatchedLength = TabNoc.Variables.WatchedLength;
 			
-			PushVideoObject(null, null, VideoStatisticsObject, true);
+			PushVideoObject(null, VideoStatisticsObject, true);
 		} catch (exc) {
 			console.error(exc);
 			alert(exc);
@@ -490,6 +486,7 @@ alert("watched");
 	}
 	// ### https://www.youtube.com/watch?v=* ###
 
+	// ### https://www.youtube.com/feed/history ### 
 	// ### https://www.youtube.com/results?* ### 
 	function SearchResultLoader(){
 		console.log("MarkOpenedVideos.user.js loading");
@@ -520,20 +517,21 @@ alert("watched");
 		for (i = 0; i < elements.length; i++) {
 			var element = elements[i].children[0].children[0].children[0];
 			var href = element.getAttribute("href");
-			if (href != null && href != "" && GetVideoWatched(watchedVideoArray, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
+			if (href != null && href != "" && GetVideoWatched(watchedVideoArray, null, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
 				setColor(elements[i], "rgb(166, 235, 158)");
 			}
-			else if (href != null && href != "" && GetVideoWatched(scannedVideoArray, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
+			else if (href != null && href != "" && GetVideoWatched(scannedVideoArray, false, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
 				setColor(elements[i], "rgb(151, 255, 139)");
 			}
 		}
 	}
 	// ### https://www.youtube.com/results?* ### 
+	// ### https://www.youtube.com/feed/history ### 
 	
 	function UpdateDataBase() {
 		var CurrentVersion_WatchedVideoArray = 0;
 		var CurrentVersion_ScannedVideoArray = 0;
-		var CurrentVersion_VideoObjectDictionary = 0;
+		var CurrentVersion_VideoObjectDictionary = 2;
 		
 		// ### WatchedVideoArray-Version ###
 		Version_WatchedVideoArray = eval(GM_getValue("WatchedVideoArray-Version"));
@@ -549,6 +547,7 @@ alert("watched");
 		// ### WatchedVideoArray ###
 		if (Version_WatchedVideoArray != CurrentVersion_WatchedVideoArray) {
 			console.info("Es wurde ein Versionsunterschied der Datenbank-Tabelle WatchedVideoArray gefunden (alt: " + Version_WatchedVideoArray + " | aktuell: " + CurrentVersion_WatchedVideoArray + ")");
+			alert("Es wurde ein Versionsunterschied der Datenbank-Tabelle WatchedVideoArray gefunden (alt: " + Version_WatchedVideoArray + " | aktuell: " + CurrentVersion_WatchedVideoArray + ")\r\nOK drücken um den Updatevorgang zu starten.");
 			if (Version_WatchedVideoArray === undefined) {
 				// aus der alten Tabelle '' importieren, same DataStructure
 				
@@ -601,6 +600,7 @@ alert("watched");
 		// ### ScannedVideoArray ###
 		if (Version_ScannedVideoArray != CurrentVersion_ScannedVideoArray) {
 			console.info("Es wurde ein Versionsunterschied der Datenbank-Tabelle ScannedVideoArray gefunden (alt: " + Version_ScannedVideoArray + " | aktuell: " + CurrentVersion_ScannedVideoArray + ")");
+			alert("Es wurde ein Versionsunterschied der Datenbank-Tabelle ScannedVideoArray gefunden (alt: " + Version_ScannedVideoArray + " | aktuell: " + CurrentVersion_ScannedVideoArray + ")\r\nOK drücken um den Updatevorgang zu starten.");
 			if (Version_ScannedVideoArray === undefined) {
 				// ### Videos ###
 				var Videos = eval(GM_getValue("Videos") || null);
@@ -655,6 +655,7 @@ alert("watched");
 		// ### VideoObjectDictionary ###
 		if (Version_VideoObjectDictionary != CurrentVersion_VideoObjectDictionary) {
 			console.info("Es wurde ein Versionsunterschied der Datenbank-Tabelle VideoObjectDictionary gefunden (alt: " + Version_VideoObjectDictionary + " | aktuell: " + CurrentVersion_VideoObjectDictionary + ")");
+			alert("Es wurde ein Versionsunterschied der Datenbank-Tabelle VideoObjectDictionary gefunden (alt: " + Version_VideoObjectDictionary + " | aktuell: " + CurrentVersion_VideoObjectDictionary + ")\r\nOK drücken um den Updatevorgang zu starten.");
 			if (Version_VideoObjectDictionary === undefined) {
 				
 				// ### VideoStatistics ###
@@ -687,7 +688,7 @@ alert("watched");
 			}
 			else {
 				// ### VideoObjectDictionary ###
-				VideoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "([])");
+				videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "([])");
 				
 				// Dieser Code entfernt alle Einträge, welche keinen Objekt eintrag haben (allerdings sind es bei mir ~1500, das ist ziemlich viel
 				{
@@ -754,7 +755,47 @@ alert("watched");
 					*/
 				}
 					
-				switch (Version_WatchedVideoArray) {
+				switch (Version_VideoObjectDictionary) {
+					case 0:
+						VideoObjectDictionary.Version = 0;
+						GM_setValue("VideoObjectDictionary-Version", 1);
+						GM_setValue("VideoObjectDictionary", videoObjectDictionary.toSource());
+						console.info("VideoObjectDictionary auf Version 1 aktualisiert");
+						break;
+						
+					case 1:
+						GM_setValue("VideoObjectDictionary-Version-1", videoObjectDictionary.toSource());
+						// VideoObjectDictionary.Version = 2;
+						
+						var newStructure = ({});
+						var count = 0;
+						
+						for (var i in videoObjectDictionary) {
+							for (var j in videoObjectDictionary[i]) {
+								var newObject = videoObjectDictionary[i][j];
+								if (newObject.Watches !== undefined) {throw "Was ist das ?"}
+								newObject.Watches = ([]);
+								newObject.Watches.push(({WatchedLength: newObject.WatchedLength, Date: i}));
+								delete newObject.WatchedLength;
+								newObject.VideoLength = Math.floor(newObject.VideoLength);
+								
+								PushVideoObject(newStructure, newObject, false);
+								count++;
+							}
+						}
+						
+						console.log("Die Version der Tabelle VideoObjectDictionary ist " + GM_getValue("VideoObjectDictionary-Version"));
+						alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B)");
+						if (confirm("Sollen die Änderungen gespeichert werden?") === true) {
+							GM_setValue("VideoObjectDictionary-Version", 2);
+							console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + GM_getValue("VideoObjectDictionary-Version") + " geändert");
+							GM_setValue("VideoObjectDictionary", newStructure.toSource());
+						}
+						else {
+							throw "UserAbort";
+						}
+						break;
+						
 					default:
 						throw("No Update Implemeneted!");
 						break;
@@ -770,12 +811,186 @@ alert("watched");
 		}
 	}
 	
+	function ImportData() {
+		try {
+			var data = eval(prompt("Please insert Data"));
+			
+			var videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
+			for (var i in data) {
+				for (var j in data[i]) {
+					var found = false;
+					var vOD_j = 0;
+					for (vOD_j in videoObjectDictionary[i]) {
+						if (videoObjectDictionary[i][vOD_j].VideoID === data[i][j].VideoID) {
+							found = true;
+							break;
+						}
+					}
+					console.log(data[i][j].toSource());
+					console.log(videoObjectDictionary[i][vOD_j].toSource());
+					if (found === false) {
+						videoObjectDictionary[i].push(data[i][j]);
+					}
+					else if (videoObjectDictionary[i][vOD_j].toSource() !== data[i][j].toSource()) {
+						alert("Element has to be merged, currently not implemented")
+						throw "NotImplementedException"
+					}
+				}
+			}
+		}
+		catch (exc) {
+			console.error(exc);
+			alert("Das Importieren ist fehlgeschlagen!");
+		}
+	}
+	
+	function ExportData() {
+		return (GM_getValue("VideoObjectDictionary") || "({})");
+	}
+	
+	function GetVideoWatched(watchedVideoArray, videoObjectDictionary, VideoID) {
+		// If videoObjectDictionary is false ignore Elements from Dictionary (only check Elements from WatchedVideoArray)
+		if (videoObjectDictionary !== false) {
+			if (videoObjectDictionary === null) {
+				videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
+			}
+			// for (var i in videoObjectDictionary) {
+				// for (var j in videoObjectDictionary[i]) {
+					// if (videoObjectDictionary[i][j].VideoID === VideoID) {
+						// return true;
+					// }
+				// }
+			// }
+			for (var index in videoObjectDictionary) {
+				if (index === VideoID) {
+					return true;
+				}
+			}
+		}
+		
+		// If watchedVideoArray is false ignore Elements from Array (only check Elements from VideoObjectDictionary)
+		if (watchedVideoArray !== false) {
+			if (watchedVideoArray === null || watchedVideoArray === undefined) {
+				watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
+			}
+			if (watchedVideoArray.indexOf(VideoID) !== -1) {
+				console.info("found Video only in old Declarationtable");
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	function PushVideoObject(videoObjectDictionary, videoObject, save) {
+		console.log("Pushing...");
+		console.log(videoObject);
+		if (videoObjectDictionary === null) {
+			videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
+			save = true;
+		}
+		
+		if (videoObjectDictionary[videoObject.VideoID] === undefined) {
+			videoObjectDictionary[videoObject.VideoID] = videoObject;
+		}
+		else {
+			videoObjectDictionary[videoObject.VideoID] = MergeVideoObjects(videoObjectDictionary[videoObject.VideoID], videoObject);
+		}
+		
+		if (save === true) {
+			GM_setValue("VideoObjectDictionary", videoObjectDictionary.toSource());
+		}
+	}
+	
+	function GetElementCount(videoObjectDictionary) {
+		if (videoObjectDictionary === null) {
+			videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
+		}
+		var count = 0;
+		for (var i in videoObjectDictionary) {
+			count++;
+		}
+		return count;
+	}
+	
+	function MergeVideoObjects(videoObject_1, videoObject_2) {
+		console.log("Merging...");
+		var namesArray = ([]);
+		for (var i in videoObject_1) {
+			if (namesArray.indexOf(i) === -1) {
+				namesArray.push(i);
+			}
+		}
+		for (var i in videoObject_2) {
+			if (namesArray.indexOf(i) === -1) {
+				namesArray.push(i);
+			}
+		}
+		
+		for (var i in namesArray) {
+			var objectIndex = namesArray[i];
+			if (videoObject_1[objectIndex] === undefined || videoObject_2[objectIndex] === undefined) {console.log(objectIndex);alert(objectIndex);}
+			if (videoObject_1[objectIndex].toSource() !== videoObject_2[objectIndex].toSource()) {
+				switch(objectIndex) {
+					case "Watches":
+						newObject = ([]);
+						for (var index1_i in videoObject_1[objectIndex]) {
+							if (videoObject_1[objectIndex][index1_i].WatchedLength === -99) {continue;}
+							
+							var found = false;
+							for (var index2_i in videoObject_2[objectIndex]) {
+								if (videoObject_1[objectIndex][index1_i].toSource() === videoObject_2[objectIndex][index2_i].toSource()) {
+									newObject.push(eval(videoObject_1[objectIndex][index1_i].toSource()));
+									delete videoObject_2[objectIndex][index2_i];
+									found = true;
+								} else if (videoObject_1[objectIndex][index1_i].Date === videoObject_2[objectIndex][index2_i].Date) {
+									// Same Date and Time from Website Call, thats the same, choose the highest WatchedLength
+									videoObject_1[objectIndex][index1_i].WatchedLength = Math.max(videoObject_1[objectIndex][index1_i].WatchedLength, videoObject_2[objectIndex][index2_i].WatchedLength);
+									newObject.push(eval(videoObject_1[objectIndex][index1_i].toSource()));
+									delete videoObject_2[objectIndex][index2_i];
+									found = true;
+								}
+							}
+							
+							if (found === false) {
+								// Der Eintrag ist nur im ersten Element vorhanden -> hinzufügen
+								newObject.push(eval(videoObject_1[objectIndex][index1_i].toSource()));
+							}
+						}
+						if (videoObject_2[objectIndex].length !== 0){
+							// ich füge diese Elemente jetzt erstmal dazu, weiß nicht so genau ob ich noch einen Fehler haben könnte
+							for (var j in videoObject_2[objectIndex]) {
+								newObject.push(eval(videoObject_2[objectIndex][j].toSource()));
+							}
+						}
+					
+					
+						// gleichstellen, damit vergleich funktioniert
+						videoObject_1.Watches = eval(newObject.toSource());
+						videoObject_2.Watches = eval(newObject.toSource());
+						break;
+					
+					default:
+						console.error("Für diesen Unterschied wurde kein merge definiert![" + objectIndex + "]");
+						console.log(videoObject_1);
+						console.log(videoObject_2);
+						alert("Für diesen Unterschied wurde kein merge definiert!\r\nSiehe Konsole für mehr Informationen.");
+						throw "NotDefinedException"
+						break;
+				}
+			}
+		}
+		
+		console.log(eval(videoObject_1.toSource()));
+		return eval(videoObject_1.toSource());
+	}
 	
 	function Main() {
+		GM_addStyle(GM_getResourceText("Impromptu"));
 		UpdateDataBase();
 		
 		// SearchResult
-		if ($("#results").length == 1){
+		// if ($("#results").length == 1){
+		if (document.URL.contains("https://www.youtube.com/results?") === true || document.URL === "https://www.youtube.com/feed/history") {
 			$(SearchResultLoader);
 		}
 		// Watching Video
@@ -783,7 +998,7 @@ alert("watched");
 			$(VideoPageLoader);
 		}
 		// SubscriptionPage
-		else if ($("#browse-items-primary").length == 1) {
+		else if ($("#browse-items-primary").length == 1 || document.URL === "https://www.youtube.com/") {
 			$(SubscriptionPageLoader);
 		}
 		
