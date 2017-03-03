@@ -407,12 +407,12 @@ try {
 				VideoLength: Math.floor(unsafeWindow.document.getElementById("movie_player").getDuration())
 			}.toSource();
 			
-			PushVideoObject(null, eval(TabNoc.Variables.VideoStatisticsObject), true);
 			if (TabNoc.Settings.ShowAlreadyWatchedDialog === true ) {
 				if (GetVideoWatched(null, null, eval(TabNoc.Variables.VideoStatisticsObject).VideoID) === true) {
 					setTimeout(function(){alert("watched");}, 10);
 				}
 			}
+			PushVideoObject(null, eval(TabNoc.Variables.VideoStatisticsObject), true);
 			
 			// new YT version (the one with the black player) doesn't have this button
 			if ($("#watch-more-related-button").length > 0) {
@@ -757,15 +757,8 @@ try {
 					
 				switch (Version_VideoObjectDictionary) {
 					case 0:
-						VideoObjectDictionary.Version = 0;
-						GM_setValue("VideoObjectDictionary-Version", 1);
-						GM_setValue("VideoObjectDictionary", videoObjectDictionary.toSource());
-						console.info("VideoObjectDictionary auf Version 1 aktualisiert");
-						break;
-						
 					case 1:
 						GM_setValue("VideoObjectDictionary-Version-1", videoObjectDictionary.toSource());
-						// VideoObjectDictionary.Version = 2;
 						
 						var newStructure = ({});
 						var count = 0;
@@ -813,34 +806,32 @@ try {
 	
 	function ImportData() {
 		try {
-			var data = eval(prompt("Please insert Data"));
+			var data_vOD = eval(prompt("Please insert new VideoObjectDictionary Data"));
+			var data_wVA = eval(prompt("Please insert new WatchedVideoArray Data"));
 			
 			var videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
-			for (var i in data) {
-				for (var j in data[i]) {
-					var found = false;
-					var vOD_j = 0;
-					for (vOD_j in videoObjectDictionary[i]) {
-						if (videoObjectDictionary[i][vOD_j].VideoID === data[i][j].VideoID) {
-							found = true;
-							break;
-						}
-					}
-					console.log(data[i][j].toSource());
-					console.log(videoObjectDictionary[i][vOD_j].toSource());
-					if (found === false) {
-						videoObjectDictionary[i].push(data[i][j]);
-					}
-					else if (videoObjectDictionary[i][vOD_j].toSource() !== data[i][j].toSource()) {
-						alert("Element has to be merged, currently not implemented")
-						throw "NotImplementedException"
-					}
+			var watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "({})");
+			var oldDatabaseSize = videoObjectDictionary.toSource().length;
+			var count = 0;
+			
+			for (var i in data_vOD) {
+				PushVideoObject(videoObjectDictionary, data_vOD[i], false);
+				count++;
+			}
+			
+			for (var i in data_wVA) {
+				if (watchedVideoArray.indexOf(data_wVA[i] === -1)) {
+					watchedVideoArray.push(data_wVA[i]);
 				}
 			}
+			alert("Das Importieren wurde erfolgreich abgeschlossen!\r\nEs wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + oldDatabaseSize + "B | neue Datenmenge: " + videoObjectDictionary.toSource().length + "B)");
+			
+			GM_setValue("VideoObjectDictionary", videoObjectDictionary.toSource());
+			GM_setValue("WatchedVideoArray", watchedVideoArray.toSource());
 		}
 		catch (exc) {
 			console.error(exc);
-			alert("Das Importieren ist fehlgeschlagen!");
+			alert("Das Importieren ist fehlgeschlagen!\r\n" + exc);
 		}
 	}
 	
@@ -882,8 +873,9 @@ try {
 	}
 	
 	function PushVideoObject(videoObjectDictionary, videoObject, save) {
-		console.log("Pushing...");
+		console.log("Pushing ...");
 		console.log(videoObject);
+		if (typeof(videoObject) !== "object") {throw "WrongTypeException:Only Objects can be Pushed into the Database."}
 		if (videoObjectDictionary === null) {
 			videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
 			save = true;
@@ -891,9 +883,11 @@ try {
 		
 		if (videoObjectDictionary[videoObject.VideoID] === undefined) {
 			videoObjectDictionary[videoObject.VideoID] = videoObject;
+			console.log("... Pushed");
 		}
 		else {
 			videoObjectDictionary[videoObject.VideoID] = MergeVideoObjects(videoObjectDictionary[videoObject.VideoID], videoObject);
+			console.log("... Merged PushRequest");
 		}
 		
 		if (save === true) {
@@ -913,7 +907,7 @@ try {
 	}
 	
 	function MergeVideoObjects(videoObject_1, videoObject_2) {
-		console.log("Merging...");
+		console.log("Merging ...");
 		var namesArray = ([]);
 		for (var i in videoObject_1) {
 			if (namesArray.indexOf(i) === -1) {
@@ -967,6 +961,12 @@ try {
 						// gleichstellen, damit vergleich funktioniert
 						videoObject_1.Watches = eval(newObject.toSource());
 						videoObject_2.Watches = eval(newObject.toSource());
+						break;
+					
+					case "VideoLength":
+						var VideoLength = Math.max(videoObject_1.VideoLength, videoObject_2.VideoLength);
+						videoObject_1.VideoLength = eval(VideoLength);
+						videoObject_2.VideoLength = eval(VideoLength);
 						break;
 					
 					default:
