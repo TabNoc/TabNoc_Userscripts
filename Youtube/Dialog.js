@@ -1,5 +1,5 @@
-https://formbuilder.online/
-var statesdemo = {
+//https://formbuilder.online/
+var ImportExportDialog = {
 	SelectTypeOfOperation: {
 		title: 'TypeOfOperation',
 		html:'<label><input type="radio" name="OperationType" value="Import"> Import</label><br />'+
@@ -9,22 +9,32 @@ var statesdemo = {
 			console.log(formVals);
 
 			event.preventDefault();
-			$.prompt.goToState('Operation');
+			
+			setTimeout(function(){$("#TN_OutPut").html(formVals.OperationType === "Import" ? true : "Chooser");}, 250);
+			if (formVals.OperationType === "Export") {
+				$.prompt.goToState('chooserExport', true);
+			}
+			else {
+				$.prompt.goToState('Operation');
+			}
 		}
 	},
 	Operation: {
-		title: 'Some stuff to come, ',
-		html:'',
-		buttons: { Back: -1, Next: 1 },
+		title: 'Some stuff to come, dynamic',
+		html:'<input id="tn_output"></input>',
+		buttons: { Back: -1, Close: 0 },
 		submit: function (event, value, message, formVals) {
 			console.log(formVals);
 
 			event.preventDefault();
 			if (value === 1) {
-				$.prompt.goToState('state2');
+				$.prompt.goToState('confirming');
 			}
-			else if(value === -1) {
-				$.prompt.goToState('state0');
+			else if (value === -1) {
+				$.prompt.goToState('SelectTypeOfOperation');
+			}
+			else if (value === 0) {
+				$.prompt.close();
 			}
 		}
 	},
@@ -45,6 +55,20 @@ var statesdemo = {
 			}
 		}
 	},
+	chooserExport: {
+		html:'witch Type of Export?',
+		buttons: { VideoObjectDictionary: 1, WatchedVideoArray: 2 },
+		submit: function (event, value, message, formVals) {
+			console.log(formVals);
+			event.preventDefault();
+			
+			window.prompt("Tada!", value === 1 ? ExportData("VideoObjectDictionary") : ExportData("WatchedVideoArray"));
+			
+			setTimeout(function(){$("#tn_output").val(value === 1 ? ExportData("VideoObjectDictionary") : ExportData("WatchedVideoArray"));}, 250);
+				
+			$.prompt.goToState('Operation');
+		}
+	},
 	finished: {
 		title: "You're Done!",
 		html: "Congratulations, the Data has been imported!",
@@ -53,4 +77,4 @@ var statesdemo = {
 	}
 };
 
-$.prompt(statesdemo);
+// $.prompt(statesdemo);
