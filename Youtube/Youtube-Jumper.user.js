@@ -1,4 +1,4 @@
-﻿// ==UserScript==
+// ==UserScript==
 // @name        Youtube-Jumper
 // @description ©Marco Neuthor 2017
 // @include     http*://www.youtube.*/watch?*
@@ -410,7 +410,7 @@ try {
 					DetectorInterval : null,
 					CopySizePercentage : 10,
 					BaseVideo : document.getElementsByClassName("html5-main-video")[0],
-					TriggerAmount : 450, //200, //min 257, //500, //550,		22.09.2016, YT has changed the player? older vids don't functions ether
+					TriggerAmount : 1600, //450, //200, //min 257, //500, //550,		22.09.2016, YT has changed the player? older vids don't functions ether
 					TriggerDarkPercentage : 70,
 					StopIntervalAfterTrigger : true,
 				});
