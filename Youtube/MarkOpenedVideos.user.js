@@ -141,11 +141,6 @@ try {
 			defineAs: "ResetAllTNData"
 		});
 		
-		//ResetAllTNData
-		exportFunction(function(){alert("Not Implemented!")}, unsafeWindow, {
-			defineAs: "ResetAllTNData"
-		});
-		
 		//ResetDataBaseVersion
 		exportFunction(function(){
 			if (confirm("Sollen wirklich die Versionen von allen Tabellen gelöscht werden?") !== true) {return;}
@@ -184,7 +179,8 @@ try {
 		});
 		
 		GM_registerMenuCommand("ExportData", function () {
-			alert(ExportData());
+			//alert(ExportData());
+			$.prompt(ImportExportDialog);
 		});
 
 		GM_registerMenuCommand("Markieren", function () {
@@ -456,7 +452,7 @@ try {
 		TabNoc.Variables.WatchedLength = 0;
 		TabNoc.Variables.HasSavedDataOnEnd = false;
 		TabNoc.Variables.WatchedLengthInterval = setInterval(function(){
-			try{
+			try {
 				if (unsafeWindow.document.getElementById("movie_player").getPlayerState() == 1 /*Playing*/) {
 					TabNoc.Variables.WatchedLength += 1;
 					TabNoc.Variables.HasSavedDataOnEnd = false;
@@ -464,6 +460,9 @@ try {
 				if (unsafeWindow.document.getElementById("movie_player").getPlayerState() == 0 && TabNoc.Variables.HasSavedDataOnEnd === false) {
 					SaveVideoStatistics();
 					TabNoc.Variables.HasSavedDataOnEnd = true;
+				}
+				if (TabNoc.Variables.WatchedLength % 30 === 0) {
+					SaveVideoStatistics();
 				}
 			} catch (exc) {
 				console.error(exc);
@@ -478,7 +477,7 @@ try {
 			VideoStatisticsObject = eval(TabNoc.Variables.VideoStatisticsObject);
 			VideoStatisticsObject.Watches[VideoStatisticsObject.Watches.length - 1].WatchedLength = TabNoc.Variables.WatchedLength;
 			
-			PushVideoObject(null, VideoStatisticsObject, true);
+			PushVideoObject(null, eval(VideoStatisticsObject.toSource()), true);
 		} catch (exc) {
 			console.error(exc);
 			alert(exc);
@@ -811,23 +810,42 @@ try {
 			
 			var videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
 			var watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "({})");
-			var oldDatabaseSize = videoObjectDictionary.toSource().length;
-			var count = 0;
+			var count_vOD = 0;
+			var count_wVA = 0;
 			
+			var newObject = ({});
+			
+			for (var i in videoObjectDictionary) {
+				PushVideoObject(newObject, videoObjectDictionary[i], false);
+			}
 			for (var i in data_vOD) {
-				PushVideoObject(videoObjectDictionary, data_vOD[i], false);
-				count++;
+				PushVideoObject(newObject, data_vOD[i], false);
+				count_vOD++;
+			}
+			
+			var newStructure = ([]);
+			
+			for (var i in watchedVideoArray) {
+				if (GetVideoWatched(newStructure, newObject, watchedVideoArray[i]) === false) {
+					newStructure.push(watchedVideoArray[i]);
+				}
 			}
 			
 			for (var i in data_wVA) {
-				if (watchedVideoArray.indexOf(data_wVA[i] === -1)) {
-					watchedVideoArray.push(data_wVA[i]);
+				if (GetVideoWatched(newStructure, newObject, data_wVA[i]) === false) {
+					newStructure.push(data_wVA[i]);
+					count_wVA++;
 				}
 			}
-			alert("Das Importieren wurde erfolgreich abgeschlossen!\r\nEs wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + oldDatabaseSize + "B | neue Datenmenge: " + videoObjectDictionary.toSource().length + "B)");
 			
-			GM_setValue("VideoObjectDictionary", videoObjectDictionary.toSource());
-			GM_setValue("WatchedVideoArray", watchedVideoArray.toSource());
+			alert("Das Importieren wurde erfolgreich abgeschlossen!\r\n" + 
+				"VideoObjectDictionary:\r\n" + 
+				"\tEs wurden " + count_vOD + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newObject.toSource().length + "B)\r\n" +
+				"WatchedVideoArray:\r\n" + 
+				"\tEs wurden " + count_wVA + " Elemente aktualisiert (alte Datenmenge: " + watchedVideoArray.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B)");
+			
+			GM_setValue("VideoObjectDictionary", newObject.toSource());
+			GM_setValue("WatchedVideoArray", newStructure.toSource());
 		}
 		catch (exc) {
 			console.error(exc);
@@ -835,8 +853,8 @@ try {
 		}
 	}
 	
-	function ExportData() {
-		return (GM_getValue("VideoObjectDictionary") || "({})");
+	function ExportData(Value) {
+		return (GM_getValue(Value) || "({})");
 	}
 	
 	function GetVideoWatched(watchedVideoArray, videoObjectDictionary, VideoID) {
