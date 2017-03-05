@@ -1,17 +1,19 @@
-// ==UserScript==
+﻿// ==UserScript==
 // @name        Youtube-Jumper
 // @description ©Marco Neuthor 2017
 // @include     http*://www.youtube.*/watch?*
-// @version     v2.1.4_24022017
+// @version     v2.1.5_05032017
 // @require		https://code.jquery.com/jquery-2.1.1.min.js
 // @require		https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
+// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/TabNoc.js
 // @require		https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/VideoGreyDetector.js
 // require		SomeOtherStuff.js
 // add @ to switch to local solutions
 // require		GM__.js
 // @resource	Impromptu http://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.css
 // @resource	TabNocCSS https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/Youtube/TabNoc.css
+// @updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Youtube/Youtube-Jumper.user.js
 // @grant       GM_getResourceText
 // @grant       GM_addStyle
 // @grant       GM_setValue
@@ -33,14 +35,19 @@ ChangeList started at 12.02.2017
 24.02.2017 - v2.1.4
 [Global]
 	- changed: Imports werden nun vom Master verwendet
+
+05.03.2017 - v2.1.5
+[Global]
+	- added: UpdateURL
+[VideoGreyDetector]
+	- changed: verwendet nun das komplette Video
 */
 
 try {
 	if (String.prototype.contains == null) {String.prototype.contains = String.prototype.includes;}
-	this.$ = this.jQuery = jQuery.noConflict(true);
 	var movie_player = unsafeWindow.document.getElementById("movie_player");
 
-	TabNoc = {
+	setTabNoc({
 		Const : {
 			SearchbarID : "masthead-search-term",
 			LabelContainerID : "masthead-search", //old: "yt-masthead"
@@ -90,7 +97,7 @@ try {
 
 			//Last VisitTime
 			SaveLastVisitDateTime : false,
-			ShowLastVisitDateTime : true,
+			ShowLastVisitDateTime : false,
 
 			//Video Quality
 			ChangeVideoQualityOnLoad : true,
@@ -124,10 +131,10 @@ try {
 		HTML : {
 			Switch : '<div class="onoffswitch" style="margin-top:10px"><input type="checkbox" name="onoffswitch" class="onoffswitch-checkbox" id="TabNoc_VisibleSwitch" checked><label class="onoffswitch-label" for="TabNoc_VisibleSwitch"><div class="onoffswitch-inner"></div><div class="onoffswitch-switch"></div></label></div>'
 		},
-	};
+	});
 
 	function registerTabNoc() {
-		unsafeWindow.TabNoc = cloneInto(TabNoc, unsafeWindow, {
+		TabNoc = cloneInto(TabNoc, unsafeWindow, {
 				wrapReflectors : true
 			});
 		exportFunction(start, unsafeWindow, {
@@ -152,33 +159,33 @@ try {
 		
 		// get UI Location
 		var position = null;
-		if (document.getElementById(unsafeWindow.TabNoc.Const.LocationStartBtnLoggedOut) !== null) {
-			position = document.getElementById(unsafeWindow.TabNoc.Const.LocationStartBtnLoggedOut);
-		} else if (document.getElementById(unsafeWindow.TabNoc.Const.LocationStartBtnLoggedIn) !== null) {
-			position = document.getElementById(unsafeWindow.TabNoc.Const.LocationStartBtnLoggedIn);
+		if (document.getElementById(TabNoc.Const.LocationStartBtnLoggedOut) !== null) {
+			position = document.getElementById(TabNoc.Const.LocationStartBtnLoggedOut);
+		} else if (document.getElementById(TabNoc.Const.LocationStartBtnLoggedIn) !== null) {
+			position = document.getElementById(TabNoc.Const.LocationStartBtnLoggedIn);
 		}
 
 		// place UI Elements
 		if (position !== null) {
 			// Hide Button
-			if (unsafeWindow.TabNoc.Settings.AddButtonToHideAll === true) {
+			if (TabNoc.Settings.AddButtonToHideAll === true) {
 				var switchDiv = document.createElement("div");
 				switchDiv.setAttribute("id", "switchDiv");
-				switchDiv.innerHTML = unsafeWindow.TabNoc.HTML.Switch;
+				switchDiv.innerHTML = TabNoc.HTML.Switch;
 
 				position.insertBefore(switchDiv, position.firstChild);
 
 				// enable VisibleSwitch
 				document.getElementById("TabNoc_VisibleSwitch").setAttribute("onchange", "ytVisible(this.checked); return true;");
 
-				if (unsafeWindow.TabNoc.Settings.ShowHideAllButtonOnLaunch === false) {
+				if (TabNoc.Settings.ShowHideAllButtonOnLaunch === false) {
 					switchDiv.style.display = "none";
 				}
 				switchDiv.className = "yt-uix-button";
 			}
 
 			// Last Visit Time
-			if (unsafeWindow.TabNoc.Settings.ShowLastVisitDateTime) {
+			if (TabNoc.Settings.ShowLastVisitDateTime) {
 				var div = document.createElement("div");
 				div.setAttribute("id", "LastVisitDateTime");
 				div.setAttribute("style", "display:inline-block");
@@ -188,7 +195,7 @@ try {
 				position.insertBefore(div, position.firstChild);
 			}
 			
-			if (unsafeWindow.TabNoc.Settings.ImgToSwitchCloseTab === true) {
+			if (TabNoc.Settings.ImgToSwitchCloseTab === true) {
 				var imgSrcClose = "https://cdn4.iconfinder.com/data/icons/iconset-addictive-flavour/png/button_grey_close.png";
 
 				var img = document.createElement("img");
@@ -196,26 +203,26 @@ try {
 				img.setAttribute("onclick", 'TabNoc.Settings.AskToClosePageIfVideoDone = false;document.getElementById("SwitchCloseTab").style.display = "none";document.getElementById("SavingEnabled").style.marginLeft = "40px";');
 				img.setAttribute("style", "width: 20px; vertical-align: middle; cursor: pointer; opacity: 0.4;margin-left:22px;");
 
-				document.getElementsByClassName(unsafeWindow.TabNoc.Const.LocationBtnSavingEnabled)[0].appendChild(img);
+				document.getElementsByClassName(TabNoc.Const.LocationBtnSavingEnabled)[0].appendChild(img);
 				document.getElementById("SwitchCloseTab").setAttribute("src", imgSrcClose);
 			}
 			
-			if (unsafeWindow.TabNoc.Settings.ImgToSwitchSavingEnabled === true && unsafeWindow.TabNoc.Settings.SavingEnabled === false) {
+			if (TabNoc.Settings.ImgToSwitchSavingEnabled === true && TabNoc.Settings.SavingEnabled === false) {
 				var imgSrcTrue = "https://cdn4.iconfinder.com/data/icons/icocentre-free-icons/137/f-check_256-20.png";
 				var imgSrcFalse = "https://cdn4.iconfinder.com/data/icons/icocentre-free-icons/114/f-cross_256-20.png";
 
 				var changeEnabled = function() {
 					switch (document.getElementById("SavingEnabled").getAttribute("SavingEnabled")) {
 						case "true":
-							unsafeWindow.TabNoc.Settings.SavingEnabled = false;
-							GM__setValue("SavingEnabled", false);
+							TabNoc.Settings.SavingEnabled = false;
+							GM_setValue("SavingEnabled", false);
 							document.getElementById("SavingEnabled").setAttribute("src", imgSrcFalse);
 							document.getElementById("SavingEnabled").setAttribute("SavingEnabled", "false");
 							document.getElementById("SavingEnabled").setAttribute("title", "SavingDisabled");
 							break;
 						case "false":
-							unsafeWindow.TabNoc.Settings.SavingEnabled = true;
-							GM__setValue("SavingEnabled", true);
+							TabNoc.Settings.SavingEnabled = true;
+							GM_setValue("SavingEnabled", true);
 							document.getElementById("SavingEnabled").setAttribute("src", imgSrcTrue);
 							document.getElementById("SavingEnabled").setAttribute("SavingEnabled", "true");
 							document.getElementById("SavingEnabled").setAttribute("title", "SavingEnabled");
@@ -229,14 +236,14 @@ try {
 				img.setAttribute("style", "display:inline-block;vertical-align:middle;margin-left:20px;cursor:pointer");
 				img.onclick = changeEnabled;
 
-				document.getElementsByClassName(unsafeWindow.TabNoc.Const.LocationBtnSavingEnabled)[0].appendChild(img);
+				document.getElementsByClassName(TabNoc.Const.LocationBtnSavingEnabled)[0].appendChild(img);
 
 				var SavingEnabled = GM_getValue("SavingEnabled");
 				if (SavingEnabled !== null) {
-					unsafeWindow.TabNoc.Settings.SavingEnabled = SavingEnabled;
+					TabNoc.Settings.SavingEnabled = SavingEnabled;
 				}
 
-				img.setAttribute("SavingEnabled", !unsafeWindow.TabNoc.Settings.SavingEnabled);
+				img.setAttribute("SavingEnabled", !TabNoc.Settings.SavingEnabled);
 			}
 		}
 
@@ -254,14 +261,14 @@ try {
 				}
 
 				// get current VideoID
-				unsafeWindow.TabNoc.Variables.CurrentVideoID = movie_player.getVideoUrl().split("v=")[1].split("&")[0];
+				TabNoc.Variables.CurrentVideoID = movie_player.getVideoUrl().split("v=")[1].split("&")[0];
 
 				// ***ready***
 				addKeyHandler()
 
 				// getLastVisitDateTime befor set it
-				if (unsafeWindow.TabNoc.Settings.ShowLastVisitDateTime) {
-					GM__getValue(unsafeWindow.TabNoc.Variables.CurrentVideoID + unsafeWindow.TabNoc.Const.SavingExtensionForDateTime, function (value) {
+				if (TabNoc.Settings.ShowLastVisitDateTime) {
+					GM__getValue(TabNoc.Variables.CurrentVideoID + TabNoc.Const.SavingExtensionForDateTime, function (value) {
 						if (value !== null && value > 0) {
 							showDateTime(value);
 						}
@@ -269,29 +276,29 @@ try {
 				}
 
 				// setLastVisitDateTime
-				if (unsafeWindow.TabNoc.Settings.SaveLastVisitDateTime && unsafeWindow.TabNoc.Settings.SavingEnabled) {
-					GM__setValue(unsafeWindow.TabNoc.Variables.CurrentVideoID + unsafeWindow.TabNoc.Const.SavingExtensionForDateTime, Date.now());
+				if (TabNoc.Settings.SaveLastVisitDateTime && TabNoc.Settings.SavingEnabled) {
+					GM__setValue(TabNoc.Variables.CurrentVideoID + TabNoc.Const.SavingExtensionForDateTime, Date.now());
 				}
 
-				if (unsafeWindow.TabNoc.Settings.AddButtonToHideAll === true) {
+				if (TabNoc.Settings.AddButtonToHideAll === true) {
 					document.getElementById("switchDiv").style.display = "";
 				}
-				if (unsafeWindow.TabNoc.Settings.ImgToSwitchSavingEnabled === true) {
+				if (TabNoc.Settings.ImgToSwitchSavingEnabled === true) {
 					document.getElementById("SavingEnabled").click();
 				}
 
 				/*Check if Function has already been executed*/
-				if (document.getElementById(unsafeWindow.TabNoc.Const.remainTimeID) === null) {
+				if (document.getElementById(TabNoc.Const.remainTimeID) === null) {
 					/*create div to write the remainingTime*/
-					unsafeWindow.TabNoc.Variables.Div_RemainTime = document.createElement('div');
-					unsafeWindow.TabNoc.Variables.Div_RemainTime.setAttribute('id', unsafeWindow.TabNoc.Const.remainTimeID);
-//					unsafeWindow.TabNoc.Variables.Div_RemainTime.setAttribute('onclick', 'document.getElementById(TabNoc.Const.remainTimeID).setAttribute("show", "false");return false');
-//					unsafeWindow.TabNoc.Variables.Div_RemainTime.setAttribute('title', "Disable RemainTime");
-					unsafeWindow.TabNoc.Variables.Div_RemainTime.setAttribute('show', "true");
-					document.getElementById(unsafeWindow.TabNoc.Const.LabelContainerID).appendChild(unsafeWindow.TabNoc.Variables.Div_RemainTime);
+					TabNoc.Variables.Div_RemainTime = document.createElement('div');
+					TabNoc.Variables.Div_RemainTime.setAttribute('id', TabNoc.Const.remainTimeID);
+//					TabNoc.Variables.Div_RemainTime.setAttribute('onclick', 'document.getElementById(TabNoc.Const.remainTimeID).setAttribute("show", "false");return false');
+//					TabNoc.Variables.Div_RemainTime.setAttribute('title', "Disable RemainTime");
+					TabNoc.Variables.Div_RemainTime.setAttribute('show', "true");
+					document.getElementById(TabNoc.Const.LabelContainerID).appendChild(TabNoc.Variables.Div_RemainTime);
 
-					/*create the unsafeWindow.TabNoc.Variables.Interval*/
-					unsafeWindow.TabNoc.Variables.Interval = setInterval(OnIntervalTick, 1000);
+					/*create the TabNoc.Variables.Interval*/
+					TabNoc.Variables.Interval = setInterval(OnIntervalTick, 1000);
 				}
 
 				// change Video Size to cimematic mode
@@ -310,19 +317,19 @@ try {
 	
 	function ytVisible(visible) {
 		try {
-			for (index = 0; index < unsafeWindow.TabNoc.Const.HideFieldDisplayNoneID.length; ++index) {
-				document.getElementById(unsafeWindow.TabNoc.Const.HideFieldDisplayNoneID[index]).style.display = visible === false ? "none" : "";
+			for (index = 0; index < TabNoc.Const.HideFieldDisplayNoneID.length; ++index) {
+				document.getElementById(TabNoc.Const.HideFieldDisplayNoneID[index]).style.display = visible === false ? "none" : "";
 			}
-			for (index = 0; index < unsafeWindow.TabNoc.Const.HideFieldZIndexID.length; ++index) {
-				document.getElementById(unsafeWindow.TabNoc.Const.HideFieldZIndexID[index]).style.zIndex = visible === false ? "-1" : "";
+			for (index = 0; index < TabNoc.Const.HideFieldZIndexID.length; ++index) {
+				document.getElementById(TabNoc.Const.HideFieldZIndexID[index]).style.zIndex = visible === false ? "-1" : "";
 			}
-			if (unsafeWindow.TabNoc.Settings.PauseVideoWhenHide) {
+			if (TabNoc.Settings.PauseVideoWhenHide) {
 				movie_player.pauseVideo();
-				if (unsafeWindow.TabNoc.Settings.HideTitleWhenPaused) {
+				if (TabNoc.Settings.HideTitleWhenPaused) {
 					document.title = "[Hidden]";
 				}
 			}
-			unsafeWindow.TabNoc.Variables.Hidden = !visible;
+			TabNoc.Variables.Hidden = !visible;
 		} catch (exc) {
 			console.error(exc);
 			alert(exc);
@@ -333,14 +340,14 @@ try {
 		// return true to show message about "sure to leafe this site?"
 		try {
 			// restore old Title Name for Chronic
-			document.title = unsafeWindow.TabNoc.Variables.OldTitleName;
+			document.title = TabNoc.Variables.OldTitleName;
 
-			if (unsafeWindow.TabNoc.Variables.CurrentVideoID !== "" && unsafeWindow.TabNoc.Variables.CurrentVideoID !== null && unsafeWindow.TabNoc.Settings.SaveLastVideoPosition && unsafeWindow.TabNoc.Settings.SavingEnabled) {
+			if (TabNoc.Variables.CurrentVideoID !== "" && TabNoc.Variables.CurrentVideoID !== null && TabNoc.Settings.SaveLastVideoPosition && TabNoc.Settings.SavingEnabled) {
 				// wenn das video am ende ist und der speicher am ende des videos gelöscht wird
-				if (movie_player.getCurrentTime() >= movie_player.getDuration() && unsafeWindow.TabNoc.Settings.DeleteLastPosAtEndOfVideo === true) {
-					GM__deleteValue(unsafeWindow.TabNoc.Variables.CurrentVideoID);
+				if (movie_player.getCurrentTime() >= movie_player.getDuration() && TabNoc.Settings.DeleteLastPosAtEndOfVideo === true) {
+					GM__deleteValue(TabNoc.Variables.CurrentVideoID);
 				} else {
-					GM_setValue(unsafeWindow.TabNoc.Variables.CurrentVideoID, movie_player.getCurrentTime());
+					GM_setValue(TabNoc.Variables.CurrentVideoID, movie_player.getCurrentTime());
 					console.log("Saved Time: " + movie_player.getCurrentTime());
 				}
 			}
@@ -364,10 +371,10 @@ try {
 					try {
 						if (v === true) {
 							// Diabled to prevent new Values afer closing
-							unsafeWindow.TabNoc.Settings.SaveLastVideoPosition = false;
+							TabNoc.Settings.SaveLastVideoPosition = false;
 
-							GM__deleteValue(unsafeWindow.TabNoc.Variables.CurrentVideoID);
-							GM__deleteValue(unsafeWindow.TabNoc.Variables.CurrentVideoID + unsafeWindow.TabNoc.Const.SavingExtensionForDateTime);
+							GM__deleteValue(TabNoc.Variables.CurrentVideoID);
+							GM__deleteValue(TabNoc.Variables.CurrentVideoID + TabNoc.Const.SavingExtensionForDateTime);
 
 							// remove last Visit div
 							document.getElementById("LastVisitDateTime").parentNode.removeChild(document.getElementById("LastVisitDateTime"));
@@ -391,12 +398,12 @@ try {
 
 		/*set predifined skip- and end-Times*/
 		if (Name === "Kanzlei WBS") {
-			unsafeWindow.TabNoc.Variables.EndTime = 17 + 7;
+			TabNoc.Variables.EndTime = 17 + 7;
 			movie_player.setPlaybackRate(1.25 + (document.title.contains("Recht für YouTuber") || document.title.contains("Challenge WBS") ? 0.25 : 0));
 			if (document.title.contains("| Fernsehauftritt bei")) {
-				unsafeWindow.TabNoc.Variables.SkipTime = 24; // neuerdings am anfang sprechgedöns -> erhöhen
-				unsafeWindow.TabNoc.Variables.EndTime += 12;
-				// unsafeWindow.TabNoc.Variables.SkipOver.push({
+				TabNoc.Variables.SkipTime = 24; // neuerdings am anfang sprechgedöns -> erhöhen
+				TabNoc.Variables.EndTime += 12;
+				// TabNoc.Variables.SkipOver.push({
 					// start : 5,
 					// end : 18//20
 				// });
@@ -410,41 +417,41 @@ try {
 					DetectorInterval : null,
 					CopySizePercentage : 10,
 					BaseVideo : document.getElementsByClassName("html5-main-video")[0],
-					TriggerAmount : 1600, //450, //200, //min 257, //500, //550,		22.09.2016, YT has changed the player? older vids don't functions ether
+					TriggerAmount : 1400, //450, //200, //min 257, //500, //550,		22.09.2016, YT has changed the player? older vids don't functions ether
 					TriggerDarkPercentage : 70,
 					StopIntervalAfterTrigger : true,
 				});
 			}
 		}
 		if (Name === "SemperVideo" || Name === "SemperErratum" || Name === "SemperCensio") {
-			unsafeWindow.TabNoc.Variables.SkipTime = 10.5;
-			unsafeWindow.TabNoc.Variables.EndTime = 16;
+			TabNoc.Variables.SkipTime = 10.5;
+			TabNoc.Variables.EndTime = 16;
 			movie_player.setPlaybackRate(1.25);
 		}
 		if (Name === "minecraftpg5") {
-			unsafeWindow.TabNoc.Variables.SkipTime = 6;
-			unsafeWindow.TabNoc.Variables.EndTime = 15;
+			TabNoc.Variables.SkipTime = 6;
+			TabNoc.Variables.EndTime = 15;
 		}
 		if (Name === "Space Engineers") {
-			unsafeWindow.TabNoc.Variables.EndTime = 15;
+			TabNoc.Variables.EndTime = 15;
 		}
 		if (Name === "BlackQuantumTV") {
-			unsafeWindow.TabNoc.Variables.SkipTime = 0;
-			unsafeWindow.TabNoc.Variables.EndTime = 0;
-			// unsafeWindow.TabNoc.Variables.SkipOver.push({start:50, end:150});
-			unsafeWindow.TabNoc.Variables.SkipOver.push({
+			TabNoc.Variables.SkipTime = 0;
+			TabNoc.Variables.EndTime = 0;
+			// TabNoc.Variables.SkipOver.push({start:50, end:150});
+			TabNoc.Variables.SkipOver.push({
 				start : 1340,
 				end : 1415
 			});
 		}
 		if (Name === "XoXMeineAnimeWeltXoX") { //Anime: Kanon 2006
-			unsafeWindow.TabNoc.Variables.SkipTime = 0;
-			unsafeWindow.TabNoc.Variables.EndTime = 0;
-			unsafeWindow.TabNoc.Variables.SkipOver.push({
+			TabNoc.Variables.SkipTime = 0;
+			TabNoc.Variables.EndTime = 0;
+			TabNoc.Variables.SkipOver.push({
 				start : 105,
 				end : 180
 			});
-			unsafeWindow.TabNoc.Variables.SkipOver.push({
+			TabNoc.Variables.SkipOver.push({
 				start : 1335,
 				end : 150
 			});
@@ -462,8 +469,8 @@ try {
 
 		// definieren der Methode für die letzte VideoPosition
 		var lastVideoPositionJump = function () {
-			if (unsafeWindow.TabNoc.Settings.JumpDirectToLastVideoPos) {
-				GM__getValue(unsafeWindow.TabNoc.Variables.CurrentVideoID, function (value) {
+			if (TabNoc.Settings.JumpDirectToLastVideoPos) {
+				GM__getValue(TabNoc.Variables.CurrentVideoID, function (value) {
 					if (value != null && value != 0) {
 						console.log("Loaded Timestamp:" + value);
 						movie_player.seekTo(value);
@@ -476,32 +483,32 @@ alert("Jumped to Previous position, maybe delete it if not used");
 		// Ignoring "Over Skippoint" when the Jumper is loaded but the Intervall is not called at the right time
 		var TimeOnLoadCalled = movie_player.getCurrentTime();
 
-		/*apply unsafeWindow.TabNoc.Variables.SkipTime*/
+		/*apply TabNoc.Variables.SkipTime*/
 		var checkYtInterval = setInterval(function () {
 				try {
 					if (movie_player !== null && movie_player.seekTo !== null) {
 						clearInterval(checkYtInterval);
 						
-						if (movie_player.getCurrentTime() > unsafeWindow.TabNoc.Variables.SkipTime && TimeOnLoadCalled > unsafeWindow.TabNoc.Variables.SkipTime && 
-							unsafeWindow.TabNoc.Variables.SkipTime > 0 && unsafeWindow.TabNoc.Settings.AskToJumpIfOverSkipPoint) {
-							// save old Value (unsafeWindow.TabNoc.Settings.DisableEscOnDialog)
-							var old_HideOnEscPress = unsafeWindow.TabNoc.Settings.HideOnEscPress;
-							if (unsafeWindow.TabNoc.Settings.DisableEscOnDialog) {
-								unsafeWindow.TabNoc.Settings.HideOnEscPress = false;
+						if (movie_player.getCurrentTime() > TabNoc.Variables.SkipTime && TimeOnLoadCalled > TabNoc.Variables.SkipTime && 
+							TabNoc.Variables.SkipTime > 0 && TabNoc.Settings.AskToJumpIfOverSkipPoint) {
+							// save old Value (TabNoc.Settings.DisableEscOnDialog)
+							var old_HideOnEscPress = TabNoc.Settings.HideOnEscPress;
+							if (TabNoc.Settings.DisableEscOnDialog) {
+								TabNoc.Settings.HideOnEscPress = false;
 							}
 							if (confirm("Already over skippoint, Jump?") === true) {
-								movie_player.seekTo(unsafeWindow.TabNoc.Variables.SkipTime);
+								movie_player.seekTo(TabNoc.Variables.SkipTime);
 							}
 alert("AskToJumpIfOverSkipPoint, maybe delete it if not used");
-							if (unsafeWindow.TabNoc.Settings.DisableEscOnDialog) {
-								unsafeWindow.TabNoc.Settings.HideOnEscPress = old_HideOnEscPress;
+							if (TabNoc.Settings.DisableEscOnDialog) {
+								TabNoc.Settings.HideOnEscPress = old_HideOnEscPress;
 							}
-						} else if (unsafeWindow.TabNoc.Variables.SkipTime > 0) {
-							movie_player.seekTo(unsafeWindow.TabNoc.Variables.SkipTime);
+						} else if (TabNoc.Variables.SkipTime > 0) {
+							movie_player.seekTo(TabNoc.Variables.SkipTime);
 						}
 						lastVideoPositionJump();
-					} else if (movie_player.getCurrentTime() < unsafeWindow.TabNoc.Variables.SkipTime){
-						document.getElementById(unsafeWindow.TabNoc.Const.remainTimeID).innerHTML += "  appling skipTime...";
+					} else if (movie_player.getCurrentTime() < TabNoc.Variables.SkipTime){
+						document.getElementById(TabNoc.Const.remainTimeID).innerHTML += "  appling skipTime...";
 alert("appling skipTime, maybe delete it if not used");
 					}
 				}
@@ -512,21 +519,21 @@ alert("appling skipTime, maybe delete it if not used");
 			}, 200);
 			
 		// change VideoQuality
-		if (unsafeWindow.TabNoc.Settings.ChangeVideoQualityOnLoad === true) {
-			if (movie_player.getPlaybackQuality() !== unsafeWindow.TabNoc.Settings.PreferedVideoQuality || true) { //when the VideoQuality is not the same as the PreferedVideoQuality
+		if (TabNoc.Settings.ChangeVideoQualityOnLoad === true) {
+			if (movie_player.getPlaybackQuality() !== TabNoc.Settings.PreferedVideoQuality || true) { //when the VideoQuality is not the same as the PreferedVideoQuality
 				// I have to Workaround because:
-				// movie_player.getAvailableQualityLevels().some(function(x){return x === unsafeWindow.TabNoc.Settings.PreferedVideoQuality;})
+				// movie_player.getAvailableQualityLevels().some(function(x){return x === TabNoc.Settings.PreferedVideoQuality;})
 				// throws an Error: Permission denied to access object
 				var isVideoQualityAvailible = function(Quality) {
 					var result = false;
 					for (let x of movie_player.getAvailableQualityLevels()) { if (x === Quality) {result = true;}}
 					return result;
 				}
-				if (isVideoQualityAvailible(unsafeWindow.TabNoc.Settings.PreferedVideoQuality) === true && screen.width > 1680 && !(movie_player.getPlaybackRate() > 1.5 && unsafeWindow.TabNoc.Settings.DisableVideoQualityUpgradeWhenDoubledSpeed === true)) { // when the PreferedVideoQuality can be choosen
-					movie_player.setPlaybackQuality(unsafeWindow.TabNoc.Settings.PreferedVideoQuality); //choose the PreferedVideoQuality
+				if (isVideoQualityAvailible(TabNoc.Settings.PreferedVideoQuality) === true && screen.width > 1680 && !(movie_player.getPlaybackRate() > 1.5 && TabNoc.Settings.DisableVideoQualityUpgradeWhenDoubledSpeed === true)) { // when the PreferedVideoQuality can be choosen
+					movie_player.setPlaybackQuality(TabNoc.Settings.PreferedVideoQuality); //choose the PreferedVideoQuality
 				} else {
-					if (isVideoQualityAvailible(unsafeWindow.TabNoc.Settings.SecondPreferedVideoQuality) === true) { // when the SecondPreferedVideoQuality can be choosen
-						movie_player.setPlaybackQuality(unsafeWindow.TabNoc.Settings.SecondPreferedVideoQuality); //choose the PreferedVideoQuality
+					if (isVideoQualityAvailible(TabNoc.Settings.SecondPreferedVideoQuality) === true) { // when the SecondPreferedVideoQuality can be choosen
+						movie_player.setPlaybackQuality(TabNoc.Settings.SecondPreferedVideoQuality); //choose the PreferedVideoQuality
 					}
 					else {
 						console.log("PreferedVideoQuality is not avalible");
@@ -577,10 +584,10 @@ alert("appling skipTime, maybe delete it if not used");
 			var remainingTime = duration - currentTime;
 			
 			// modify Title
-			if (unsafeWindow.TabNoc.Variables.Hidden && unsafeWindow.TabNoc.Settings.HideTitleWhenPaused) {
+			if (TabNoc.Variables.Hidden && TabNoc.Settings.HideTitleWhenPaused) {
 				document.title = "[Hidden]";
 			} 
-			else if (unsafeWindow.TabNoc.Settings.ModifyTitleToVideoState) {
+			else if (TabNoc.Settings.ModifyTitleToVideoState) {
 				/*
 				-1 (unstarted)
 				0 (ended)
@@ -591,48 +598,48 @@ alert("appling skipTime, maybe delete it if not used");
 				 */
 				if (movie_player.getPlayerState() === 0) {
 					//http://graphemica.com/%F0%9F%8F%81
-					document.title = "🏁 " + unsafeWindow.TabNoc.Variables.OldTitleName.replace('\u25BA', '');
+					document.title = "🏁 " + TabNoc.Variables.OldTitleName.replace('\u25BA', '');
 				} else if (movie_player.getPlayerState() === 1) {
 					//\u25BA
-					document.title = "[▶]" + unsafeWindow.TabNoc.Variables.OldTitleName.replace('\u25BA', '');
+					document.title = "[▶]" + TabNoc.Variables.OldTitleName.replace('\u25BA', '');
 				} else if (movie_player.getPlayerState() === 2) {
 					//http://www.fileformat.info/info/unicode/char/2759/index.htm
-					document.title = "[❙❙]" + unsafeWindow.TabNoc.Variables.OldTitleName.replace('\u25BA', '');
+					document.title = "[❙❙]" + TabNoc.Variables.OldTitleName.replace('\u25BA', '');
 				} else if (movie_player.getPlayerState() === 3) {
 					//http://www.fileformat.info/info/unicode/char/21bb/index.htm
-					document.title = "[↻]" + unsafeWindow.TabNoc.Variables.OldTitleName.replace('\u25BA', '');
+					document.title = "[↻]" + TabNoc.Variables.OldTitleName.replace('\u25BA', '');
 				}
 			}
 			
 
 			// wenn das Video abgelaufen ist(die zeit durch ist)
-			if (remainingTime <= unsafeWindow.TabNoc.Variables.EndTime) {
-				clearInterval(unsafeWindow.TabNoc.Variables.Interval);
-				document.title = unsafeWindow.TabNoc.Variables.OldTitleName.replace('\u25BA', '');
-				if (unsafeWindow.TabNoc.Settings.AskToClosePageIfVideoDone) {
-					// save old Value (unsafeWindow.TabNoc.Settings.DisableEscOnDialog)
-					var old_HideOnEscPress = unsafeWindow.TabNoc.Settings.HideOnEscPress;
-					if (unsafeWindow.TabNoc.Settings.DisableEscOnDialog) {
-						unsafeWindow.TabNoc.Settings.HideOnEscPress = false;
+			if (remainingTime <= TabNoc.Variables.EndTime) {
+				clearInterval(TabNoc.Variables.Interval);
+				document.title = TabNoc.Variables.OldTitleName.replace('\u25BA', '');
+				if (TabNoc.Settings.AskToClosePageIfVideoDone) {
+					// save old Value (TabNoc.Settings.DisableEscOnDialog)
+					var old_HideOnEscPress = TabNoc.Settings.HideOnEscPress;
+					if (TabNoc.Settings.DisableEscOnDialog) {
+						TabNoc.Settings.HideOnEscPress = false;
 					}
 					if (confirm("Video finished, shuld it been closed?") === true) {
 						/* Changed the about:config settings (dom.allow_scripts_to_close_windows = true)*/
 						window.open('', '_self').close();
 						alert("If you can see this you have to set 'dom.allow_scripts_to_close_windows' to 'true' in about:config.");
 					}
-					if (unsafeWindow.TabNoc.Settings.DisableEscOnDialog) {
-						unsafeWindow.TabNoc.Settings.HideOnEscPress = old_HideOnEscPress;
+					if (TabNoc.Settings.DisableEscOnDialog) {
+						TabNoc.Settings.HideOnEscPress = old_HideOnEscPress;
 					}
 				}
-				unsafeWindow.TabNoc.Variables.Div_RemainTime.setAttribute("show", "false");
+				$("#" + TabNoc.Const.remainTimeID).hide();
 			}
 
 			// SkipOver(sobald eine gewisse Zeit erreicht ist wird zu einer Zeit gesprungen)
-			for (index = 0; index < unsafeWindow.TabNoc.Variables.SkipOver.length; ++index) {
-				var skipOverElement = unsafeWindow.TabNoc.Variables.SkipOver[index];
+			for (index = 0; index < TabNoc.Variables.SkipOver.length; ++index) {
+				var skipOverElement = TabNoc.Variables.SkipOver[index];
 				if (skipOverElement.start <= currentTime && skipOverElement.end >= currentTime) {
 					movie_player.seekTo(skipOverElement.end);
-					unsafeWindow.TabNoc.Variables.SkipOver.splice(index, 1);
+					TabNoc.Variables.SkipOver.splice(index, 1);
 					break;
 				}
 			}
@@ -640,11 +647,11 @@ alert("appling skipTime, maybe delete it if not used");
 			remainingTimeManager(duration, currentTime, remainingTime);
 
 			// AutoSave VideoPosition in langen Videos
-			if (unsafeWindow.TabNoc.Settings.AutoSavePosInLongVideos) {
-				if (duration > unsafeWindow.TabNoc.Settings.AutoSavePosLongVideoLength) {
-					if (Math.floor(movie_player.getCurrentTime()) % unsafeWindow.TabNoc.Settings.AutoSavePosInterval === 0) {
+			if (TabNoc.Settings.AutoSavePosInLongVideos) {
+				if (duration > TabNoc.Settings.AutoSavePosLongVideoLength) {
+					if (Math.floor(movie_player.getCurrentTime()) % TabNoc.Settings.AutoSavePosInterval === 0) {
 						// call the save Method
-						unsafeWindow.TN_onBeforeUnload();
+						TN_onBeforeUnload();
 					}
 				}
 			}
@@ -655,89 +662,79 @@ alert("appling skipTime, maybe delete it if not used");
 	}
 
 	function remainingTimeManager(duration, currentTime, remainingTime) {
-		var oldRemainingTimeString = unsafeWindow.TabNoc.Variables.remainingTimeString;
-		unsafeWindow.TabNoc.Variables.remainingTimeString = "";
+		var oldRemainingTimeString = TabNoc.Variables.remainingTimeString;
+		TabNoc.Variables.remainingTimeString = "";
 		
 		// Zeitwert-string formatieren
-		remainingTime = Math.floor((remainingTime - unsafeWindow.TabNoc.Variables.EndTime) / movie_player.children[0].children[0].playbackRate); //movie_player.getPlaybackRate());
+		remainingTime = Math.floor((remainingTime - TabNoc.Variables.EndTime) / movie_player.children[0].children[0].playbackRate); //movie_player.getPlaybackRate());
 		if (remainingTime >= 60) { // über einer Minute
-			unsafeWindow.TabNoc.Variables.remainingTimeString += Math.floor(remainingTime / 60)
+			TabNoc.Variables.remainingTimeString += Math.floor(remainingTime / 60)
 			if (remainingTime < 120) {
-				unsafeWindow.TabNoc.Variables.remainingTimeString += " Minute";
+				TabNoc.Variables.remainingTimeString += " Minute";
 			} else {
-				unsafeWindow.TabNoc.Variables.remainingTimeString += " Minuten";
+				TabNoc.Variables.remainingTimeString += " Minuten";
 			}
 
-			unsafeWindow.TabNoc.Variables.remainingTimeString += " und ";
+			TabNoc.Variables.remainingTimeString += " und ";
 		}
-		unsafeWindow.TabNoc.Variables.remainingTimeString += (remainingTime % 60 < 10 ? "0" : "") + (remainingTime % 60) + " Sekunde" + (remainingTime % 60 !== 1 ? "n" : "");
+		TabNoc.Variables.remainingTimeString += (remainingTime % 60 < 10 ? "0" : "") + (remainingTime % 60) + " Sekunde" + (remainingTime % 60 !== 1 ? "n" : "");
 
 		
 		// Verwaltung der RemainTime anzeige
-		/* If attribute show is true then update the text else delete the text, but if searchbar is "show!" then show the text again */
-		if (unsafeWindow.TabNoc.Variables.Div_RemainTime.getAttribute("show") === "true") {
-			if (unsafeWindow.TabNoc.Variables.remainingTimeString !== oldRemainingTimeString) {
-				remainingTimeOutput(unsafeWindow.TabNoc.Variables.remainingTimeString);
-			}
-			if (unsafeWindow.TabNoc.Settings.AddMarginWhenRemainTime === true) {
-				document.getElementById("page").style.marginTop = unsafeWindow.TabNoc.Settings.MarginWhenRemainTime + "px";
-				// Disable Change after executing finished
-				unsafeWindow.TabNoc.Settings.AddMarginWhenRemainTime = false;
+		if (TabNoc.Variables.remainingTimeString !== oldRemainingTimeString) {
+			remainingTimeOutput(TabNoc.Variables.remainingTimeString);
+		}
+		if (TabNoc.Settings.AddMarginWhenRemainTime === true) {
+			document.getElementById("page").style.marginTop = TabNoc.Settings.MarginWhenRemainTime + "px";
+			// Disable Change after executing finished
+			TabNoc.Settings.AddMarginWhenRemainTime = false;
+		}
+		
+		//MarkRemainTimeOnLowBuffer
+		if (TabNoc.Settings.MarkRemainTimeOnLowBuffer === true) {
+			//current Video Buffer Size
+			var BufferSize = (movie_player.getVideoLoadedFraction() * movie_player.getDuration() - movie_player.getCurrentTime()) / movie_player.getPlaybackRate();
+			//is the BufferSize below the SettingValue and not fully loaded
+			var LowBuffer = BufferSize < TabNoc.Settings.LowBufferSecondAmount && movie_player.getVideoLoadedFraction() !== 1;
+
+			// Buffer is getting Low -> Start Showing red Label
+			if (LowBuffer === true && TabNoc.Variables.Div_RemainTime.getAttribute("LowBuffer") !== "true") {
+				$("#RemainTimeBuffer").css("color", "red").css("font-weight", "bold");
+				if (document.getElementById("page").style !== "") {
+					// document.getElementById("page").style.marginTop = TabNoc.Settings.MarginWhenLowBuffer + "px"; //55:200
+				}
 			}
 			
-			//MarkRemainTimeOnLowBuffer
-			if (unsafeWindow.TabNoc.Settings.MarkRemainTimeOnLowBuffer === true) {
-				//current Video Buffer Size
-				var BufferSize = (movie_player.getVideoLoadedFraction() * movie_player.getDuration() - movie_player.getCurrentTime()) / movie_player.getPlaybackRate();
-				//is the BufferSize below the SettingValue and not fully loaded
-				var LowBuffer = BufferSize < unsafeWindow.TabNoc.Settings.LowBufferSecondAmount && movie_player.getVideoLoadedFraction() !== 1;
-
-				// Buffer is getting Low -> Start Showing red Label
-				if (LowBuffer === true && unsafeWindow.TabNoc.Variables.Div_RemainTime.getAttribute("LowBuffer") !== "true") {
-					unsafeWindow.TabNoc.Variables.Div_RemainTime.setAttribute("style", "color:red;font-weight:bold;font-size:150%");
-					if (document.getElementById("page").style !== "") {
-						document.getElementById("page").style.marginTop = unsafeWindow.TabNoc.Settings.MarginWhenLowBuffer + "px"; //55:200
-					}
+			// Buffer is Low and Buffersize has changed [Pause when to Low]
+			if (LowBuffer === true && TabNoc.Variables.lastCheckBufferSize !== BufferSize) {
+				// AutoPause
+				if (BufferSize <= 1 & BufferSize >= 0 && movie_player.getPlayerState() !== 3) {
+					TabNoc.Variables.HasPausedOnLowBuffer = true;
+					movie_player.pauseVideo();
+					remainingTimeOutput(TabNoc.Variables.remainingTimeString, BufferSize, true);
 				}
-				
-				// Buffer is Low and Buffersize has changed [Pause when to Low]
-				if (LowBuffer === true && unsafeWindow.TabNoc.Variables.lastCheckBufferSize !== BufferSize) {
-					// AutoPause
-					if (BufferSize <= 1 & BufferSize >= 0 && movie_player.getPlayerState() !== 3) {
-						unsafeWindow.TabNoc.Variables.HasPausedOnLowBuffer = true;
-						movie_player.pauseVideo();
-						remainingTimeOutput(unsafeWindow.TabNoc.Variables.remainingTimeString, BufferSize, true);
-					}
-					else {
-						remainingTimeOutput(unsafeWindow.TabNoc.Variables.remainingTimeString, BufferSize);
-					}
-					unsafeWindow.TabNoc.Variables.lastCheckBufferSize = BufferSize;
+				else {
+					remainingTimeOutput(TabNoc.Variables.remainingTimeString, BufferSize);
 				}
-				// Buffer is getting hight -> remove red Label [Play when high enouth]
-				else if (LowBuffer === false && unsafeWindow.TabNoc.Variables.Div_RemainTime.getAttribute("LowBuffer") !== "false") {
-					unsafeWindow.TabNoc.Variables.Div_RemainTime.setAttribute("style", "");
-					if (document.getElementById("page").style !== "") {
-						document.getElementById("page").style.marginTop = unsafeWindow.TabNoc.Settings.MarginWhenRemainTime + "px";
-					}
-					// AutoPlay
-					if (unsafeWindow.TabNoc.Variables.HasPausedOnLowBuffer === true) {
-						unsafeWindow.TabNoc.Variables.HasPausedOnLowBuffer = false;
-						movie_player.playVideo();
-						remainingTimeOutput(unsafeWindow.TabNoc.Variables.remainingTimeString, false, false);
-					}
-					else {
-						remainingTimeOutput(unsafeWindow.TabNoc.Variables.remainingTimeString, false, false);
-					}
-				}
-				unsafeWindow.TabNoc.Variables.Div_RemainTime.setAttribute("LowBuffer", LowBuffer);
+				TabNoc.Variables.lastCheckBufferSize = BufferSize;
 			}
-		} else {
-			if (document.getElementById(unsafeWindow.TabNoc.Const.SearchbarID).value === "show!") {
-				document.getElementById(unsafeWindow.TabNoc.Const.remainTimeID).setAttribute('show', "true");
-				// remove clear Searchbar after activation
-				document.getElementById(unsafeWindow.TabNoc.Const.SearchbarID).value = "";
+			// Buffer is getting high -> remove red Label [Play when high enouth]
+			else if (LowBuffer === false && TabNoc.Variables.Div_RemainTime.getAttribute("LowBuffer") !== "false") {
+				TabNoc.Variables.Div_RemainTime.setAttribute("style", "");
+				if (document.getElementById("page").style !== "") {
+					document.getElementById("page").style.marginTop = TabNoc.Settings.MarginWhenRemainTime + "px";
+				}
+				// AutoPlay
+				if (TabNoc.Variables.HasPausedOnLowBuffer === true) {
+					TabNoc.Variables.HasPausedOnLowBuffer = false;
+					movie_player.playVideo();
+					remainingTimeOutput(TabNoc.Variables.remainingTimeString, false, false);
+				}
+				else {
+					remainingTimeOutput(TabNoc.Variables.remainingTimeString, false, false);
+				}
 			}
-			remainingTimeOutput("")
+			TabNoc.Variables.Div_RemainTime.setAttribute("LowBuffer", LowBuffer);
 		}
 	}
 	
@@ -750,7 +747,7 @@ alert("appling skipTime, maybe delete it if not used");
 		
 		if ($(StartTextId).length === 0) {
 			// Initialize
-			unsafeWindow.TabNoc.Variables.Div_RemainTime.innerHTML = '<span id="RemainTimeStart">Es verbleiben </span><span id="RemainTimeTime"></span><span id="RemainTimeBuffer" style="display:none"><br>Buffer : ca. <span id="RemainTimeBufferText"></span>s<img id="RemainTimeImage"></span>';
+			TabNoc.Variables.Div_RemainTime.innerHTML = '<span id="RemainTimeStart">Es verbleiben </span><span id="RemainTimeTime"></span><span id="RemainTimeBuffer" style="display:none"><br>Buffer : ca. <span id="RemainTimeBufferText"></span>s<img id="RemainTimeImage"></span>';
 			
 			img = $(ImageId)[0];
 			img.setAttribute("onclick", 'TabNoc.Variables.HasPausedOnLowBuffer = false;document.getElementById("RemainTimeImage").style.display = "none";');
@@ -781,7 +778,7 @@ alert("appling skipTime, maybe delete it if not used");
 		
 		if (hasPaused !== "" && hasPaused !== null && hasPaused !== undefined) {
 			if (hasPaused === true) {
-				if (unsafeWindow.TabNoc.Settings.ImgToDisableRestart === true) {
+				if (TabNoc.Settings.ImgToDisableRestart === true) {
 					$(ImageId).show();
 				}
 			}
@@ -803,7 +800,7 @@ alert("appling skipTime, maybe delete it if not used");
 
 	function changeSizeToLarge() {
 		changeSizeToLargeInterval = setTimeout(returnExec(function(){
-			if ((unsafeWindow.yt != null && unsafeWindow.yt.www != null && unsafeWindow.yt.www != null && unsafeWindow.yt.www.watch != null) && unsafeWindow.TabNoc.Settings.ChangeVideoSizeToLarge === true) {
+			if ((unsafeWindow.yt != null && unsafeWindow.yt.www != null && unsafeWindow.yt.www != null && unsafeWindow.yt.www.watch != null) && TabNoc.Settings.ChangeVideoSizeToLarge === true) {
 				// new YT Player
 				if ($(".ytp-size-button").length === 0){
 alert("Die Alte Methode wird noch verwendet!\r\nMittteilung Hinzugefügt am 26.10.2015");
@@ -833,14 +830,14 @@ alert("Die Alte Methode wird noch verwendet!\r\nMittteilung Hinzugefügt am 26.1
 		//BUGGY!!!
 
 		// add Strg+Alt Toggle Listeners
-		if (unsafeWindow.TabNoc.Settings.TogglePauseOnStrgPress) {
+		if (TabNoc.Settings.TogglePauseOnStrgPress) {
 			var keyDown = false;
 			var func = function (e) {
 				try {
 					// console.log(e);
 
 					// console.log("KeyCode:" + e.keyCode + " Alt:" + e.altKey);
-					if (e.keyCode === 17 /*&& e.altKey === true*/ && unsafeWindow.TabNoc.Settings.TogglePauseOnStrgPress) {
+					if (e.keyCode === 17 /*&& e.altKey === true*/ && TabNoc.Settings.TogglePauseOnStrgPress) {
 						if (keyDown === false || e.type === "keyup") {
 							keyDown = e.type === "keydown";
 							if (movie_player.getPlayerState() === 2) {
@@ -866,29 +863,29 @@ alert("Die Alte Methode wird noch verwendet!\r\nMittteilung Hinzugefügt am 26.1
 				}
 				
 				// Add Esc Listerner
-				else if (e.keyCode === 27 && unsafeWindow.TabNoc.Settings.HideOnEscPress) {
+				else if (e.keyCode === 27 && TabNoc.Settings.HideOnEscPress) {
 					unsafeWindow.ytVisible(false);
 					e.preventDefault();
 				}
 
 				// Add Space Listener
-				else if (e.keyCode === 32 && unsafeWindow.TabNoc.Settings.PauseOnSpacePress) {
+				else if (e.keyCode === 32 && TabNoc.Settings.PauseOnSpacePress) {
 					e.preventDefault();
 				
 					console.log("Pressed Space >Direct Function<");
 					console.log("Old: movie_player.getPlayerState(): " + movie_player.getPlayerState());
 					
-					if (unsafeWindow.TabNoc.Variables.ExpectedPlayerStateAfterSpace == 0) {
-						unsafeWindow.TabNoc.Variables.ExpectedPlayerStateAfterSpace = (movie_player.getPlayerState() === 1) ? 2 : 1;
+					if (TabNoc.Variables.ExpectedPlayerStateAfterSpace == 0) {
+						TabNoc.Variables.ExpectedPlayerStateAfterSpace = (movie_player.getPlayerState() === 1) ? 2 : 1;
 						
 						
 						
 						setTimeout(function() {
 							console.log("Pressed Space >Timed Function<");
-							console.log("ExpectedPlayerStateAfterSpace: " + unsafeWindow.TabNoc.Variables.ExpectedPlayerStateAfterSpace);
+							console.log("ExpectedPlayerStateAfterSpace: " + TabNoc.Variables.ExpectedPlayerStateAfterSpace);
 							console.log("Old: movie_player.getPlayerState(): " + movie_player.getPlayerState());
 							
-							if (movie_player.getPlayerState() !== unsafeWindow.TabNoc.Variables.ExpectedPlayerStateAfterSpace) {
+							if (movie_player.getPlayerState() !== TabNoc.Variables.ExpectedPlayerStateAfterSpace) {
 								if (movie_player.getPlayerState() === 1) {
 									movie_player.pauseVideo();
 								} 
@@ -899,7 +896,7 @@ alert("Die Alte Methode wird noch verwendet!\r\nMittteilung Hinzugefügt am 26.1
 							
 							console.log("New: movie_player.getPlayerState(): " + movie_player.getPlayerState());
 							
-							unsafeWindow.TabNoc.Variables.ExpectedPlayerStateAfterSpace = 0;
+							TabNoc.Variables.ExpectedPlayerStateAfterSpace = 0;
 						}, 200);
 						
 					}
@@ -917,7 +914,7 @@ alert("Die Alte Methode wird noch verwendet!\r\nMittteilung Hinzugefügt am 26.1
 				}
 
 				// Add Alt+Shift+Del Delete SiteContent
-				else if (e.keyCode === 46 && e.altKey === true && e.shiftKey === true && unsafeWindow.TabNoc.Settings.DeleteSiteContentOnKeyPress) {
+				else if (e.keyCode === 46 && e.altKey === true && e.shiftKey === true && TabNoc.Settings.DeleteSiteContentOnKeyPress) {
 					if (confirm("Seiteninhalt löschen?") === true) {
 						unsafeWindow.document.getElementById("page-container").parentNode.removeChild(document.getElementById("page-container"));
 					}
@@ -926,24 +923,24 @@ alert("Die Alte Methode wird noch verwendet!\r\nMittteilung Hinzugefügt am 26.1
 				
 
 				// Change Video Position at "-" on Numpad
-				else if (e.keyCode === 109 && e.altKey === true && unsafeWindow.TabNoc.Settings.ChangeVideoPosOnKeyPress) {
+				else if (e.keyCode === 109 && e.altKey === true && TabNoc.Settings.ChangeVideoPosOnKeyPress) {
 					movie_player.seekTo(movie_player.getCurrentTime() - 60);
 				}
 
 				// Change Video Position at "+" on Numpad
-				else if (e.keyCode === 107 && e.altKey === true && unsafeWindow.TabNoc.Settings.ChangeVideoPosOnKeyPress) {
+				else if (e.keyCode === 107 && e.altKey === true && TabNoc.Settings.ChangeVideoPosOnKeyPress) {
 					movie_player.seekTo(movie_player.getCurrentTime() + 60);
 				}
 
 				
 				// Change Video Position at "-" on Numpad
-				else if (e.keyCode === 109 && unsafeWindow.TabNoc.Settings.ChangeVideoPosOnKeyPress) {
-					movie_player.seekTo(movie_player.getCurrentTime() - unsafeWindow.TabNoc.Settings.ChangeVideoPosValue);
+				else if (e.keyCode === 109 && TabNoc.Settings.ChangeVideoPosOnKeyPress) {
+					movie_player.seekTo(movie_player.getCurrentTime() - TabNoc.Settings.ChangeVideoPosValue);
 				}
 
 				// Change Video Position at "+" on Numpad
-				else if (e.keyCode === 107 && unsafeWindow.TabNoc.Settings.ChangeVideoPosOnKeyPress) {
-					movie_player.seekTo(movie_player.getCurrentTime() + unsafeWindow.TabNoc.Settings.ChangeVideoPosValue);
+				else if (e.keyCode === 107 && TabNoc.Settings.ChangeVideoPosOnKeyPress) {
+					movie_player.seekTo(movie_player.getCurrentTime() + TabNoc.Settings.ChangeVideoPosValue);
 				}
 				
 				else {

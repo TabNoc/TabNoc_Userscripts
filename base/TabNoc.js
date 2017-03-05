@@ -1,5 +1,5 @@
 function getTabNocVersion(){
-	return "v1.0.0-14102016";
+	return "v1.1.0-06032017";
 }
 
 
@@ -12,18 +12,6 @@ try {
 		var ScriptName = GM_info.script.name;
 		
 		if (unsafeWindow.TabNoc_ == null) {
-			unsafeWindow.TabNoc_ = ({});
-		}
-		if (unsafeWindow.TabNoc_[ScriptName] == null) {
-			unsafeWindow.TabNoc_[ScriptName] = {};
-		}
-		return unsafeWindow.TabNoc_[ScriptName];
-	}
-	
-	function setTabNoc(obj){
-		var ScriptName = GM_info.script.name;
-		
-		if (unsafeWindow.TabNoc_ == null) {
 			unsafeWindow.TabNoc_ = cloneInto(({}), unsafeWindow, {
 				wrapReflectors: true
 			});
@@ -33,41 +21,54 @@ try {
 				wrapReflectors: true
 			});
 		}
+		return unsafeWindow.TabNoc_[ScriptName];
+	}
+	
+	function setTabNoc(obj){
+		var ScriptName = GM_info.script.name;
+		console.log("Adding " + ScriptName);
+		
+		if (unsafeWindow.TabNoc_ == null) {
+			console.log("Adding " + ScriptName + ": unsafeWindow.TabNoc_ is null");
+			unsafeWindow.TabNoc_ = cloneInto(({}), unsafeWindow, {
+				wrapReflectors: true
+			});
+		}
+		if (unsafeWindow.TabNoc_[ScriptName] == null) {
+			console.log("Adding " + ScriptName + ": unsafeWindow.TabNoc_[ScriptName] is null");
+			unsafeWindow.TabNoc_[ScriptName] = cloneInto(({}), unsafeWindow.TabNoc_, {
+				wrapReflectors: true
+			});
+		}
 		
 		unsafeWindow.TabNoc_[ScriptName] = cloneInto(obj, unsafeWindow.TabNoc_, {
 			wrapReflectors: true, cloneFunctions: true
 		});
 	}
-	
-	unsafeWindow.TabNoc_ = cloneInto(({}), unsafeWindow, {
-		wrapReflectors: true
-	});
 
 	TabNoc = {
-		ScriptName : GM_info.script.name,
-		
 		get Const(){
-			return unsafeWindow.TabNoc_[TabNoc.ScriptName].Const;
+			return unsafeWindow.TabNoc_[GM_info.script.name].Const;
 		},
 		set Const(obj){},
 		
 		get console(){
-			return unsafeWindow.TabNoc_[TabNoc.ScriptName].console;
+			return unsafeWindow.TabNoc_[GM_info.script.name].console;
 		},
 		set console(obj){},
 		
 		get Variables(){
-			return unsafeWindow.TabNoc_[TabNoc.ScriptName].Variables;
+			return unsafeWindow.TabNoc_[GM_info.script.name].Variables;
 		},
 		set Variables(obj){},
 		
 		get Settings(){
-			return unsafeWindow.TabNoc_[TabNoc.ScriptName].Settings;
+			return unsafeWindow.TabNoc_[GM_info.script.name].Settings;
 		},
 		set Settings(obj){},
 		
 		get HTML(){
-			return unsafeWindow.TabNoc_[TabNoc.ScriptName].HTML;
+			return unsafeWindow.TabNoc_[GM_info.script.name].HTML;
 		},
 		set HTML(obj){},
 	}

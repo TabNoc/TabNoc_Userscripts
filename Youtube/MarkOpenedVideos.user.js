@@ -1,4 +1,4 @@
-// ==UserScript==
+﻿// ==UserScript==
 // @name        MarkOpenedVideos_Beta
 // @namespace   TabNoc
 // @include     https://www.youtube.com/feed/subscriptions*
@@ -95,7 +95,8 @@ try {
 			NotWantedVideos: (["Arumba Plays DOTA", "Europa Universalis IV", "Let's Play Crusader Kings 2", "Challenge WBS:", "Let's Play Civilization VI", "Let's Play Galactic Civilizations 3", "The Binding of Isaac ", "Civilization 6", "Endless Space", "Galactic Cililisations 3", "Civilization V", "Let's Play Stellaris", "SPAZ2", "[EU4]"]),
 			DeleteNotWantedVideos: false,
 			HideAlreadyWatchedVideos: false,
-			ShowAlreadyWatchedDialog: true
+			ShowAlreadyWatchedDialog: true,
+			Debug: false
 		},
 
 		HTML: {
@@ -423,11 +424,14 @@ try {
 	}
 	
 	function MarkWatchedVideos() {
-		// ### Scanned-Videos ###
-		scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
+		// ### VideoObjectDictionary ###
+		videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "([])");
 		
-		// ### Watched-Videos ###
+		// ### WatchedVideoArray ###
 		watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
+		
+		// ### ScannedVideoArray ###
+		scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
 		
 		var elements = $(".video-list-item");
 		if (elements.length == undefined || elements.length <= 1) {
@@ -439,10 +443,10 @@ try {
 			if (href == null) {
 				href = element.children[0].getAttribute("href");
 			}
-			if (href != null && href != "" && GetVideoWatched(watchedVideoArray, null, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
+			if (href != null && href != "" && GetVideoWatched(watchedVideoArray, videoObjectDictionary, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
 				elements[i].style.backgroundColor = "rgb(166, 235, 158)";
 			}
-			else if (href != null && href != "" && GetVideoWatched(scannedVideoArray, null, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
+			else if (href != null && href != "" && GetVideoWatched(scannedVideoArray, false, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
 				elements[i].style.backgroundColor = "rgb(151, 255, 139)";
 			}
 		}
@@ -891,8 +895,10 @@ try {
 	}
 	
 	function PushVideoObject(videoObjectDictionary, videoObject, save) {
-		console.log("Pushing ...");
-		console.log(videoObject);
+		if (TabNoc.Settings.Debug === true) {
+			console.log("Pushing ...");
+			console.log(videoObject);
+		}
 		if (typeof(videoObject) !== "object") {throw "WrongTypeException:Only Objects can be Pushed into the Database."}
 		if (videoObjectDictionary === null) {
 			videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
@@ -901,11 +907,15 @@ try {
 		
 		if (videoObjectDictionary[videoObject.VideoID] === undefined) {
 			videoObjectDictionary[videoObject.VideoID] = videoObject;
-			console.log("... Pushed");
+			if (TabNoc.Settings.Debug === true) {
+				console.log("... Pushed");
+			}
 		}
 		else {
 			videoObjectDictionary[videoObject.VideoID] = MergeVideoObjects(videoObjectDictionary[videoObject.VideoID], videoObject);
-			console.log("... Merged PushRequest");
+			if (TabNoc.Settings.Debug === true) {
+				console.log("... Merged PushRequest");
+			}
 		}
 		
 		if (save === true) {
@@ -925,7 +935,9 @@ try {
 	}
 	
 	function MergeVideoObjects(videoObject_1, videoObject_2) {
-		console.log("Merging ...");
+		if (TabNoc.Settings.Debug === true) {
+			console.log("Merging ...");
+		}
 		var namesArray = ([]);
 		for (var i in videoObject_1) {
 			if (namesArray.indexOf(i) === -1) {
@@ -998,7 +1010,9 @@ try {
 			}
 		}
 		
-		console.log(eval(videoObject_1.toSource()));
+		if (TabNoc.Settings.Debug === true) {
+			console.log(eval(videoObject_1.toSource()));
+		}
 		return eval(videoObject_1.toSource());
 	}
 	
