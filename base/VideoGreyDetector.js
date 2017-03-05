@@ -1,4 +1,4 @@
-﻿// Add Configurable Watching Position
+// Add Configurable Watching Position
 
 // Config.TriggerDarkPercentage
 // Gibt an ab welchem schwellwert der Pixel gezählt wird
@@ -45,7 +45,7 @@ function AddGreyDetector(Config) {
 					CanvasContent.drawImage(Config.BaseVideo, 0, 0, VidWidth, VidHeigth);
 					// check performance
 					// maybe get complete Image
-					var data = CanvasContent.getImageData(0, Math.floor(VidHeigth / 10 * 9), VidWidth, Math.floor(VidHeigth / 10)).data;
+					var data = CanvasContent.getImageData(0, Math.floor(VidHeigth / 10 * 0), VidWidth, Math.floor(VidHeigth / 10)).data;
 					var amount = 0;
 					// check performance
 					// maybe positionate i based on getImageData
