@@ -2,7 +2,7 @@
 // @name        Youtube-Jumper
 // @description ©Marco Neuthor 2017
 // @include     http*://www.youtube.*/watch?*
-// @version     v2.1.4_24022017
+// @version     v2.1.5_05032017
 // @require		https://code.jquery.com/jquery-2.1.1.min.js
 // @require		https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
@@ -12,6 +12,7 @@
 // require		GM__.js
 // @resource	Impromptu http://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.css
 // @resource	TabNocCSS https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/Youtube/TabNoc.css
+// @updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Youtube/Youtube-Jumper.user.js
 // @grant       GM_getResourceText
 // @grant       GM_addStyle
 // @grant       GM_setValue
@@ -33,6 +34,12 @@ ChangeList started at 12.02.2017
 24.02.2017 - v2.1.4
 [Global]
 	- changed: Imports werden nun vom Master verwendet
+
+05.03.2017 - v2.1.5
+[Global]
+	- added: UpdateURL
+[VideoGreyDetector]
+	- changed: verwendet nun das komplette Video
 */
 
 try {
