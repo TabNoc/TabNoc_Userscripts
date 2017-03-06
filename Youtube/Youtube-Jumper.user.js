@@ -2,7 +2,7 @@
 // @name        Youtube-Jumper
 // @description ©Marco Neuthor 2017
 // @include     http*://www.youtube.*/watch?*
-// @version     v2.1.5_05032017
+// @version     v2.2.0_06032017
 // @require		https://code.jquery.com/jquery-2.1.1.min.js
 // @require		https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
@@ -41,6 +41,13 @@ ChangeList started at 12.02.2017
 	- added: UpdateURL
 [VideoGreyDetector]
 	- changed: verwendet nun das komplette Video
+
+06.03.2017 - v2.2.0
+[Global]
+	- implemented TabNoc.js
+	- huge amount of cleanup, removed all Saving features
+[VideoGreyDetector]
+	- changed: liest nun echte Grauwerte aus
 */
 
 try {
@@ -49,13 +56,11 @@ try {
 
 	setTabNoc({
 		Const : {
-			SearchbarID : "masthead-search-term",
 			LabelContainerID : "masthead-search", //old: "yt-masthead"
 			remainTimeID : "TabNoc_YT_Jump",
 			LocationStartBtnLoggedIn : "yt-masthead-user",
 			LocationStartBtnLoggedOut : "yt-masthead-signin", //old "masthead-search"
 			LocationBtnSavingEnabled : "yt-masthead-logo-container",
-			SavingExtensionForDateTime : "##DT",
 
 			HideFieldZIndexID : ["movie_player"],
 			HideFieldDisplayNoneID : ["watch7-container", "masthead-search-terms", "movie_player"]
@@ -83,22 +88,6 @@ try {
 			HideOnEscPress : true,
 			DisableEscOnDialog : true,
 
-			//[Saving]
-			SavingEnabled : false, // Is Saved as GMSetting("SavingEnabled")
-			ImgToSwitchSavingEnabled : true,
-
-			//Last Position Saving
-			SaveLastVideoPosition : true,
-			JumpDirectToLastVideoPos : true,
-			DeleteLastPosAtEndOfVideo : true,
-			AutoSavePosInLongVideos : true,
-			AutoSavePosLongVideoLength : 60 * 10,
-			AutoSavePosInterval : 60,
-
-			//Last VisitTime
-			SaveLastVisitDateTime : false,
-			ShowLastVisitDateTime : false,
-
 			//Video Quality
 			ChangeVideoQualityOnLoad : true,
 			DisableVideoQualityUpgradeWhenDoubledSpeed : false,
@@ -118,12 +107,10 @@ try {
 			Div_RemainTime : null,
 			RefreshTimer : null,
 			Hidden : false,
-			isLoaded : null,
 			SkipOver : [],
 			remainingTimeString : "",
 			lastCheckBufferSize : 0,
 			OldTitleName : document.title,
-			CurrentVideoID : "", //will be set whe the user click the button,
 			HasPausedOnLowBuffer : false,
 			ExpectedPlayerStateAfterSpace : 0
 		},
@@ -131,6 +118,8 @@ try {
 		HTML : {
 			Switch : '<div class="onoffswitch" style="margin-top:10px"><input type="checkbox" name="onoffswitch" class="onoffswitch-checkbox" id="TabNoc_VisibleSwitch" checked><label class="onoffswitch-label" for="TabNoc_VisibleSwitch"><div class="onoffswitch-inner"></div><div class="onoffswitch-switch"></div></label></div>'
 		},
+				// var imgSrcTrue = "https://cdn4.iconfinder.com/data/icons/icocentre-free-icons/137/f-check_256-20.png";
+				// var imgSrcFalse = "https://cdn4.iconfinder.com/data/icons/icocentre-free-icons/114/f-cross_256-20.png";
 	});
 
 	function registerTabNoc() {
@@ -145,9 +134,6 @@ try {
 		});
 		exportFunction(TN_onBeforeUnload, unsafeWindow, {
 			defineAs : "TN_onBeforeUnload"
-		});
-		exportFunction(resetLastVisitValues, unsafeWindow, {
-			defineAs : "resetLastVisitValues"
 		});
 		
 		GM_addStyle(GM_getResourceText("Impromptu"));
@@ -183,71 +169,24 @@ try {
 				}
 				switchDiv.className = "yt-uix-button";
 			}
-
-			// Last Visit Time
-			if (TabNoc.Settings.ShowLastVisitDateTime) {
-				var div = document.createElement("div");
-				div.setAttribute("id", "LastVisitDateTime");
-				div.setAttribute("style", "display:inline-block");
-				div.setAttribute("onclick", "resetLastVisitValues()");
-				// div.className = "yt-uix-button";
-
-				position.insertBefore(div, position.firstChild);
-			}
 			
 			if (TabNoc.Settings.ImgToSwitchCloseTab === true) {
 				var imgSrcClose = "https://cdn4.iconfinder.com/data/icons/iconset-addictive-flavour/png/button_grey_close.png";
 
 				var img = document.createElement("img");
 				img.setAttribute("id", "SwitchCloseTab");
-				img.setAttribute("onclick", 'TabNoc.Settings.AskToClosePageIfVideoDone = false;document.getElementById("SwitchCloseTab").style.display = "none";document.getElementById("SavingEnabled").style.marginLeft = "40px";');
+				img.onclick = function(){
+					TabNoc.Settings.AskToClosePageIfVideoDone = false;
+					document.getElementById("SwitchCloseTab").style.display = "none";
+				};
 				img.setAttribute("style", "width: 20px; vertical-align: middle; cursor: pointer; opacity: 0.4;margin-left:22px;");
 
 				document.getElementsByClassName(TabNoc.Const.LocationBtnSavingEnabled)[0].appendChild(img);
 				document.getElementById("SwitchCloseTab").setAttribute("src", imgSrcClose);
 			}
-			
-			if (TabNoc.Settings.ImgToSwitchSavingEnabled === true && TabNoc.Settings.SavingEnabled === false) {
-				var imgSrcTrue = "https://cdn4.iconfinder.com/data/icons/icocentre-free-icons/137/f-check_256-20.png";
-				var imgSrcFalse = "https://cdn4.iconfinder.com/data/icons/icocentre-free-icons/114/f-cross_256-20.png";
-
-				var changeEnabled = function() {
-					switch (document.getElementById("SavingEnabled").getAttribute("SavingEnabled")) {
-						case "true":
-							TabNoc.Settings.SavingEnabled = false;
-							GM_setValue("SavingEnabled", false);
-							document.getElementById("SavingEnabled").setAttribute("src", imgSrcFalse);
-							document.getElementById("SavingEnabled").setAttribute("SavingEnabled", "false");
-							document.getElementById("SavingEnabled").setAttribute("title", "SavingDisabled");
-							break;
-						case "false":
-							TabNoc.Settings.SavingEnabled = true;
-							GM_setValue("SavingEnabled", true);
-							document.getElementById("SavingEnabled").setAttribute("src", imgSrcTrue);
-							document.getElementById("SavingEnabled").setAttribute("SavingEnabled", "true");
-							document.getElementById("SavingEnabled").setAttribute("title", "SavingEnabled");
-							break;
-					}
-					return false;
-				};
-
-				var img = document.createElement("img");
-				img.setAttribute("id", "SavingEnabled");
-				img.setAttribute("style", "display:inline-block;vertical-align:middle;margin-left:20px;cursor:pointer");
-				img.onclick = changeEnabled;
-
-				document.getElementsByClassName(TabNoc.Const.LocationBtnSavingEnabled)[0].appendChild(img);
-
-				var SavingEnabled = GM_getValue("SavingEnabled");
-				if (SavingEnabled !== null) {
-					TabNoc.Settings.SavingEnabled = SavingEnabled;
-				}
-
-				img.setAttribute("SavingEnabled", !TabNoc.Settings.SavingEnabled);
-			}
 		}
-
-		document.body.setAttribute("onbeforeunload", "TN_onBeforeUnload()");
+		
+		document.body.onbeforeunload(TN_onBeforeUnload);
 	}
 
 	function start() {
@@ -260,31 +199,11 @@ try {
 					return;
 				}
 
-				// get current VideoID
-				TabNoc.Variables.CurrentVideoID = movie_player.getVideoUrl().split("v=")[1].split("&")[0];
-
 				// ***ready***
 				addKeyHandler()
 
-				// getLastVisitDateTime befor set it
-				if (TabNoc.Settings.ShowLastVisitDateTime) {
-					GM__getValue(TabNoc.Variables.CurrentVideoID + TabNoc.Const.SavingExtensionForDateTime, function (value) {
-						if (value !== null && value > 0) {
-							showDateTime(value);
-						}
-					});
-				}
-
-				// setLastVisitDateTime
-				if (TabNoc.Settings.SaveLastVisitDateTime && TabNoc.Settings.SavingEnabled) {
-					GM__setValue(TabNoc.Variables.CurrentVideoID + TabNoc.Const.SavingExtensionForDateTime, Date.now());
-				}
-
 				if (TabNoc.Settings.AddButtonToHideAll === true) {
 					document.getElementById("switchDiv").style.display = "";
-				}
-				if (TabNoc.Settings.ImgToSwitchSavingEnabled === true) {
-					document.getElementById("SavingEnabled").click();
 				}
 
 				/*Check if Function has already been executed*/
@@ -341,54 +260,11 @@ try {
 		try {
 			// restore old Title Name for Chronic
 			document.title = TabNoc.Variables.OldTitleName;
-
-			if (TabNoc.Variables.CurrentVideoID !== "" && TabNoc.Variables.CurrentVideoID !== null && TabNoc.Settings.SaveLastVideoPosition && TabNoc.Settings.SavingEnabled) {
-				// wenn das video am ende ist und der speicher am ende des videos gelöscht wird
-				if (movie_player.getCurrentTime() >= movie_player.getDuration() && TabNoc.Settings.DeleteLastPosAtEndOfVideo === true) {
-					GM__deleteValue(TabNoc.Variables.CurrentVideoID);
-				} else {
-					GM_setValue(TabNoc.Variables.CurrentVideoID, movie_player.getCurrentTime());
-					console.log("Saved Time: " + movie_player.getCurrentTime());
-				}
-			}
 		} catch (exc) {
 			console.error(exc);
 			alert(exc);
 		}
 		return false;
-	}
-
-	function resetLastVisitValues() {
-		try {
-			$.prompt("", {
-				title : "Sollen die Daten für dieses Video gelöscht werden?",
-				top : "55%",
-				buttons : {
-					"Ja" : true,
-					"Nein" : false
-				},
-				submit : function (e, v, m, f) {
-					try {
-						if (v === true) {
-							// Diabled to prevent new Values afer closing
-							TabNoc.Settings.SaveLastVideoPosition = false;
-
-							GM__deleteValue(TabNoc.Variables.CurrentVideoID);
-							GM__deleteValue(TabNoc.Variables.CurrentVideoID + TabNoc.Const.SavingExtensionForDateTime);
-
-							// remove last Visit div
-							document.getElementById("LastVisitDateTime").parentNode.removeChild(document.getElementById("LastVisitDateTime"));
-						}
-					} catch (exc) {
-						console.error(exc);
-						alert(exc);
-					}
-				}
-			});
-		} catch (exc) {
-			console.error(exc);
-			alert(exc);
-		}
 	}
 
 	function ManageTimes() {
@@ -467,19 +343,6 @@ try {
 			movie_player.setPlaybackRate(2);//(1.25);
 		}
 
-		// definieren der Methode für die letzte VideoPosition
-		var lastVideoPositionJump = function () {
-			if (TabNoc.Settings.JumpDirectToLastVideoPos) {
-				GM__getValue(TabNoc.Variables.CurrentVideoID, function (value) {
-					if (value != null && value != 0) {
-						console.log("Loaded Timestamp:" + value);
-						movie_player.seekTo(value);
-alert("Jumped to Previous position, maybe delete it if not used");
-					}
-				});
-			}
-		};
-
 		// Ignoring "Over Skippoint" when the Jumper is loaded but the Intervall is not called at the right time
 		var TimeOnLoadCalled = movie_player.getCurrentTime();
 
@@ -506,7 +369,6 @@ alert("AskToJumpIfOverSkipPoint, maybe delete it if not used");
 						} else if (TabNoc.Variables.SkipTime > 0) {
 							movie_player.seekTo(TabNoc.Variables.SkipTime);
 						}
-						lastVideoPositionJump();
 					} else if (movie_player.getCurrentTime() < TabNoc.Variables.SkipTime){
 						document.getElementById(TabNoc.Const.remainTimeID).innerHTML += "  appling skipTime...";
 alert("appling skipTime, maybe delete it if not used");
@@ -645,16 +507,6 @@ alert("appling skipTime, maybe delete it if not used");
 			}
 
 			remainingTimeManager(duration, currentTime, remainingTime);
-
-			// AutoSave VideoPosition in langen Videos
-			if (TabNoc.Settings.AutoSavePosInLongVideos) {
-				if (duration > TabNoc.Settings.AutoSavePosLongVideoLength) {
-					if (Math.floor(movie_player.getCurrentTime()) % TabNoc.Settings.AutoSavePosInterval === 0) {
-						// call the save Method
-						TN_onBeforeUnload();
-					}
-				}
-			}
 		} catch (exc) {
 			console.error(exc);
 			alert(exc);
@@ -786,16 +638,6 @@ alert("appling skipTime, maybe delete it if not used");
 				$(ImageId).hide();
 			}
 		}
-	}
-
-	function showDateTime(value) {
-		var appendString = function (value) {
-			value = value.toString();
-			return (value.length === 1 ? "0" : "") + value;
-		}
-		var date = new Date(value);
-
-		document.getElementById("LastVisitDateTime").innerHTML = "Last Visit:<br/>" + appendString(date.getDate()) + "." + appendString(date.getMonth() + 1) + "." + appendString(date.getFullYear()) + " " + appendString(date.getHours()) + ':' + appendString(date.getMinutes()) + ':' + appendString(date.getSeconds());
 	}
 
 	function changeSizeToLarge() {
