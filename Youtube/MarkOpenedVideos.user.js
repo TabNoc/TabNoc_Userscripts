@@ -128,14 +128,9 @@ try {
 		// });
 		
 		// Scannen
-		exportFunction(getAllElements, unsafeWindow, {
-			defineAs: "getAllElements"
-		});
-		
-		//MarkWatchedVideos
-		exportFunction(MarkWatchedVideos, unsafeWindow, {
-			defineAs: "MarkWatchedVideos"
-		});
+		// exportFunction(getAllElements, unsafeWindow, {
+			// defineAs: "getAllElements"
+		// });
 		
 		//ResetAllTNData
 		exportFunction(function(){alert("Not Implemented!")}, unsafeWindow, {
@@ -189,9 +184,9 @@ try {
 			startCheckElements(!TabNoc.Variables.MarkToggleState);
 		});
 
-		GM_registerMenuCommand("Einlesen", function () {
-			getAllElements();
-		});
+		// GM_registerMenuCommand("Einlesen", function () {
+			// getAllElements();
+		// });
 	}
 
 	function startCheckElements(ToggleState, force) {
@@ -201,7 +196,7 @@ try {
 			// ### WatchedVideoArray ###
 			watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
 			// ### VideoObjectDictionary ###
-			videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "([])");
+			videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
 
 			if ($(".item-section").find(".yt-uix-tile-link").length == 0) {
 				TabNoc.Variables.MultiRow = true;
@@ -364,11 +359,18 @@ try {
 		console.log("MarkOpenedVideos.user.js loading");
 		try {
 			if (unsafeWindow.document.getElementById("movie_player") == null) {return false;}
-			exportFunction(SaveVideoStatistics, unsafeWindow, {
-				defineAs : "SaveVideoStatistics"
+			
+			// SaveVideoStatistics
+			// exportFunction(SaveVideoStatistics, unsafeWindow, {
+				// defineAs : "SaveVideoStatistics"
+			// });
+			
+			// MarkWatchedVideos
+			exportFunction(MarkWatchedVideos, unsafeWindow, {
+				defineAs: "MarkWatchedVideos"
 			});
 			
-			document.body.setAttribute("onbeforeunload", "SaveVideoStatistics();" + document.body.getAttribute("onbeforeunload"));
+			document.body.onbeforeunload = function() {SaveVideoStatistics();}
 			
 			TabNoc.Variables.VideoChangeCheckInterval = setInterval(returnExec(function() {
 				if (unsafeWindow.document.getElementById("movie_player").getVideoData().video_id != TabNoc.Variables.OldVideoID) {
@@ -407,15 +409,16 @@ try {
 			if (TabNoc.Settings.ShowAlreadyWatchedDialog === true ) {
 				if (GetVideoWatched(null, null, eval(TabNoc.Variables.VideoStatisticsObject).VideoID) === true) {
 					setTimeout(function(){alert("watched");}, 10);
+					Feedback.showMessage("Watched!", "error", 60000);
 				}
 			}
 			PushVideoObject(null, eval(TabNoc.Variables.VideoStatisticsObject), true);
 			
 			// new YT version (the one with the black player) doesn't have this button
 			if ($("#watch-more-related-button").length > 0) {
-				$("#watch-more-related-button")[0].setAttribute("onclick","setTimeout(MarkWatchedVideos, 1000);return false;");
+				$("#watch-more-related-button")[0].onclick = function() {setTimeout(MarkWatchedVideos, 1000);return false;}
 			}
-			execTime(MarkWatchedVideos, true);
+			MarkWatchedVideos();
 			StartVideoWatchLengthCollection();
 		} catch (exc) {
 			console.error(exc);
@@ -424,14 +427,13 @@ try {
 	}
 	
 	function MarkWatchedVideos() {
+		var start = new Date().getTime();
+		
 		// ### VideoObjectDictionary ###
 		videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "([])");
 		
 		// ### WatchedVideoArray ###
 		watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
-		
-		// ### ScannedVideoArray ###
-		scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
 		
 		var elements = $(".video-list-item");
 		if (elements.length == undefined || elements.length <= 1) {
@@ -446,10 +448,32 @@ try {
 			if (href != null && href != "" && GetVideoWatched(watchedVideoArray, videoObjectDictionary, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
 				elements[i].style.backgroundColor = "rgb(166, 235, 158)";
 			}
-			else if (href != null && href != "" && GetVideoWatched(scannedVideoArray, false, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
-				elements[i].style.backgroundColor = "rgb(151, 255, 139)";
+		}
+		if (document.URL.contains("&list=")) {
+			var elements = $("#playlist-autoscroll-list").children();
+			if (elements.length == undefined || elements.length <= 1) {
+				alert("Zu wenig Elemente zum Markieren gefunden.\nBitte prüfen.");
+			}
+			for (i = 1; i < elements.length; i++) {
+				var element = elements[i].children[1];
+				var href = element.getAttribute("href");
+				if (href != null && href != "" && GetVideoWatched(watchedVideoArray, videoObjectDictionary, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
+					$(elements[i]).css("background-color", "rgb(166, 235, 158)");
+				}
 			}
 		}
+		
+		var videoWallElements = $(".ytp-videowall-still");
+		if (videoWallElements.length > 0) {
+			for (i = 1; i < videoWallElements.length; i++) {
+				var href = videoWallElements[i].getAttribute("href");
+				if (href != null && href != "" && GetVideoWatched(watchedVideoArray, videoObjectDictionary, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
+					videoWallElements[i].children[0].style.backgroundImage = "linear-gradient(rgba(166, 235, 158, 0.45), rgba(166, 235, 158, 0.45)), " + videoWallElements[i].children[0].style.backgroundImage;
+				}
+			}
+		}
+		
+		console.log('MarkWatchedVideos execution time: ' + (new Date().getTime() - start));
 	}
 	
 	function StartVideoWatchLengthCollection(){
@@ -463,6 +487,7 @@ try {
 				}
 				if (unsafeWindow.document.getElementById("movie_player").getPlayerState() == 0 && TabNoc.Variables.HasSavedDataOnEnd === false) {
 					SaveVideoStatistics();
+					MarkWatchedVideos();
 					TabNoc.Variables.HasSavedDataOnEnd = true;
 				}
 				if (TabNoc.Variables.WatchedLength % 30 === 0) {
@@ -522,9 +547,6 @@ try {
 			var href = element.getAttribute("href");
 			if (href != null && href != "" && GetVideoWatched(watchedVideoArray, null, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
 				setColor(elements[i], "rgb(166, 235, 158)");
-			}
-			else if (href != null && href != "" && GetVideoWatched(scannedVideoArray, false, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
-				setColor(elements[i], "rgb(151, 255, 139)");
 			}
 		}
 	}
@@ -1015,6 +1037,50 @@ try {
 		}
 		return eval(videoObject_1.toSource());
 	}
+	
+	function MergeRequest(oldData) {
+		// var data_vOD = eval(prompt("Please insert new VideoObjectDictionary Data"));
+		var videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
+	}
+	
+	var Feedback = {
+		messageTimeout: null,
+		showMessage: (function (message, type, time, onClickFunction) {
+			Feedback.hideMessage();
+			var element = document.createElement("div");
+			element.id = "feedback";
+			element.title = "Dismiss";
+			var style = "";
+			if (type == "notify") {
+				style = "background-color: #00A550;";
+			}
+			else if (type == "error") {
+				style = "background-color: #C41E3A;";
+			}
+			element.setAttribute("style", "position: fixed; top: 10px; text-align: center; width: 100%; z-index: 9999;");
+			element.innerHTML = '<span style="' + style + ' border-radius: 5px; cursor: pointer; color: #fff; padding: 3px 6px; font-size: 16px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); text-shadow: 0 1px rgba(0, 0, 0, 0.2);">' + message.replaceAll("\r\n", "<br>") + "</span>";
+			element.addEventListener("click", onClickFunction || Feedback.hideMessage, !1);
+			document.body.appendChild(element);
+			time && (Feedback.messageTimeout = setTimeout(Feedback.hideMessage, time));
+		}),
+		hideMessage: (function () {
+			var element = document.getElementById("feedback");
+			if (element != null) {
+				if (Feedback.messageTimeout != null) {
+					clearTimeout(Feedback.messageTimeout);
+					Feedback.messageTimeout = null;
+				}
+				element.removeEventListener("click", Feedback.hideMessage, false)
+				document.body.removeChild(element)
+			}
+		}),
+		error: (function (message, time, onClickFunction) {
+			Feedback.showMessage(message || "Something went wrong", "error", (time == null ? 8000 : time), onClickFunction)
+		}),
+		notify: (function (message, time, onClickFunction) {
+			Feedback.showMessage(message, "notify", (time == null ? 5000 : time), onClickFunction)
+		})
+	};
 	
 	function Main() {
 		GM_addStyle(GM_getResourceText("Impromptu"));

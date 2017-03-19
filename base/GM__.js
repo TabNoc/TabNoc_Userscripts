@@ -8,31 +8,32 @@
 // @grant       GM_getValue
 // @grant       GM_deleteValue
 // ==/UserScript==
+if (unsafeWindow.TabNoc_GM == undefined) {
+	TabNoc_GM = {};
 
-TabNoc_GM = {};
+	unsafeWindow.TabNoc_GM = cloneInto(TabNoc_GM, unsafeWindow, {
+		wrapReflectors : true
+	});
+	exportFunction(returnExec(function(arg1, arg2, arg3){return GM_getValue(arg1, arg2, arg3);}), unsafeWindow.TabNoc_GM, {
+		defineAs : "getValue"
+	});
+	exportFunction(returnExec(function(arg1, arg2, arg3){return GM_setValue(arg1, arg2, arg3);}), unsafeWindow.TabNoc_GM, {
+		defineAs : "setValue"
+	});
+	exportFunction(returnExec(function(arg1, arg2, arg3){return GM_deleteValue(arg1, arg2, arg3);}), unsafeWindow.TabNoc_GM, {
+		defineAs : "deleteValue"
+	});
 
-unsafeWindow.TabNoc_GM = cloneInto(TabNoc_GM, unsafeWindow, {
-	wrapReflectors : true
-});
-exportFunction(function(arg1, arg2, arg3){return GM_getValue(arg1, arg2, arg3);}, unsafeWindow.TabNoc_GM, {
-	defineAs : "getValue"
-});
-exportFunction(function(arg1, arg2, arg3){return GM_setValue(arg1, arg2, arg3);}, unsafeWindow.TabNoc_GM, {
-	defineAs : "setValue"
-});
-exportFunction(function(arg1, arg2, arg3){return GM_deleteValue(arg1, arg2, arg3);}, unsafeWindow.TabNoc_GM, {
-	defineAs : "deleteValue"
-});
-
-exportFunction(exec, unsafeWindow.TabNoc_GM, {
-	defineAs : "exec"
-});
-exportFunction(execTime, unsafeWindow.TabNoc_GM, {
-	defineAs : "execTime"
-});
-exportFunction(returnExec, unsafeWindow.TabNoc_GM, {
-	defineAs : "returnExec"
-});
+	exportFunction(exec, unsafeWindow.TabNoc_GM, {
+		defineAs : "exec"
+	});
+	exportFunction(execTime, unsafeWindow.TabNoc_GM, {
+		defineAs : "execTime"
+	});
+	exportFunction(returnExec, unsafeWindow.TabNoc_GM, {
+		defineAs : "returnExec"
+	});
+}
 
 function execTime(func, arg1, arg2, arg3, arg4, arg5) {
 	var start = new Date().getTime();
@@ -59,6 +60,7 @@ function exec(func, arg1, arg2, arg3, arg4, arg5) {
 		return func(arg1, arg2, arg3, arg4, arg5);
 	}
 	catch (exc) {
+		alert(exc);
 		console.error(exc);
 	}
 }
@@ -69,6 +71,7 @@ function returnExec(func, arg1, arg2, arg3, arg4, arg5) {
 			return func(arg1, arg2, arg3, arg4, arg5);
 		}
 		catch (exc) {
+			alert(exc);
 			console.error(exc);
 		}
 	};

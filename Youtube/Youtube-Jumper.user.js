@@ -94,7 +94,7 @@ try {
 			PreferedVideoQuality : "hd1080", //"hd1080", "hd720", "large", "medium", "small", "tiny" ...
 			SecondPreferedVideoQuality : "hd720", //"hd1080", "hd720", "large", "medium", "small", "tiny" ...
 
-			// ChangeVideoSizeToLarge : true,
+			ChangeVideoSizeToLarge : true,
 
 			ChangeVideoPosOnKeyPress : true,
 			ChangeVideoPosValue : 5,
@@ -118,8 +118,8 @@ try {
 		HTML : {
 			Switch : '<div class="onoffswitch" style="margin-top:10px"><input type="checkbox" name="onoffswitch" class="onoffswitch-checkbox" id="TabNoc_VisibleSwitch" checked><label class="onoffswitch-label" for="TabNoc_VisibleSwitch"><div class="onoffswitch-inner"></div><div class="onoffswitch-switch"></div></label></div>'
 		},
-				// var imgSrcTrue = "https://cdn4.iconfinder.com/data/icons/icocentre-free-icons/137/f-check_256-20.png";
-				// var imgSrcFalse = "https://cdn4.iconfinder.com/data/icons/icocentre-free-icons/114/f-cross_256-20.png";
+		// var imgSrcTrue = "https://cdn4.iconfinder.com/data/icons/icocentre-free-icons/137/f-check_256-20.png";
+		// var imgSrcFalse = "https://cdn4.iconfinder.com/data/icons/icocentre-free-icons/114/f-cross_256-20.png";
 	});
 
 	function registerTabNoc() {
@@ -186,7 +186,7 @@ try {
 			}
 		}
 		
-		document.body.onbeforeunload(TN_onBeforeUnload);
+		document.body.onbeforeunload = function(){TN_onBeforeUnload();};
 	}
 
 	function start() {
@@ -209,13 +209,9 @@ try {
 				/*Check if Function has already been executed*/
 				if (document.getElementById(TabNoc.Const.remainTimeID) === null) {
 					/*create div to write the remainingTime*/
-					TabNoc.Variables.Div_RemainTime = document.createElement('div');
-					TabNoc.Variables.Div_RemainTime.setAttribute('id', TabNoc.Const.remainTimeID);
-//					TabNoc.Variables.Div_RemainTime.setAttribute('onclick', 'document.getElementById(TabNoc.Const.remainTimeID).setAttribute("show", "false");return false');
-//					TabNoc.Variables.Div_RemainTime.setAttribute('title', "Disable RemainTime");
-					TabNoc.Variables.Div_RemainTime.setAttribute('show', "true");
-					document.getElementById(TabNoc.Const.LabelContainerID).appendChild(TabNoc.Variables.Div_RemainTime);
-
+					$("#" + TabNoc.Const.LabelContainerID).append("<div id='" + TabNoc.Const.remainTimeID + "'></div>")
+					TabNoc.Variables.Div_RemainTime = $("#" + TabNoc.Const.remainTimeID)[0];
+					
 					/*create the TabNoc.Variables.Interval*/
 					TabNoc.Variables.Interval = setInterval(OnIntervalTick, 1000);
 				}
@@ -264,7 +260,7 @@ try {
 			console.error(exc);
 			alert(exc);
 		}
-		return false;
+		// return false;
 	}
 
 	function ManageTimes() {
@@ -341,6 +337,9 @@ try {
 		}
 		if (Name === "Arumba") {
 			movie_player.setPlaybackRate(2);//(1.25);
+		}
+		if (Name === "ExcelIsFun") {
+			movie_player.setPlaybackRate(2);//(1.5);
 		}
 
 		// Ignoring "Over Skippoint" when the Jumper is loaded but the Intervall is not called at the right time
@@ -435,6 +434,8 @@ alert("appling skipTime, maybe delete it if not used");
 						clearInterval(VorschaubildInterval);
 					}
 				}, 1000);
+				
+				$("#watch-appbar-playlist").css("margin-top", "288px");
 			}
 		}
 	}

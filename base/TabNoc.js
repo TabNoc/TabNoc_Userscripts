@@ -1,5 +1,5 @@
 function getTabNocVersion(){
-	return "v1.1.0-06032017";
+	return "v1.1.1-19032017";
 }
 
 
@@ -29,13 +29,13 @@ try {
 		console.log("Adding " + ScriptName);
 		
 		if (unsafeWindow.TabNoc_ == null) {
-			console.log("Adding " + ScriptName + ": unsafeWindow.TabNoc_ is null");
+			// console.log("Adding " + ScriptName + ": unsafeWindow.TabNoc_ is null");
 			unsafeWindow.TabNoc_ = cloneInto(({}), unsafeWindow, {
 				wrapReflectors: true
 			});
 		}
 		if (unsafeWindow.TabNoc_[ScriptName] == null) {
-			console.log("Adding " + ScriptName + ": unsafeWindow.TabNoc_[ScriptName] is null");
+			// console.log("Adding " + ScriptName + ": unsafeWindow.TabNoc_[ScriptName] is null");
 			unsafeWindow.TabNoc_[ScriptName] = cloneInto(({}), unsafeWindow.TabNoc_, {
 				wrapReflectors: true
 			});
