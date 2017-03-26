@@ -4,14 +4,11 @@
 // @include     http*://www.youtube.*/watch?*
 // @version     v2.2.0_06032017
 // @require		https://code.jquery.com/jquery-2.1.1.min.js
-// @require		https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
-// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
-// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/TabNoc.js
-// @require		https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/VideoGreyDetector.js
-// require		SomeOtherStuff.js
-// add @ to switch to local solutions
-// require		GM__.js
-// @resource	Impromptu http://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.css
+// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
+// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
+// @require		https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/VideoGreyDetector.js
+// @require     https://github.com/trentrichardson/jQuery-Impromptu/raw/master/dist/jquery-impromptu.min.js
+// @resource	Impromptu https://github.com/trentrichardson/jQuery-Impromptu/raw/master/dist/jquery-impromptu.min.css
 // @resource	TabNocCSS https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/Youtube/TabNoc.css
 // @updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Youtube/Youtube-Jumper.user.js
 // @grant       GM_getResourceText

@@ -5,11 +5,11 @@
 // @include     http*://twitter.com/*
 // @version     1.13.3_26022017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
-// @require     https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
-// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
-// @require		https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/TabNoc.js
-// @require		https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/ImageHover.js
-// @resource	Impromptu http://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.css
+// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
+// @require		https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
+// @require		https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/ImageHover.js
+// @require     https://github.com/trentrichardson/jQuery-Impromptu/raw/master/dist/jquery-impromptu.min.js
+// @resource	Impromptu https://github.com/trentrichardson/jQuery-Impromptu/raw/master/dist/jquery-impromptu.min.css
 // @updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Twitter/Twitter.user.js
 // @noframes
 // @grant       GM_getResourceText

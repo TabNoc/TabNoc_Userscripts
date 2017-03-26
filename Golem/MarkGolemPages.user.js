@@ -4,8 +4,8 @@
 // @include     http*://www.golem.de/*
 // @version     1.0.0_12122016
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
-// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
-// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/Implement-TabNoc.js/base/TabNoc.js
+// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
+// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
 // @grant       GM_setValue
 // @grant       GM_getValue
 // @grant       GM_deleteValue

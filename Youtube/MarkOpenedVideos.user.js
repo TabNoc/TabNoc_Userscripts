@@ -8,15 +8,15 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.0.5.1_26032017
+// @version     2.1.0_26032017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
-// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
-// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/TabNoc.js
-// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/Syncable_MarkOpendVideos/Youtube/Dialog.js
-// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/Syncable_MarkOpendVideos/base/String.js
-// @require     https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
-// @resource	Impromptu http://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.css
-// @updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/Syncable_MarkOpendVideos/Youtube/MarkOpenedVideos.user.js
+// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
+// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
+// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/String.js
+// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Youtube/Dialog.js
+// @require     https://github.com/trentrichardson/jQuery-Impromptu/raw/master/dist/jquery-impromptu.min.js
+// @resource	Impromptu https://github.com/trentrichardson/jQuery-Impromptu/raw/master/dist/jquery-impromptu.min.css
+// @updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Youtube/MarkOpenedVideos.user.js
 // @grant       GM_setValue
 // @grant       GM_getValue
 // @grant       GM_listValues
@@ -68,6 +68,10 @@ fixed:	- fixed StyleChanges from Youtube
 	added: 		- marking of VideoWall 
 	changed:	- merging Intervalls from WatchingVideo to WatchingVideoInterval
 	changed:	- cleanup some Code
+
+26.03.2017 - 2.1.0
+	[Stable Release]
+	changed:	- adjusted Imports to use master branch
 */
 
 try {
