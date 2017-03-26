@@ -8,13 +8,14 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.0.5_26032017
+// @version     2.0.5.1_26032017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/TabNoc.js
+// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/Syncable_MarkOpendVideos/Youtube/Dialog.js
+// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/Syncable_MarkOpendVideos/base/String.js
 // @require     https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
 // @resource	Impromptu http://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.css
-// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/Syncable_MarkOpendVideos/Youtube/Dialog.js
 // @updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/Syncable_MarkOpendVideos/Youtube/MarkOpenedVideos.user.js
 // @grant       GM_setValue
 // @grant       GM_getValue
@@ -63,9 +64,10 @@ fixed:	- fixed StyleChanges from Youtube
 	rewritten Storage, again
 	many other changes
 
-26.03.2017 - 2.0.5
+26.03.2017 - 2.0.5 to 2.0.5.1
 	added: 		- marking of VideoWall 
 	changed:	- merging Intervalls from WatchingVideo to WatchingVideoInterval
+	changed:	- cleanup some Code
 */
 
 try {
@@ -93,8 +95,6 @@ try {
 
 		Settings: {
 			SavingEnabled: true,
-			MarkAfterScan: true,
-			OpenInNewTabWhenScanned: true,
 			TimerInterval: 5000,
 			UninterestingVideos: (["Recht für YouTuber:"]),
 			NotWantedVideos: (["Arumba Plays DOTA", "Europa Universalis IV", "Let's Play Crusader Kings 2", "Challenge WBS:", "Let's Play Civilization VI", "Let's Play Galactic Civilizations 3", "The Binding of Isaac ", "Civilization 6", "Endless Space", "Galactic Cililisations 3", "Civilization V", "Let's Play Stellaris", "SPAZ2", "[EU4]"]),
@@ -239,7 +239,7 @@ try {
 		}
 		TabNoc.Variables.MarkToggleState = ToggleState;
 
-		console.log((elements.length - UnScannedElements) + " Marked Elements | " + UnScannedElements + " UnMarked Elements | Total " + elements.length + " Elements (" + scannedVideoArray.length + " Videos listed | " + watchedVideoArray.length + " Videos watched)")
+		console.log(String.format("Found {0} Elements ({1} Marked Elements | {2} UnMarked Elements) [{3} Scanned Videos | {4} Watched Videos | {5} Watched Videos(old)]", elements.length, elements.length - UnScannedElements, UnScannedElements, scannedVideoArray.length, videoObjectDictionary.length, watchedVideoArray.length))
 	}
 
 	function checkElement(watchedVideoArray, scannedVideoArray, videoObjectDictionary, currentElement, ToggleState) {
@@ -299,12 +299,13 @@ try {
 	function getAllElements(from, till) {
 		try {
 			var start = new Date().getTime();
-			
-			var OpenInNewTabsArray = [];
 
-			// ### Scanned-Videos ###
+			// ### ScannedVideoArray ###
 			scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
-			TabNoc.Variables.OldSaveData = scannedVideoArray.toSource();
+			// ### WatchedVideoArray ###
+			watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
+			// ### VideoObjectDictionary ###
+			videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
 			
 			var elements = $(".item-section");
 
@@ -320,12 +321,8 @@ try {
 				if (element.className.includes("item-section")) {
 					var currentElementId = $(element).find(".yt-uix-tile-link")[0].getAttribute("href");
 					
-					if (GetVideoWatched(scannedVideoArray, false, currentElementId) === false) {
+					if (GetVideoWatched(scannedVideoArray, false, currentElementId) === false && GetVideoWatched(watchedVideoArray, videoObjectDictionary, currentElementId) === false) {
 						scannedVideoArray.push(currentElementId);
-						//Open in new Tab
-						if (TabNoc.Settings.OpenInNewTabWhenScanned === true) {
-							OpenInNewTabsArray.push({href:currentElementId, name:$(element).find(".branded-page-module-title-link")[0].textContent.trim()});
-						}
 					}
 				} else {
 					console.warn(element);
@@ -334,20 +331,9 @@ try {
 
 			GM_setValue("ScannedVideoArray", scannedVideoArray.toSource());
 			
-			if (confirm(OpenInNewTabsArray.length + " neue Tabs öffnen?") == true) {
-				for (i = 0; i < OpenInNewTabsArray.length; i++) {
-					if (OpenInNewTabsArray[i].name != "direwolf20") {
-						window.open(OpenInNewTabsArray[i].href);
-					}
-				}
-			}
+			startCheckElements(true);
 			
-			if (TabNoc.Settings.MarkAfterScan) {
-				startCheckElements(true);
-			}
-
-			var time = new Date().getTime() - start;
-			console.log('getAllElements() Execution time: ' + time);
+			console.log('getAllElements() Execution time: ' + (new Date().getTime() - start));
 		}
 		catch (exc) {
 			console.error(exc);
@@ -1117,14 +1103,14 @@ try {
 		}
 		
 		else {
-			alert("MarkOpenedVideos.user.js:Main()->No LoadObject found!");
+			alert("MarkOpenedVideos.user.js:Main() -> No LoadObject found!");
 			console.info("No LoadObject found!");
 		}
 	}
 	
 	Main();
 	
-	console.info("MarkOpenedVideos.user.js[v" + GM_info.script.version + ", Autoupdate: " + GM_info.scriptWillUpdate + "] readed");
+	console.info(String.format("MarkOpenedVideos.user.js[Version: {0}, Autoupdate: {1}] readed", GM_info.script.version, GM_info.scriptWillUpdate));
 } catch (exc) {
 	console.error(exc);
 	alert(exc);

@@ -1,5 +1,5 @@
 function getTabNocVersion(){
-	return "v1.1.1-19032017";
+	return "v1.1.2-26032017";
 }
 
 
@@ -26,7 +26,7 @@ try {
 	
 	function setTabNoc(obj){
 		var ScriptName = GM_info.script.name;
-		console.log("Adding " + ScriptName);
+		console.log("TabNoc.js.setTabNoc(): Adding " + ScriptName + " to TabNoc.js");
 		
 		if (unsafeWindow.TabNoc_ == null) {
 			// console.log("Adding " + ScriptName + ": unsafeWindow.TabNoc_ is null");
@@ -73,55 +73,7 @@ try {
 		set HTML(obj){},
 	}
 	
-	// setTabNoc({
-		// Const: {
-		// },
-		
-		// console: {
-			// // cache: [],
-			// // add: function (msg, when) {
-				// // if (when != false) {
-					// // TabNoc.console.cache.push(new Date().timeNow() + " : " + msg);
-				// // }
-				// // return when != false;
-			// // },
-			// // get: function (amount) {
-				// // var returnval = "\r\n";
-				// // var tmp = "";
-				// // var counter = 0;
-				// // amount = typeof (amount) != "number" ? Number.MAX_SAFE_INTEGER : amount
-
-				// // TabNoc.console.cache.reverse();
-				// // while ((tmp = TabNoc.console.cache.pop()) != null && counter < amount) {
-					// // ++counter;
-					// // returnval += tmp + "\r\n";
-				// // }
-
-				// // TabNoc.console.cache.reverse();
-
-				// // return returnval;
-			// // },
-			// // register: function () {
-				// // if (unsafeWindow.console.log.toString() == "function (){}") {
-					// // exportFunction(function (msg) { console.log(msg); }, unsafeWindow.console, {
-						// // defineAs: "log"
-					// // });
-					// // return true;
-				// // }
-				// // return false;
-			// // }
-		// },
-		
-		// Variables: {
-		// },
-
-		// Settings: {
-		// },
-
-		// HTML: {
-		// }
-	// });
-	console.log("Readed TabNoc_Config " + getTabNocVersion() + " by TabNoc");
+	console.log("TabNoc.js: Readed TabNoc_Config " + getTabNocVersion() + " by TabNoc");
 } catch (exc) {
 	console.error(exc);
 	alert(exc);
