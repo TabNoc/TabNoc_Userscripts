@@ -8,7 +8,7 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.0.4_03032017
+// @version     2.0.5_26032017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/TabNoc.js
@@ -61,6 +61,11 @@ fixed:	- fixed StyleChanges from Youtube
 	
 03.03.2017 - 2.0.4
 	rewritten Storage, again
+	many other changes
+
+26.03.2017 - 2.0.5
+	added: 		- marking of VideoWall 
+	changed:	- merging Intervalls from WatchingVideo to WatchingVideoInterval
 */
 
 try {
@@ -69,11 +74,10 @@ try {
 			MarkToggleState: true,
 			
 			WatchedLength: 0,
-			WatchedLengthInterval: null,
+			WatchingVideoInterval: null,
 			HasSavedDataOnEnd: false,
 			
-			VideoChangeCheckInterval: null,
-			OldVideoID: "",
+			OldVideoID: unsafeWindow.document.getElementById("movie_player") && unsafeWindow.document.getElementById("movie_player").getVideoData().video_id,
 			
 			VideoStatisticsObject: null,
 			
@@ -83,7 +87,8 @@ try {
 			lastCheckWatchedVideoAmount:0,
 			lastCheckVideoObjectAmount:0,
 			
-			MultiRow: false
+			MultiRow: false,
+			LastFullScreenElement: null
 		},
 
 		Settings: {
@@ -123,9 +128,6 @@ try {
 	}
 	
 	function registerTabNoc() {
-		// unsafeWindow.TabNoc = cloneInto(TabNoc, unsafeWindow, {
-			// wrapReflectors: true
-		// });
 		
 		// Scannen
 		// exportFunction(getAllElements, unsafeWindow, {
@@ -370,23 +372,14 @@ try {
 				defineAs: "MarkWatchedVideos"
 			});
 			
+			// GetVideoWatched
+			exportFunction(GetVideoWatched, unsafeWindow, {
+				defineAs: "GetVideoWatched"
+			});
+			
 			document.body.onbeforeunload = function() {SaveVideoStatistics();}
 			
-			TabNoc.Variables.VideoChangeCheckInterval = setInterval(returnExec(function() {
-				if (unsafeWindow.document.getElementById("movie_player").getVideoData().video_id != TabNoc.Variables.OldVideoID) {
-					// Save Old Statistics
-					if (TabNoc.Variables.WatchedLengthInterval != null) {
-						clearInterval(TabNoc.Variables.WatchedLengthInterval);
-					}
-					SaveVideoStatistics();
-					TabNoc.Variables.WatchedLengthInterval = null;
-					TabNoc.Variables.WatchedLength = null;
-					
-					// Start On New Link
-					TabNoc.Variables.OldVideoID = unsafeWindow.document.getElementById("movie_player").getVideoData().video_id;
-					WatchingVideo();
-				}
-			}), 1000);
+			WatchingVideo();
 			
 			console.log("MarkOpenedVideos.user.js done");
 		} catch (exc) {
@@ -419,7 +412,12 @@ try {
 				$("#watch-more-related-button")[0].onclick = function() {setTimeout(MarkWatchedVideos, 1000);return false;}
 			}
 			MarkWatchedVideos();
-			StartVideoWatchLengthCollection();
+			
+			TabNoc.Variables.WatchedLength = 0;
+			TabNoc.Variables.HasSavedDataOnEnd = false;
+			
+			TabNoc.Variables.WatchingVideoInterval = setInterval(WatchingVideoIntervalHandler, 1000);
+			
 		} catch (exc) {
 			console.error(exc);
 			alert(exc);
@@ -465,9 +463,9 @@ try {
 		
 		var videoWallElements = $(".ytp-videowall-still");
 		if (videoWallElements.length > 0) {
-			for (i = 1; i < videoWallElements.length; i++) {
+			for (i = 0; i < videoWallElements.length; i++) {
 				var href = videoWallElements[i].getAttribute("href");
-				if (href != null && href != "" && GetVideoWatched(watchedVideoArray, videoObjectDictionary, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
+				if (href != null && href != "" && GetVideoWatched(watchedVideoArray, videoObjectDictionary, href.replace("https://www.youtube.com/watch?", "").split("v=")[1].split("&t=")[0]) === true) {
 					videoWallElements[i].children[0].style.backgroundImage = "linear-gradient(rgba(166, 235, 158, 0.45), rgba(166, 235, 158, 0.45)), " + videoWallElements[i].children[0].style.backgroundImage;
 				}
 			}
@@ -476,28 +474,56 @@ try {
 		console.log('MarkWatchedVideos execution time: ' + (new Date().getTime() - start));
 	}
 	
-	function StartVideoWatchLengthCollection(){
-		TabNoc.Variables.WatchedLength = 0;
-		TabNoc.Variables.HasSavedDataOnEnd = false;
-		TabNoc.Variables.WatchedLengthInterval = setInterval(function(){
-			try {
-				if (unsafeWindow.document.getElementById("movie_player").getPlayerState() == 1 /*Playing*/) {
-					TabNoc.Variables.WatchedLength += 1;
-					TabNoc.Variables.HasSavedDataOnEnd = false;
-				}
-				if (unsafeWindow.document.getElementById("movie_player").getPlayerState() == 0 && TabNoc.Variables.HasSavedDataOnEnd === false) {
-					SaveVideoStatistics();
-					MarkWatchedVideos();
-					TabNoc.Variables.HasSavedDataOnEnd = true;
-				}
-				if (TabNoc.Variables.WatchedLength % 30 === 0) {
-					SaveVideoStatistics();
-				}
-			} catch (exc) {
-				console.error(exc);
-				alert(exc);
+	function WatchingVideoIntervalHandler() {
+		if (TabNoc.Settings.Debug === true) {
+			var start = new Date().getTime();
+		}
+		try {
+			// ############################### TabNoc.Variables.WatchedLengthInterval ###############################
+			if (unsafeWindow.document.getElementById("movie_player").getPlayerState() == 1 /*Playing*/) {
+				TabNoc.Variables.WatchedLength += 1;
+				TabNoc.Variables.HasSavedDataOnEnd = false;
 			}
-		}, 1000);
+			if (unsafeWindow.document.getElementById("movie_player").getPlayerState() == 0 && TabNoc.Variables.HasSavedDataOnEnd === false) {
+				SaveVideoStatistics();
+				MarkWatchedVideos();
+				TabNoc.Variables.HasSavedDataOnEnd = true;
+			}
+			if (TabNoc.Variables.WatchedLength % 30 === 0) {
+				SaveVideoStatistics();
+			}
+			// ############################### TabNoc.Variables.WatchedLengthInterval ###############################
+			
+			// check Fullscreen state Change
+			if ((document.mozFullScreenElement == null && TabNoc.Variables.LastFullScreenElement != null) || 
+				 (document.mozFullScreenElement != null && (document.mozFullScreenElement.getAttribute("id") != TabNoc.Variables.LastFullScreenElement))) {
+				setTimeout(MarkWatchedVideos, 1000);
+				TabNoc.Variables.LastFullScreenElement = document.mozFullScreenElement && document.mozFullScreenElement.getAttribute("id");
+			}
+			
+			// ############################### TabNoc.Variables.VideoChangeCheckInterval ###############################
+			if (unsafeWindow.document.getElementById("movie_player").getVideoData().video_id != TabNoc.Variables.OldVideoID) {
+				// Save Old Statistics
+				if (TabNoc.Variables.WatchingVideoInterval != null) {
+					clearInterval(TabNoc.Variables.WatchingVideoInterval);
+				}
+				SaveVideoStatistics();
+				TabNoc.Variables.WatchingVideoInterval = null;
+				TabNoc.Variables.WatchedLength = null;
+				
+				// Start On New Link
+				TabNoc.Variables.OldVideoID = unsafeWindow.document.getElementById("movie_player").getVideoData().video_id;
+				WatchingVideo();
+			}
+			// ############################### TabNoc.Variables.VideoChangeCheckInterval ###############################
+			
+		} catch (exc) {
+			console.error(exc);
+			alert(exc);
+		}
+		if (TabNoc.Settings.Debug === true) {
+			console.log('WatchingVideoIntervalHandler execution time: ' + (new Date().getTime() - start));
+		}
 	}
 	
 	function SaveVideoStatistics(){
@@ -529,7 +555,6 @@ try {
 	}
 	
 	function MarkSearchResults(){
-		// TODO: make function and use it
 		var setColor = function(checkElement, color) {
 			$(checkElement).css("background-color", color);
 			$(checkElement).find(".yt-uix-tile-link, .yt-lockup-description").css("background-color", color);
@@ -889,17 +914,8 @@ try {
 			if (videoObjectDictionary === null) {
 				videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
 			}
-			// for (var i in videoObjectDictionary) {
-				// for (var j in videoObjectDictionary[i]) {
-					// if (videoObjectDictionary[i][j].VideoID === VideoID) {
-						// return true;
-					// }
-				// }
-			// }
-			for (var index in videoObjectDictionary) {
-				if (index === VideoID) {
-					return true;
-				}
+			if (videoObjectDictionary[VideoID] !== undefined) {
+				return true;
 			}
 		}
 		
