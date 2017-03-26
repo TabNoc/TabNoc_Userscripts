@@ -1,5 +1,5 @@
 ﻿// ==UserScript==
-// @name        MarkOpenedVideos_Beta
+// @name        MarkOpenedVideos
 // @namespace   TabNoc
 // @include     https://www.youtube.com/feed/subscriptions*
 // @include     https://www.youtube.com/user/*/videos*
@@ -8,7 +8,7 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.1.0_26032017
+// @version     2.1.1_26032017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -72,6 +72,9 @@ fixed:	- fixed StyleChanges from Youtube
 26.03.2017 - 2.1.0
 	[Stable Release]
 	changed:	- adjusted Imports to use master branch
+
+26.03.2017 - 2.1.1
+	changed:	- removed Beta flag
 */
 
 try {
