@@ -41,7 +41,7 @@ function AddGreyDetector(Config) {
 
 			function GetDarkerPercentage(DarkPercentage) {
 				// var ColorDefinition = Math.floor(255 * (DarkPercentage / 100));
-
+				
 				// check performance
 				// maybe use clipped Function	context.drawImage(img,sx,sy,swidth,sheight,x,y,width,height);
 				CanvasContent.drawImage(Config.BaseVideo, 0, 0, VidWidth, VidHeigth);
