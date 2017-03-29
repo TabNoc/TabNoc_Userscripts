@@ -8,12 +8,14 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.1.2_29032017
+// @version     2.1.3_29032017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/String.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Youtube/Dialog.js
+// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/jquery_ui/jquery-ui.min.js
+// @resource	JqueryUI https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/jquery_ui/jquery-ui.min.css
 // @require     https://github.com/trentrichardson/jQuery-Impromptu/raw/master/dist/jquery-impromptu.min.js
 // @resource	Impromptu https://github.com/trentrichardson/jQuery-Impromptu/raw/master/dist/jquery-impromptu.min.css
 // @updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Youtube/MarkOpenedVideos.user.js
@@ -78,6 +80,10 @@ fixed:	- fixed StyleChanges from Youtube
 
 29.03.2017 - 2.1.2
 	fixed:	- empty VideoTitle and empty VideoAuthor will be merged from filled Data Object
+
+29.03.2017 - 2.1.3
+	added:	- JqueryUI
+	fixed:	- if the VideoTitle or the VideoAuthor has changed and none of them are empty, a Dialog will be shown to let the user choose witch Version shall be used 
 */
 
 try {
@@ -1041,11 +1047,12 @@ try {
 							videoObject_1.VideoTitle = videoObject_2.VideoTitle;
 						}
 						else {
-							console.error("Für diesen spezial-Fall des Objeckts \" + " + objectIndex + "\" wurde kein Merge definiert!");
-							console.log(videoObject_1);
-							console.log(videoObject_2);
-							alert("Für diesen spezial-Fall des Objeckts \" + " + objectIndex + "\" wurde kein Merge definiert!\r\nSiehe Konsole für mehr Informationen.");
-							throw "NotDefinedException"
+							if (confirm(String.format("Beim Zusammenführen von 2 unterschiedlichen Informationen über das Video \"{0}\" wurden unterschiede festgestellt die nicht Automatisch behoben werden konnten.\r\n\r\n\tEintrag 1:\r\nVideoTitel: {1}\r\n\r\n\tEintrag 2 :\r\nVideoTitel: {2}\r\n\r\nSoll der 1. Eintrag verwendet werden?", videoObject_1.VideoID, videoObject_1.VideoTitle, videoObject_2.VideoTitle)) === true) {
+								videoObject_1.VideoTitle = videoObject_2.VideoTitle;
+							}
+							else {
+								videoObject_2.VideoTitle = videoObject_1.VideoTitle;
+							}
 						}
 						break;
 						
@@ -1057,19 +1064,25 @@ try {
 							videoObject_1.VideoAuthor = videoObject_2.VideoAuthor;
 						}
 						else {
-							console.error("Für diesen spezial-Fall des Objeckts \" + " + objectIndex + "\" wurde kein Merge definiert!");
-							console.log(videoObject_1);
-							console.log(videoObject_2);
-							alert("Für diesen spezial-Fall des Objeckts \" + " + objectIndex + "\" wurde kein Merge definiert!\r\nSiehe Konsole für mehr Informationen.");
-							throw "NotDefinedException"
+							if (confirm(String.format("Beim Zusammenführen von 2 unterschiedlichen Informationen über das Video \"{0}\" wurden unterschiede festgestellt die nicht Automatisch behoben werden konnten.\r\n\r\n\tEintrag 1:\r\nYoutube-Kanal: {1}\r\n\r\n\tEintrag 2 :\r\nYoutube-Kanal: {2}\r\n\r\nSoll der 1. Eintrag verwendet werden?", videoObject_1.VideoID, videoObject_1.VideoAuthor, videoObject_2.VideoAuthor)) === true) {
+								videoObject_1.VideoAuthor = videoObject_2.VideoAuthor;
+							}
+							else {
+								videoObject_2.VideoAuthor = videoObject_1.VideoAuthor;
+							}
 						}
 						break;
 					
 					default:
-						console.error("Für diesen Unterschied wurde kein merge definiert![" + objectIndex + "]");
+						// console.error("Für diesen Spezialfall des Objekts \"" + objectIndex + "\" wurde kein automatisches Zusammenführen definiert!");
+						// console.log(videoObject_1);
+						// console.log(videoObject_2);
+						// alert("Für diesen Spezialfall des Objekts \"" + objectIndex + "\" wurde kein automatisches Zusammenführen definiert!\r\nSiehe Konsole für mehr Informationen.");
+						// throw "NotDefinedException"
+						console.error("Für diesen Unterschied wurde kein automatisches Zusammenführen definiert![" + objectIndex + "]");
 						console.log(videoObject_1);
 						console.log(videoObject_2);
-						alert("Für diesen Unterschied wurde kein merge definiert!\r\nSiehe Konsole für mehr Informationen.");
+						alert("Für diesen Unterschied wurde kein automatisches Zusammenführen definiert!\r\nSiehe Konsole für mehr Informationen.");
 						throw "NotDefinedException"
 						break;
 				}
@@ -1128,6 +1141,7 @@ try {
 	
 	function Main() {
 		GM_addStyle(GM_getResourceText("Impromptu"));
+		GM_addStyle(GM_getResourceText("JqueryUI"));
 		UpdateDataBase();
 		
 		// SearchResult
