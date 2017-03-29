@@ -8,7 +8,7 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.1.1_26032017
+// @version     2.1.2_29032017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -75,6 +75,9 @@ fixed:	- fixed StyleChanges from Youtube
 
 26.03.2017 - 2.1.1
 	changed:	- removed Beta flag
+
+29.03.2017 - 2.1.2
+	fixed:	- empty VideoTitle and empty VideoAuthor will be merged from filled Data Object
 */
 
 try {
@@ -1028,6 +1031,38 @@ try {
 						var VideoLength = Math.max(videoObject_1.VideoLength, videoObject_2.VideoLength);
 						videoObject_1.VideoLength = eval(VideoLength);
 						videoObject_2.VideoLength = eval(VideoLength);
+						break;
+						
+					case "VideoTitle":
+						if (videoObject_1.VideoTitle === "") {
+							videoObject_2.VideoTitle = videoObject_1.VideoTitle;
+						}
+						else if (videoObject_2.VideoTitle === "") {
+							videoObject_1.VideoTitle = videoObject_2.VideoTitle;
+						}
+						else {
+							console.error("Für diesen spezial-Fall des Objeckts \" + " + objectIndex + "\" wurde kein Merge definiert!");
+							console.log(videoObject_1);
+							console.log(videoObject_2);
+							alert("Für diesen spezial-Fall des Objeckts \" + " + objectIndex + "\" wurde kein Merge definiert!\r\nSiehe Konsole für mehr Informationen.");
+							throw "NotDefinedException"
+						}
+						break;
+						
+					case "VideoAuthor":
+						if (videoObject_1.VideoAuthor === "") {
+							videoObject_2.VideoAuthor = videoObject_1.VideoAuthor;
+						}
+						else if (videoObject_2.VideoAuthor === "") {
+							videoObject_1.VideoAuthor = videoObject_2.VideoAuthor;
+						}
+						else {
+							console.error("Für diesen spezial-Fall des Objeckts \" + " + objectIndex + "\" wurde kein Merge definiert!");
+							console.log(videoObject_1);
+							console.log(videoObject_2);
+							alert("Für diesen spezial-Fall des Objeckts \" + " + objectIndex + "\" wurde kein Merge definiert!\r\nSiehe Konsole für mehr Informationen.");
+							throw "NotDefinedException"
+						}
 						break;
 					
 					default:
