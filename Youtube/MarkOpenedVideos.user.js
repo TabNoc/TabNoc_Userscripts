@@ -1,5 +1,5 @@
 ﻿// ==UserScript==
-// @name        MarkOpenedVideos_Beta
+// @name        MarkOpenedVideos
 // @namespace   TabNoc
 // @include     https://www.youtube.com/feed/subscriptions*
 // @include     https://www.youtube.com/user/*/videos*
@@ -8,12 +8,14 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.1.0_26032017
+// @version     2.1.3_29032017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/String.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Youtube/Dialog.js
+// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/jquery_ui/jquery-ui.min.js
+// @resource	JqueryUI https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/jquery_ui/jquery-ui.min.css
 // @require     https://github.com/trentrichardson/jQuery-Impromptu/raw/master/dist/jquery-impromptu.min.js
 // @resource	Impromptu https://github.com/trentrichardson/jQuery-Impromptu/raw/master/dist/jquery-impromptu.min.css
 // @updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Youtube/MarkOpenedVideos.user.js
@@ -72,6 +74,16 @@ fixed:	- fixed StyleChanges from Youtube
 26.03.2017 - 2.1.0
 	[Stable Release]
 	changed:	- adjusted Imports to use master branch
+
+26.03.2017 - 2.1.1
+	changed:	- removed Beta flag
+
+29.03.2017 - 2.1.2
+	fixed:	- empty VideoTitle and empty VideoAuthor will be merged from filled Data Object
+
+29.03.2017 - 2.1.3
+	added:	- JqueryUI
+	fixed:	- if the VideoTitle or the VideoAuthor has changed and none of them are empty, a Dialog will be shown to let the user choose witch Version shall be used 
 */
 
 try {
@@ -101,7 +113,7 @@ try {
 			SavingEnabled: true,
 			TimerInterval: 5000,
 			UninterestingVideos: (["Recht für YouTuber:"]),
-			NotWantedVideos: (["Arumba Plays DOTA", "Europa Universalis IV", "Let's Play Crusader Kings 2", "Challenge WBS:", "Let's Play Civilization VI", "Let's Play Galactic Civilizations 3", "The Binding of Isaac ", "Civilization 6", "Endless Space", "Galactic Cililisations 3", "Civilization V", "Let's Play Stellaris", "SPAZ2", "[EU4]"]),
+			NotWantedVideos: (["Arumba Plays DOTA", "Europa Universalis IV", "Let's Play Crusader Kings 2", "Challenge WBS:", "Let's Play Civilization VI", "Let's Play Galactic Civilizations 3", "The Binding of Isaac ", "Civilization 6", "Endless Space", "Galactic Cililisations 3", "Civilization V", "Let's Play Stellaris", "SPAZ2", "EU4", "Factorio S7E"]),
 			DeleteNotWantedVideos: false,
 			HideAlreadyWatchedVideos: false,
 			ShowAlreadyWatchedDialog: true,
@@ -1026,12 +1038,51 @@ try {
 						videoObject_1.VideoLength = eval(VideoLength);
 						videoObject_2.VideoLength = eval(VideoLength);
 						break;
+						
+					case "VideoTitle":
+						if (videoObject_1.VideoTitle === "") {
+							videoObject_2.VideoTitle = videoObject_1.VideoTitle;
+						}
+						else if (videoObject_2.VideoTitle === "") {
+							videoObject_1.VideoTitle = videoObject_2.VideoTitle;
+						}
+						else {
+							if (confirm(String.format("Beim Zusammenführen von 2 unterschiedlichen Informationen über das Video \"{0}\" wurden unterschiede festgestellt die nicht Automatisch behoben werden konnten.\r\n\r\n\tEintrag 1:\r\nVideoTitel: {1}\r\n\r\n\tEintrag 2 :\r\nVideoTitel: {2}\r\n\r\nSoll der 1. Eintrag verwendet werden?", videoObject_1.VideoID, videoObject_1.VideoTitle, videoObject_2.VideoTitle)) === true) {
+								videoObject_1.VideoTitle = videoObject_2.VideoTitle;
+							}
+							else {
+								videoObject_2.VideoTitle = videoObject_1.VideoTitle;
+							}
+						}
+						break;
+						
+					case "VideoAuthor":
+						if (videoObject_1.VideoAuthor === "") {
+							videoObject_2.VideoAuthor = videoObject_1.VideoAuthor;
+						}
+						else if (videoObject_2.VideoAuthor === "") {
+							videoObject_1.VideoAuthor = videoObject_2.VideoAuthor;
+						}
+						else {
+							if (confirm(String.format("Beim Zusammenführen von 2 unterschiedlichen Informationen über das Video \"{0}\" wurden unterschiede festgestellt die nicht Automatisch behoben werden konnten.\r\n\r\n\tEintrag 1:\r\nYoutube-Kanal: {1}\r\n\r\n\tEintrag 2 :\r\nYoutube-Kanal: {2}\r\n\r\nSoll der 1. Eintrag verwendet werden?", videoObject_1.VideoID, videoObject_1.VideoAuthor, videoObject_2.VideoAuthor)) === true) {
+								videoObject_1.VideoAuthor = videoObject_2.VideoAuthor;
+							}
+							else {
+								videoObject_2.VideoAuthor = videoObject_1.VideoAuthor;
+							}
+						}
+						break;
 					
 					default:
-						console.error("Für diesen Unterschied wurde kein merge definiert![" + objectIndex + "]");
+						// console.error("Für diesen Spezialfall des Objekts \"" + objectIndex + "\" wurde kein automatisches Zusammenführen definiert!");
+						// console.log(videoObject_1);
+						// console.log(videoObject_2);
+						// alert("Für diesen Spezialfall des Objekts \"" + objectIndex + "\" wurde kein automatisches Zusammenführen definiert!\r\nSiehe Konsole für mehr Informationen.");
+						// throw "NotDefinedException"
+						console.error("Für diesen Unterschied wurde kein automatisches Zusammenführen definiert![" + objectIndex + "]");
 						console.log(videoObject_1);
 						console.log(videoObject_2);
-						alert("Für diesen Unterschied wurde kein merge definiert!\r\nSiehe Konsole für mehr Informationen.");
+						alert("Für diesen Unterschied wurde kein automatisches Zusammenführen definiert!\r\nSiehe Konsole für mehr Informationen.");
 						throw "NotDefinedException"
 						break;
 				}
@@ -1090,6 +1141,7 @@ try {
 	
 	function Main() {
 		GM_addStyle(GM_getResourceText("Impromptu"));
+		GM_addStyle(GM_getResourceText("JqueryUI"));
 		UpdateDataBase();
 		
 		// SearchResult
