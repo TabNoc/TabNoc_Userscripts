@@ -612,10 +612,10 @@ alert("appling skipTime, maybe delete it if not used");
 			// Initialize
 			TabNoc.Variables.Div_RemainTime.innerHTML = '<span id="RemainTimeStart">Es verbleiben </span><span id="RemainTimeTime"></span><span id="RemainTimeBuffer" style="display:none"><br>Buffer : ca. <span id="RemainTimeBufferText"></span>s<img id="RemainTimeImage"></span>';
 			
-			img = $(ImageId)[0];
-			img.on("click", (function(){try{TabNoc.Variables.HasPausedOnLowBuffer = false;document.getElementById("RemainTimeImage").style.display = "none";}catch(exc){console.error(exc);alert(exc);}});
-			img.setAttribute("style", "vertical-align: middle; cursor: pointer; width: 22px; display:none");
-			img.setAttribute("src", "https://cdn0.iconfinder.com/data/icons/Tabs_Color_Social/40/Play-Pause.png");
+			img = $($(ImageId)[0]);
+			img.on("click", (function(){try{TabNoc.Variables.HasPausedOnLowBuffer = false;document.getElementById("RemainTimeImage").style.display = "none";}catch(exc){console.error(exc);alert(exc);}}));
+			img.attr("style", "vertical-align: middle; cursor: pointer; width: 22px; display:none");
+			img.attr("src", "https://cdn0.iconfinder.com/data/icons/Tabs_Color_Social/40/Play-Pause.png");
 		}
 		
 		if (remainingTimeString !== null && remainingTimeString !== undefined) {
