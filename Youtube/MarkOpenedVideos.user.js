@@ -1,4 +1,4 @@
-﻿// ==UserScript==
+// ==UserScript==
 // @name        MarkOpenedVideos
 // @namespace   TabNoc
 // @include     https://www.youtube.com/feed/subscriptions*
@@ -84,6 +84,10 @@ fixed:	- fixed StyleChanges from Youtube
 29.03.2017 - 2.1.3
 	added:	- JqueryUI
 	fixed:	- if the VideoTitle or the VideoAuthor has changed and none of them are empty, a Dialog will be shown to let the user choose witch Version shall be used 
+
+18.04.2017 - 2.1.4
+	added:	- ExportAllData
+			- ImportAllData
 */
 
 try {
@@ -144,44 +148,29 @@ try {
 	}
 	
 	function registerTabNoc() {
-		
-		// Scannen
-		// exportFunction(getAllElements, unsafeWindow, {
-			// defineAs: "getAllElements"
+		// //ResetDataBaseVersion
+		// exportFunction(function(){
+			// if (confirm("Sollen wirklich die Versionen von allen Tabellen gelöscht werden?") !== true) {return;}
+			// // ### WatchedVideoArray-Version ###
+			// Version_WatchedVideoArray = eval(GM_getValue("WatchedVideoArray-Version"));
+			// if (Version_WatchedVideoArray != null) {
+				// GM_deleteValue("WatchedVideoArray-Version")
+			// }
+			
+			// // ### ScannedVideoArray-Version ###
+			// Version_ScannedVideoArray = eval(GM_getValue("ScannedVideoArray-Version"));
+			// if (Version_ScannedVideoArray != null) {
+				// GM_deleteValue("ScannedVideoArray-Version")
+			// }
+			
+			// // ### VideoObjectDictionary-Version ###
+			// Version_VideoObjectDictionary = eval(GM_getValue("VideoObjectDictionary-Version"));
+			// if (Version_VideoObjectDictionary != null) {
+				// GM_deleteValue("VideoObjectDictionary-Version")
+			// }
+		// }, unsafeWindow, {
+			// defineAs: "ResetDataBaseVersion"
 		// });
-		
-		//ResetAllTNData
-		exportFunction(function(){alert("Not Implemented!")}, unsafeWindow, {
-			defineAs: "ResetAllTNData"
-		});
-		
-		//ResetDataBaseVersion
-		exportFunction(function(){
-			if (confirm("Sollen wirklich die Versionen von allen Tabellen gelöscht werden?") !== true) {return;}
-			// ### WatchedVideoArray-Version ###
-			Version_WatchedVideoArray = eval(GM_getValue("WatchedVideoArray-Version"));
-			if (Version_WatchedVideoArray != null) {
-				GM_deleteValue("WatchedVideoArray-Version")
-			}
-			
-			// ### ScannedVideoArray-Version ###
-			Version_ScannedVideoArray = eval(GM_getValue("ScannedVideoArray-Version"));
-			if (Version_ScannedVideoArray != null) {
-				GM_deleteValue("ScannedVideoArray-Version")
-			}
-			
-			// ### VideoObjectDictionary-Version ###
-			Version_VideoObjectDictionary = eval(GM_getValue("VideoObjectDictionary-Version"));
-			if (Version_VideoObjectDictionary != null) {
-				GM_deleteValue("VideoObjectDictionary-Version")
-			}
-		}, unsafeWindow, {
-			defineAs: "ResetDataBaseVersion"
-		});
-		
-		//GM_addStyle(".display-none{display:none}");
-		//TODO?!?! Visited
-		//GM_addStyle(".display-none{display:none}");
 		
 		GM_registerMenuCommand("Hide Watched Videos", function () {
 			TabNoc.Settings.HideAlreadyWatchedVideos = true;
@@ -193,18 +182,24 @@ try {
 		});
 		
 		GM_registerMenuCommand("ExportData", function () {
-			//alert(ExportData());
 			$.prompt(ImportExportDialog);
+		});
+		
+		GM_registerMenuCommand("ExportAllData", function () {
+			var element = ({});
+			element.WatchedVideoArray = GM_getValue("WatchedVideoArray") || "([])";
+			element.ScannedVideoArray = GM_getValue("ScannedVideoArray") || "([])";
+			element.VideoObjectDictionary = GM_getValue("VideoObjectDictionary") || "({})";
+			prompt("Bitte die Exportierten Daten kopieren", element.toSource());
+		});
+		
+		GM_registerMenuCommand("ImportAllData", function () {
+			ImportData(true);
 		});
 
 		GM_registerMenuCommand("Markieren", function () {
-			// startCheckElements(true);
 			startCheckElements(!TabNoc.Variables.MarkToggleState);
 		});
-
-		// GM_registerMenuCommand("Einlesen", function () {
-			// getAllElements();
-		// });
 	}
 
 	function startCheckElements(ToggleState, force) {
@@ -216,7 +211,8 @@ try {
 			// ### VideoObjectDictionary ###
 			videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
 
-			if ($(".item-section").find(".yt-uix-tile-link").length == 0) {
+			//if ($(".item-section").find(".yt-uix-tile-link").length == 0) {
+			if ($(".yt-shelf-grid-item").length > 0) {
 				TabNoc.Variables.MultiRow = true;
 			}
 			
@@ -237,12 +233,14 @@ try {
 
 	function checkElements(watchedVideoArray, scannedVideoArray, videoObjectDictionary, elements, ToggleState) {
 		var UnScannedElements = 0;
+		Progressbar.show(0);
 
 		if (ToggleState == null) {
 			ToggleState = TabNoc.Variables.MarkToggleState;
 		}
 		
 		for (i = 0; i < elements.length; i++) {
+			Progressbar.show(i / elements.length * 100);
 			var currentElement = elements[i];
 
 			if (currentElement.className == "undefined") { continue; }
@@ -255,6 +253,7 @@ try {
 		}
 		TabNoc.Variables.MarkToggleState = ToggleState;
 
+		Progressbar.show(100);
 		console.log(String.format("Found {0} Elements ({1} Marked Elements | {2} UnMarked Elements) [{3} Scanned Videos | {4} Watched Videos | {5} Watched Videos(old)]", elements.length, elements.length - UnScannedElements, UnScannedElements, scannedVideoArray.length, videoObjectDictionary.length, watchedVideoArray.length))
 	}
 
@@ -856,11 +855,16 @@ try {
 		}
 	}
 	
-	function ImportData() {
+	function ImportData(allData) {
 		try {
-			var data_vOD = eval(prompt("Please insert new VideoObjectDictionary Data"));
-			var data_wVA = eval(prompt("Please insert new WatchedVideoArray Data"));
-			
+			if (allData === true) {
+				var element = eval(prompt("Bitte die exportierten Daten eintragen"));
+			} 
+			else {
+				var element = ({});
+				element.VideoObjectDictionary = eval(prompt("Please insert new VideoObjectDictionary Data"));
+				element.WatchedVideoArray = eval(prompt("Please insert new WatchedVideoArray Data"));
+			}
 			var videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
 			var watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "({})");
 			var count_vOD = 0;
@@ -871,8 +875,8 @@ try {
 			for (var i in videoObjectDictionary) {
 				PushVideoObject(newObject, videoObjectDictionary[i], false);
 			}
-			for (var i in data_vOD) {
-				PushVideoObject(newObject, data_vOD[i], false);
+			for (var i in element.VideoObjectDictionary) {
+				PushVideoObject(newObject, element.VideoObjectDictionary[i], false);
 				count_vOD++;
 			}
 			
@@ -884,9 +888,9 @@ try {
 				}
 			}
 			
-			for (var i in data_wVA) {
-				if (GetVideoWatched(newStructure, newObject, data_wVA[i]) === false) {
-					newStructure.push(data_wVA[i]);
+			for (var i in element.WatchedVideoArray) {
+				if (GetVideoWatched(newStructure, newObject, element.WatchedVideoArray[i]) === false) {
+					newStructure.push(element.WatchedVideoArray[i]);
 					count_wVA++;
 				}
 			}
@@ -904,10 +908,6 @@ try {
 			console.error(exc);
 			alert("Das Importieren ist fehlgeschlagen!\r\n" + exc);
 		}
-	}
-	
-	function ExportData(Value) {
-		return (GM_getValue(Value) || "({})");
 	}
 	
 	function GetVideoWatched(watchedVideoArray, videoObjectDictionary, VideoID) {
@@ -1098,6 +1098,30 @@ try {
 	function MergeRequest(oldData) {
 		// var data_vOD = eval(prompt("Please insert new VideoObjectDictionary Data"));
 		var videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
+	}
+	
+	var Progressbar = {
+		show: (function(percent) {
+			//transition-duration: 900ms
+			var HTML = "<div id=\"progress\" class=\"\" style=\"width: 0%;\"><dt></dt><dd></dd></div>";
+			if ($("#progress").length === 1) {
+				$("#progress").width = percent + "%";
+			}
+			else {
+				console.log("appending");
+				document.body.append(HTML);
+				$("#progress").width = percent + "%";
+			}
+			if (percent === 100) {
+				// $("#progress").css("transition-duration", "300ms");
+				setTimeout(Progressbar.hide, 300);
+			}
+		}),
+		hide: (function() {
+			// if ($("#progress").length === 1) {
+				// $("#progress").remove()
+			// }
+		})
 	}
 	
 	var Feedback = {
