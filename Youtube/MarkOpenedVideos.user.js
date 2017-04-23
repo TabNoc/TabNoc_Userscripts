@@ -1285,12 +1285,12 @@ try {
 					}),
 					ontimeout: (function(response){console.log("ontimeout");console.info(response);}),
 					timeout: 60000,
-					url: "http://localhost:51933/MyDataFiles//Input"
+					url: "https://tabnoc.gear.host/MyDataFiles//Input"
 				});
 			}),
 			ontimeout: (function(response){console.log("ontimeout");console.info(response);}),
 			timeout: 60000,
-			url: "http://localhost:51933/MyDataFiles//Output"
+			url: "https://tabnoc.gear.host/MyDataFiles//Output"
 		});
 		Progressbar.show(30);
 	}
