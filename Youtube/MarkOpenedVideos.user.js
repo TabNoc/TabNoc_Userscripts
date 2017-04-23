@@ -1,4 +1,4 @@
-// ==UserScript==
+﻿// ==UserScript==
 // @name        MarkOpenedVideos
 // @namespace   TabNoc
 // @include     https://www.youtube.com/feed/subscriptions*
@@ -8,7 +8,7 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.1.3_29032017
+// @version     2.2.0_23042017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -26,6 +26,7 @@
 // @grant       GM_registerMenuCommand
 // @grant       GM_addStyle
 // @grant       GM_getResourceText
+// @grant       GM_xmlhttpRequest
 // @noframes
 // ==/UserScript==
 
@@ -88,6 +89,9 @@ fixed:	- fixed StyleChanges from Youtube
 18.04.2017 - 2.1.4
 	added:	- ExportAllData
 			- ImportAllData
+
+23.04.2017 - 2.1.4
+	added:	- Implemented ServerBased Backup and Restore
 */
 
 try {
@@ -175,6 +179,48 @@ try {
 		GM_registerMenuCommand("Hide Watched Videos", function () {
 			TabNoc.Settings.HideAlreadyWatchedVideos = true;
 			startCheckElements(true, true);
+		});
+		
+		GM_registerMenuCommand("Test", function () {
+			exportFunction(returnExec(function(arg1, arg2, arg3){return GM_xmlhttpRequest(arg1, arg2, arg3);}), unsafeWindow.TabNoc_GM, {
+				defineAs : "GM_xmlhttpRequest"
+			});
+			// GM_xmlhttpRequest({
+				// data: "Token=bla&data=abcdefghijklmnopqrstuvwxyz",
+				// method: "POST",
+				// headers: {
+					// "Content-Type": "application/x-www-form-urlencoded"
+				// },
+				// onabort: (function(response){console.log("onabort");console.info(response);}),
+				// onerror: (function(response){console.log("onerror");console.info(response);}),
+				// onload: (function(response){console.log("onload_Input");console.info(response);}),
+				// // onprogress: (function(response){console.log("onprogress");}),
+				// // onreadystatechange: (function(response){console.log("onreadystatechange");}),
+				// ontimeout: (function(response){console.log("ontimeout");console.info(response);}),
+				// timeout: 60000,
+				// url: "https://tabnoc.gear.host//MyDataFiles//Input"
+			// });
+			GM_xmlhttpRequest({
+				data: "Token=bla&data=abcdefghijklmnopqrstuvwxyz",
+				method: "POST",
+				headers: {
+					"Content-Type": "application/x-www-form-urlencoded"
+				},
+				onabort: (function(response){console.log("onabort");console.info(response);}),
+				onerror: (function(response){console.log("onerror");console.info(response);}),
+				onload: (function(response){console.log("onload_Output");console.info(response);}),
+				// onprogress: (function(response){console.log("onprogress");}),
+				// onreadystatechange: (function(response){console.log("onreadystatechange");}),
+				ontimeout: (function(response){console.log("ontimeout");console.info(response);}),
+				timeout: 60000,
+				url: "https://tabnoc.gear.host//MyDataFiles//Output"
+			});
+	
+			//jQuery.post("https://tabnoc.gear.host/MyDataFiles/Output", {bla:"Baum!"}, function(data){console.log(data);}).fail(function(){console.log("failed");});
+		});
+		
+		GM_registerMenuCommand("ManuelleSyncronisation", function () {
+			Syncronisieren()
 		});
 		
 		GM_registerMenuCommand("ImportData", function () {
@@ -857,7 +903,10 @@ try {
 	
 	function ImportData(allData) {
 		try {
-			if (allData === true) {
+			if (typeof(allData) == "object") {
+				var element = allData;
+			}
+			else if (allData === true) {
 				var element = eval(prompt("Bitte die exportierten Daten eintragen"));
 			} 
 			else {
@@ -1102,27 +1151,29 @@ try {
 	
 	var Progressbar = {
 		show: (function(percent) {
-			//transition-duration: 900ms
-			var HTML = "<div id=\"progress\" class=\"\" style=\"width: 0%;\"><dt></dt><dd></dd></div>";
-			if ($("#progress").length === 1) {
-				$("#progress").width = percent + "%";
+			if ($("#myProgress").length !== 1) {
+				var style = "position: fixed; z-index: 2147483647; top: 0; left: -6px; width: 0%; height: 2px; background: #b91f1f; border-radius: 1px; transition: width 500ms ease-out,opacity 500ms linear; transform: translateZ(0); will-change: width,opacity;"
+				var styleNested = "position: absolute; top: 0; height: 2px; box-shadow: #b91f1f 1px 0 6px 1px;border-radius: 100%;"
+				var styleDt = "opacity: .6; width: 180px; right: -80px; clip: rect(-6px,90px,14px,-6px);"
+				var styleDd = "opacity: .6; width: 20px; right: 0; clip: rect(-6px,22px,14px,10px);"
+				var progressBarHTML = $("<div id=\"myProgress\" style=\"" + style + "transition-duration: 900ms;width: 0%;height: 2px\"><dt style=\"" + styleNested + styleDt + "\"></dt><dd style=\"" + styleNested + styleDd + "\"></dd></div>");
+			
+				$(document.body).append(progressBarHTML);
 			}
-			else {
-				console.log("appending");
-				document.body.append(HTML);
-				$("#progress").width = percent + "%";
-			}
-			if (percent === 100) {
-				// $("#progress").css("transition-duration", "300ms");
-				setTimeout(Progressbar.hide, 300);
+			$("#myProgress").show();
+			$("#myProgress").css("width", Math.round(percent) + "%");
+			if (percent >= 100) {
+				$("#myProgress").css("transition-duration", "900ms");
+				$("#myProgress").css("width", Math.round(percent) + "%");
+				setTimeout(Progressbar.hide, 800);
 			}
 		}),
 		hide: (function() {
-			// if ($("#progress").length === 1) {
-				// $("#progress").remove()
-			// }
+			if ($("#myProgress").length === 1) {
+				$("#myProgress").hide();
+			}
 		})
-	}
+	};
 	
 	var Feedback = {
 		messageTimeout: null,
@@ -1162,6 +1213,87 @@ try {
 			Feedback.showMessage(message, "notify", (time == null ? 5000 : time), onClickFunction)
 		})
 	};
+	
+	function Syncronisieren() {
+		Progressbar.show(10);
+		var Token = prompt("Bitte Token eingeben");
+		Progressbar.show(20);
+		GM_xmlhttpRequest({
+			data: {Token:Token}.toSource(),
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json"
+			},
+			onabort: (function(response){console.log("onabort");console.info(response);}),
+			onerror: (function(response){console.log("onerror");console.info(response);alert("Receving Server Data Failed");Progressbar.hide();}),
+			onload: returnExec(function(response){console.log("onload_Output");console.info(response);
+				Progressbar.show(40);
+				var error = false;
+				if (response.status !== 200) {
+					alert("Statuscode:" + response.status);
+					Progressbar.show(100);
+					return;
+				}
+				if (response.responseText.charAt(0) === '#') {
+					var errorCode = response.responseText.split("\r\n")[0].substring(1);
+					if (errorCode === "2") {
+						error = true;
+					}
+					else {
+						alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
+						Progressbar.show(100);
+						return;
+					}
+				}
+				Progressbar.show(50);
+				if (!error) {
+					var responseData = eval(response.responseText);
+					console.warn(responseData);
+					if (responseData.VideoObjectDictionary != null && responseData.WatchedVideoArray != null) {
+						ImportData(responseData);
+					}
+					else {
+						alert("Der Wert des Response des Servers war ungültig!");
+					}
+				}
+				Progressbar.show(75);
+				
+				var element = ({});
+				element.WatchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
+				element.ScannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
+				element.VideoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
+				GM_xmlhttpRequest({
+					data: {Token:Token, data:element.toSource()}.toSource(),
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json"
+					},
+					onabort: (function(response){console.log("onabort");console.info(response);}),
+					onerror: (function(response){console.log("onerror");console.info(response);alert("Sending New Data Failed");Progressbar.hide();}),
+					onload: returnExec(function(response){console.log("onload_Input");console.info(response);
+						if (response.status !== 200) {
+							alert("Statuscode:" + response.status);
+							Progressbar.show(100);
+							return;
+						}
+						if (response.responseText.charAt(0) === '#') {
+							alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
+							Progressbar.show(100);
+							return;
+						}
+						Progressbar.show(100);
+					}),
+					ontimeout: (function(response){console.log("ontimeout");console.info(response);}),
+					timeout: 60000,
+					url: "http://localhost:51933/MyDataFiles//Input"
+				});
+			}),
+			ontimeout: (function(response){console.log("ontimeout");console.info(response);}),
+			timeout: 60000,
+			url: "http://localhost:51933/MyDataFiles//Output"
+		});
+		Progressbar.show(30);
+	}
 	
 	function Main() {
 		GM_addStyle(GM_getResourceText("Impromptu"));
