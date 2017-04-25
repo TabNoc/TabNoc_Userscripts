@@ -1,4 +1,4 @@
-﻿// ==UserScript==
+// ==UserScript==
 // @name        MarkOpenedVideos
 // @namespace   TabNoc
 // @include     https://www.youtube.com/feed/subscriptions*
@@ -11,7 +11,7 @@
 // @version     2.2.0_23042017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
-// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
+// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/Syncable_MarkOpendVideos/base/TabNoc.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/String.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Youtube/Dialog.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/jquery_ui/jquery-ui.min.js
@@ -279,14 +279,14 @@ try {
 
 	function checkElements(watchedVideoArray, scannedVideoArray, videoObjectDictionary, elements, ToggleState) {
 		var UnScannedElements = 0;
-		Progressbar.show(0);
+		Feedback.showProgress(0, "Initialised Scan");
 
 		if (ToggleState == null) {
 			ToggleState = TabNoc.Variables.MarkToggleState;
 		}
 		
 		for (i = 0; i < elements.length; i++) {
-			Progressbar.show(i / elements.length * 100);
+			Feedback.showProgress(i / elements.length * 100, "Analysing Element " + i + " from " + elements.length);
 			var currentElement = elements[i];
 
 			if (currentElement.className == "undefined") { continue; }
@@ -299,7 +299,7 @@ try {
 		}
 		TabNoc.Variables.MarkToggleState = ToggleState;
 
-		Progressbar.show(100);
+		Feedback.showProgress(100, "Finished " + (elements.length - UnScannedElements) + " elements marked");
 		console.log(String.format("Found {0} Elements ({1} Marked Elements | {2} UnMarked Elements) [{3} Scanned Videos | {4} Watched Videos | {5} Watched Videos(old)]", elements.length, elements.length - UnScannedElements, UnScannedElements, scannedVideoArray.length, videoObjectDictionary.length, watchedVideoArray.length))
 	}
 
@@ -1148,71 +1148,6 @@ try {
 		// var data_vOD = eval(prompt("Please insert new VideoObjectDictionary Data"));
 		var videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
 	}
-	
-	var Progressbar = {
-		show: (function(percent) {
-			if ($("#myProgress").length !== 1) {
-				var style = "position: fixed; z-index: 2147483647; top: 0; left: -6px; width: 0%; height: 2px; background: #b91f1f; border-radius: 1px; transition: width 500ms ease-out,opacity 500ms linear; transform: translateZ(0); will-change: width,opacity;"
-				var styleNested = "position: absolute; top: 0; height: 2px; box-shadow: #b91f1f 1px 0 6px 1px;border-radius: 100%;"
-				var styleDt = "opacity: .6; width: 180px; right: -80px; clip: rect(-6px,90px,14px,-6px);"
-				var styleDd = "opacity: .6; width: 20px; right: 0; clip: rect(-6px,22px,14px,10px);"
-				var progressBarHTML = $("<div id=\"myProgress\" style=\"" + style + "transition-duration: 900ms;width: 0%;height: 2px\"><dt style=\"" + styleNested + styleDt + "\"></dt><dd style=\"" + styleNested + styleDd + "\"></dd></div>");
-			
-				$(document.body).append(progressBarHTML);
-			}
-			$("#myProgress").show();
-			$("#myProgress").css("width", Math.round(percent) + "%");
-			if (percent >= 100) {
-				$("#myProgress").css("transition-duration", "900ms");
-				$("#myProgress").css("width", Math.round(percent) + "%");
-				setTimeout(Progressbar.hide, 800);
-			}
-		}),
-		hide: (function() {
-			if ($("#myProgress").length === 1) {
-				$("#myProgress").hide();
-			}
-		})
-	};
-	
-	var Feedback = {
-		messageTimeout: null,
-		showMessage: (function (message, type, time, onClickFunction) {
-			Feedback.hideMessage();
-			var element = document.createElement("div");
-			element.id = "feedback";
-			element.title = "Dismiss";
-			var style = "";
-			if (type == "notify") {
-				style = "background-color: #00A550;";
-			}
-			else if (type == "error") {
-				style = "background-color: #C41E3A;";
-			}
-			element.setAttribute("style", "position: fixed; top: 10px; text-align: center; width: 100%; z-index: 9999;");
-			element.innerHTML = '<span style="' + style + ' border-radius: 5px; cursor: pointer; color: #fff; padding: 3px 6px; font-size: 16px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); text-shadow: 0 1px rgba(0, 0, 0, 0.2);">' + message.replaceAll("\r\n", "<br>") + "</span>";
-			element.addEventListener("click", onClickFunction || Feedback.hideMessage, !1);
-			document.body.appendChild(element);
-			time && (Feedback.messageTimeout = setTimeout(Feedback.hideMessage, time));
-		}),
-		hideMessage: (function () {
-			var element = document.getElementById("feedback");
-			if (element != null) {
-				if (Feedback.messageTimeout != null) {
-					clearTimeout(Feedback.messageTimeout);
-					Feedback.messageTimeout = null;
-				}
-				element.removeEventListener("click", Feedback.hideMessage, false)
-				document.body.removeChild(element)
-			}
-		}),
-		error: (function (message, time, onClickFunction) {
-			Feedback.showMessage(message || "Something went wrong", "error", (time == null ? 8000 : time), onClickFunction)
-		}),
-		notify: (function (message, time, onClickFunction) {
-			Feedback.showMessage(message, "notify", (time == null ? 5000 : time), onClickFunction)
-		})
-	};
 	
 	function Syncronisieren() {
 		Progressbar.show(10);
