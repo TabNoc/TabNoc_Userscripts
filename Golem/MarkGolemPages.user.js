@@ -1,15 +1,16 @@
-﻿// ==UserScript==
+// ==UserScript==
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.0.0_12122016
+// @version     1.1.0_27042017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
-// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
-// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
+// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
+// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/Syncable_MarkOpendVideos/base/TabNoc.js
 // @grant       GM_setValue
 // @grant       GM_getValue
 // @grant       GM_deleteValue
 // @grant       GM_registerMenuCommand
+// @grant       GM_listValues
 // @noframes
 // ==/UserScript==
 
@@ -18,6 +19,9 @@ ChangeList started at 12.12.2016
 
 12.12.2016 - 1.0.0
 Start Writing Script
+
+27.04.2017 - 1.1.0
+	- changed a bunch
 */
 
 try {
@@ -54,7 +58,7 @@ try {
 				ScanUninterestingTweet: false,
 				HideUninterestingTweets: false,
 				UninterestingTweetsText: [],
-				TimerInterval: 5000
+				TimerInterval: 1000
 			}
 		},
 
@@ -74,7 +78,6 @@ try {
 			TabNoc.Variables.checkElementsInterval = setInterval(returnExec(function () {
 				startCheckElements(TabNoc.Variables.MarkToggleState);
 			}), TabNoc.Settings.Personal.TimerInterval);
-			startCheckElements(TabNoc.Variables.MarkToggleState);
 			console.log("MarkGolemPages.user.js executed");
 
 			console.log("MarkGolemPages.user.js done");
@@ -93,56 +96,66 @@ try {
 		GM_registerMenuCommand("Einlesen", function () {
 			getAllElements();
 		});
+		
+		GM_registerMenuCommand("ManuelleSyncronisation", function () {
+			Syncronisieren()
+		});
 	}
 
 	function startCheckElements(ToggleState, force) {
 		if (document.hidden === false || force === true) {
-			// ### Readed-News ###
-			var RNewsArray = getArray("Readed-News");
-			// ### Seen-News ###
-			var SNewsArray = getArray("Seen-News");
+			// ### ReadedNewsArray ###
+			var ReadedNewsArray = eval(GM_getValue("ReadedNewsArray") || "([])");
+			// ### SeenNewsArray ###
+			var SeenNewsArray = eval(GM_getValue("SeenNewsArray") || "([])");
 
 			var elements = $("#index-promo, .list-articles>li");
 			if (force === true || TabNoc.Variables.lastCheckItemCount !== elements.length || 
-			TabNoc.Variables.lastCheckRNewsAmount !== RNewsArray.length || 
-			TabNoc.Variables.lastCheckSNewsAmount !== SNewsArray.length) {
-				execTime(checkElements, RNewsArray.reverse(), elements, ToggleState, SNewsArray.reverse());
+					TabNoc.Variables.lastCheckRNewsAmount !== ReadedNewsArray.length || 
+					TabNoc.Variables.lastCheckSNewsAmount !== SeenNewsArray.length) {
+				execTime(checkElements, ReadedNewsArray.reverse(), elements, ToggleState, SeenNewsArray.reverse());
 				
-				TabNoc.Variables.lastCheckRNewsAmount = RNewsArray.length;
-				TabNoc.Variables.lastCheckSNewsAmount = SNewsArray.length;
+				TabNoc.Variables.lastCheckRNewsAmount = ReadedNewsArray.length;
+				TabNoc.Variables.lastCheckSNewsAmount = SeenNewsArray.length;
 				TabNoc.Variables.lastCheckItemCount = elements.length;
 			}
 		}
 	}
 
-	function checkElements(RNewsArray, elements, ToggleState, SNewsArray) {
+	function checkElements(ReadedNewsArray, elements, ToggleState, SeenNewsArray) {
 		var UnScannedElements = 0;
+		Feedback.showProgress(0, "Initialised Scan");
 
 		if (ToggleState == null) {
 			ToggleState = TabNoc.Variables.MarkToggleState;
 		}
 		
 		for (i = 0; i < elements.length; i++) {
+			Feedback.showProgress(i / elements.length * 100, "Analysing Element " + i + " from " + elements.length);
 			var element = elements[i];
-
+			
 			if ($(element).children("a").length === 1 && ($(element).children("a")[0].getAttribute("id").includes("hpalt") || 
 														  $(element).children("a")[0].getAttribute("id").includes("bigalt"))) {
-				UnScannedElements = checkElement(element, RNewsArray, ToggleState, SNewsArray) == true ? UnScannedElements : UnScannedElements + 1;
+				UnScannedElements = checkElement(element, ReadedNewsArray, ToggleState, SeenNewsArray) == true ? UnScannedElements : UnScannedElements + 1;
 			} else {
 				console.warn(element);
 			}
 		}
 		TabNoc.Variables.MarkToggleState = ToggleState;
 
-		console.log((elements.length - UnScannedElements) + " Marked Elements | " + UnScannedElements + " UnMarked Elements | Total " + elements.length + " Elements (" + RNewsArray.length + " Newspages listed)")
+		Feedback.showProgress(100, "Finished " + (elements.length - UnScannedElements) + " elements marked");
+		console.log((elements.length - UnScannedElements) + " Marked Elements | " + UnScannedElements + " UnMarked Elements | Total " + elements.length + " Elements (" + ReadedNewsArray.length + " Newspages listed)")
+		if (TabNoc.Settings.HideAlreadyWatchedNews === false) {
+			Feedback.notify(UnScannedElements + " UnMarked Elements", 10000, function(){TabNoc.Settings.HideAlreadyWatchedNews = !TabNoc.Settings.HideAlreadyWatchedNews; startCheckElements(true, true);Feedback.hideMessage();});
+		}
 	}
 
-	function checkElement(checkElement, RNewsArray, ToggleState, SNewsArray) {
+	function checkElement(checkElement, ReadedNewsArray, ToggleState, SeenNewsArray) {
 		//return true if checkedElement is already Scanned
 		var SearchString = $(checkElement).children("a")[0].getAttribute("href");
 		
-		var ReadedID = RNewsArray.indexOf(SearchString);
-		var SeenID = SNewsArray.indexOf(SearchString);
+		var ReadedID = ReadedNewsArray.indexOf(SearchString);
+		var SeenID = SeenNewsArray.indexOf(SearchString);
 		
 		var setColor = function(color) {
 			$(checkElement).css("background-color", color);
@@ -151,8 +164,11 @@ try {
 		if (ToggleState === true) {
 			if (ReadedID != -1) {
 				setColor("rgb(151, 255, 139)");
-				if (TabNoc.Settings.HideAlreadyWatchedVideos === true) {
+				if (TabNoc.Settings.HideAlreadyWatchedNews === true) {
 					checkElement.style.display = "none";
+				}
+				else {
+					checkElement.style.display = "";
 				}
 				return true;
 			} 
@@ -160,6 +176,9 @@ try {
 				setColor("rgb(216, 246, 225)");
 				if (TabNoc.Settings.HideAlreadyWatchedNews === true) {
 					checkElement.style.display = "none";
+				}
+				else {
+					checkElement.style.display = "";
 				}
 				return true;
 			}
@@ -175,13 +194,13 @@ try {
 		try {
 			var start = new Date().getTime();
 			
-			// ### Seen-News ###
-			var SNewsArray = getArray("Seen-News");
-			// ### Readed-News ###
-			var RNewsArray = getArray("Readed-News");
+			// ### ReadedNewsArray ###
+			var ReadedNewsArray = eval(GM_getValue("ReadedNewsArray") || "([])");
+			// ### SeenNewsArray ###
+			var SeenNewsArray = eval(GM_getValue("SeenNewsArray") || "([])");
 			
-			TabNoc.Variables.OldSaveDataR = RNewsArray.toSource();
-			TabNoc.Variables.OldSaveDataS = SNewsArray.toSource();
+			TabNoc.Variables.OldSaveDataR = ReadedNewsArray.toSource();
+			TabNoc.Variables.OldSaveDataS = SeenNewsArray.toSource();
 			
 			var elements = $("#index-promo, .list-articles>li");
 
@@ -198,15 +217,15 @@ try {
 				
 				if ($(element).children("a").length === 1 && ($(element).children("a")[0].getAttribute("id").includes("hpalt") || 
 															  $(element).children("a")[0].getAttribute("id").includes("bigalt"))) {
-					if (SNewsArray.indexOf(currentElementId) == -1 && RNewsArray.indexOf(currentElementId) == -1) {
-						SNewsArray.push(currentElementId);
+					if (SeenNewsArray.indexOf(currentElementId) == -1 && ReadedNewsArray.indexOf(currentElementId) == -1) {
+						SeenNewsArray.push(currentElementId);
 					}
 				} else {
 					console.warn(element);
 				}
 			}
 
-			GM_setValue("Seen-News", SNewsArray.toSource());
+			GM_setValue("SeenNewsArray", SeenNewsArray.toSource());
 			
 			if (TabNoc.Settings.MarkAfterScan) {
 				startCheckElements(true);
@@ -226,8 +245,6 @@ try {
 	function NewsPageLoader(){
 		console.log("MarkGolemPages.user.js loading");
 		try {
-			// if (unsafeWindow.document.getElementById("movie_player") == null) {return false;}
-			
 			ReadingNewspage();
 			
 			GM_registerMenuCommand("Löschen", function () {
@@ -245,26 +262,26 @@ try {
 		try {
 			if (reverse !== true) reverse = false;
 			
-			// ### Readed-News ###
-			var RNews = getArray("Readed-News");
-			// ### Seen-News ###
-			var SNews = getArray("Seen-News");
+			// ### ReadedNewsArray ###
+			var ReadedNewsArray = eval(GM_getValue("ReadedNewsArray") || "([])");
+			// ### SeenNewsArray ###
+			var SeenNewsArray = eval(GM_getValue("SeenNewsArray") || "([])");
 			
-			if (SNews.indexOf(document.URL) !== -1 && reverse === false) {
-				console.log(SNews);
-				SNews.remove(document.URL);
-				GM_setValue("Seen-News", SNews.toSource());
+			if (SeenNewsArray.indexOf(document.URL) !== -1 && reverse === false) {
+				console.log(SeenNewsArray);
+				SeenNewsArray.remove(document.URL);
+				GM_setValue("SeenNewsArray", SeenNewsArray.toSource());
 			}
 			
-			if (RNews.indexOf(document.URL) === -1) {
-				RNews.push(document.URL);
-				GM_setValue("Readed-News", RNews.toSource());
+			if (ReadedNewsArray.indexOf(document.URL) === -1) {
+				ReadedNewsArray.push(document.URL);
+				GM_setValue("ReadedNewsArray", ReadedNewsArray.toSource());
 				console.info("MarkGolemPages.user.js: Newspage added");
 			}
 			else {
 				if (reverse === true) {
-					RNews.remove(document.URL);
-					GM_setValue("Readed-News", RNews.toSource());
+					ReadedNewsArray.remove(document.URL);
+					GM_setValue("ReadedNewsArray", ReadedNewsArray.toSource());
 					console.info("MarkGolemPages.user.js: Newspage removed!");
 				} 
 				else {
@@ -279,102 +296,207 @@ alert("readed");
 	// ### http*://www.golem.de/news/* ###
 
 	function UpdateDataBase() {
-		return;
-		var CurrentVersion_Videos = 0;
-		var CurrentVersion_WatchedVideos = 2;
+		var CurrentVersion_ReadedNewsArray = 1;
+		var CurrentVersion_SeenNewsArray = 1;
 		
-		// ### Watched-Videos-Version ###
-		var Version_WatchedVideos = GM_getValue("Watched-Videos-Version");
-		if (Version_WatchedVideos == null || Version_WatchedVideos == "") {
-			Version_WatchedVideos = 0;
-		}
-		Version_WatchedVideos = eval(Version_WatchedVideos);
+		// ### ReadedNewsArray-Version ###
+		Version_ReadedNewsArray = eval(GM_getValue("ReadedNewsArray-Version") || 0);
 		
-		// ### Videos-Version ###
-		var Version_Videos = GM_getValue("Videos-Version");
-		if (Version_Videos == null || Version_Videos == "") {
-			Version_Videos = 0;
-		}
-		Version_Videos = eval(Version_Videos);
+		// ### SeenNewsArray-Version ###
+		Version_SeenNewsArray = eval(GM_getValue("SeenNewsArray-Version") || 0);
 		
-		if (Version_Videos != CurrentVersion_Videos) {
-			// ### Videos ###
-			var Videos = GM_getValue("Videos");
-			if (Videos == null || Videos == "") {
-				Videos = "([])";
-			}
-			Videos = eval(Videos);
+		// ### ReadedNewsArray ###
+		if (Version_ReadedNewsArray != CurrentVersion_ReadedNewsArray) {
+			var updateMsg = "Es wurde ein Versionsunterschied der Datenbank-Tabelle ReadedNewsArray gefunden (alt: " + Version_ReadedNewsArray + " | aktuell: " + CurrentVersion_ReadedNewsArray + ")";
+			console.info(updateMsg);
+			alert(updateMsg + "\r\nOK drücken um den Updatevorgang zu starten.");
 			
-			switch (Version_Videos) {
+			switch (Version_ReadedNewsArray) {
+				case 0:
+					// ### ReadedNewsArray ### LEGACY ###
+					var ReadedNewsArray = eval(GM_getValue("Readed-News") || null);
+					
+					if (ReadedNewsArray !== null) {
+						GM_setValue("ReadedNewsArray", ReadedNewsArray.toSource());
+						GM_setValue("ReadedNewsArray-Version-0", ReadedNewsArray.toSource());
+						
+						if (GM_listValues().indexOf("Readed-News") !== -1) {
+							GM_deleteValue("Readed-News");
+						}
+						
+						GM_setValue("ReadedNewsArray-Version", 1);
+						
+						updateMsg = "Die Version der Tabelle ReadedNewsArray wurde auf " + GM_getValue("ReadedNewsArray-Version") + " geändert";
+						console.log(updateMsg);
+						alert(updateMsg + "\r\nDataBase:'ReadedNewsArray' die alten Daten wurden erfolgreich importiert!\r\nDie Datenbank wurde von alten Daten bereinigt.");
+						
+						
+					//	console.log("Die Version der Tabelle VideoObjectDictionary ist " + GM_getValue("VideoObjectDictionary-Version"));
+					//	alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B)");
+					//	if (confirm("Sollen die Änderungen gespeichert werden?") === true) {
+					//		GM_setValue("VideoObjectDictionary-Version", 2);
+					//		console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + GM_getValue("VideoObjectDictionary-Version") + " geändert");
+					//		GM_setValue("VideoObjectDictionary", newStructure.toSource());
+					//	}
+					//	else {
+					//		throw "UserAbort";
+					//	}
+					}
+					else {
+						GM_setValue("ReadedNewsArray-Version", 1);
+						
+						updateMsg = "Die Datenbank-Tabelle ReadedNewsArray wurde erfolgreich initialisiert (Version: " + GM_getValue("WatchedVideoArray-Version") + ")";
+						console.log(updateMsg);
+						alert(updateMsg);
+					}
+					break;
+					
 				default:
-					throw new Exception("No Update Implemeneted!");
+					throw("No Update Implemeneted!");
 					break;
 			}
-		}
-		
-		if (Version_WatchedVideos != CurrentVersion_WatchedVideos) {
-			// ### Watched-Videos ###
-			var WatchedVideos = GM_getValue("Watched-Videos");
-			if (WatchedVideos == null || WatchedVideos == "") {
-				WatchedVideos = "([])";
-			}
-			WatchedVideos = eval(WatchedVideos);
 			
-			switch (Version_WatchedVideos) {
-				case 0:
-					// "/watch?v=" entfernt
-					var new_WatchedVideos = ([]);
-					for (i = 0; i < WatchedVideos.length; i++) {
-						new_WatchedVideos.push(WatchedVideos[i].replace("/watch?v=", "").split("&list")[0]);
-					}
-					GM_setValue("Watched-Videos-Version-0", WatchedVideos.toSource());
-					GM_setValue("Watched-Videos-Version", 1);
-					GM_setValue("Watched-Videos", new_WatchedVideos.toSource());
-					alert("DataBase:'Watched-Videos' Updated from Version 0 to Version 1.\r\nSucceeded!");
-				break;
-				
-				case 1:
-					// Watched Videos auffüllen mit Elementen von VideoStatistics
-					var new_WatchedVideos = ([]);
-					var VideoStatistics = eval(GM_getValue("VideoStatistics"))
-					
-					for (i = 0; i < WatchedVideos.length; i++) {
-						if (WatchedVideos[i] != null)
-							new_WatchedVideos.push(WatchedVideos[i]);
-					}
-					
-					for (i = 0; i < VideoStatistics.length; i++) {
-						var Link = VideoStatistics[i].VideoLink;
-						var Id = VideoStatistics[i].VideoID;
-						
-						var Video = ((Link != "" && Link != null ) ? Link : Id).replace("/watch?v=", "").split("&list")[0];
-						
-						if (new_WatchedVideos.indexOf(Video) == -1) {
-							new_WatchedVideos.push(Video);
-						}
-					}
-				
-					GM_setValue("Watched-Videos-Version-1", WatchedVideos.toSource());
-					GM_setValue("Watched-Videos-Version", 2);
-					GM_setValue("Watched-Videos", new_WatchedVideos.toSource());
-					alert("DataBase:'Watched-Videos' Updated from Version 1 to Version 2.\r\n\r\nAdded Elements:" + (new_WatchedVideos.length - WatchedVideos.length) + "\r\n\r\n\r\n\t\t\t\t\t\tSucceeded!");
-				break;
-				
-				default:
-					throw "No Update Implemeneted!";
-				break;
-			}
 		}
+		// ### ReadedNewsArray ###
+		
+		// ### SeenNewsArray ###
+		if (Version_SeenNewsArray != CurrentVersion_SeenNewsArray) {
+			var updateMsg = "Es wurde ein Versionsunterschied der Datenbank-Tabelle SeenNewsArray gefunden (alt: " + Version_SeenNewsArray + " | aktuell: " + CurrentVersion_SeenNewsArray + ")";
+			console.info(updateMsg);
+			alert(updateMsg + "\r\nOK drücken um den Updatevorgang zu starten.");
+			
+			switch (Version_SeenNewsArray) {
+				case 0:
+					// ### SeenNewsArray ### LEGACY ###
+					var SeenNewsArray = eval(GM_getValue("Seen-News") || null);
+					
+					if (SeenNewsArray !== null) {
+						GM_setValue("SeenNewsArray", SeenNewsArray.toSource());
+						GM_setValue("SeenNewsArray-Version-0", SeenNewsArray.toSource());
+						
+						if (GM_listValues().indexOf("Seen-News") !== -1) {
+							GM_deleteValue("Seen-News");
+						}
+						
+						GM_setValue("SeenNewsArray-Version", 1);
+						
+						updateMsg = "Die Version der Tabelle SeenNewsArray wurde auf " + GM_getValue("SeenNewsArray-Version") + " geändert";
+						console.log(updateMsg);
+						alert(updateMsg + "\r\nDataBase:'SeenNewsArray' die alten Daten wurden erfolgreich importiert!\r\nDie Datenbank wurde von alten Daten bereinigt.");
+						
+						
+					//	console.log("Die Version der Tabelle VideoObjectDictionary ist " + GM_getValue("VideoObjectDictionary-Version"));
+					//	alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B)");
+					//	if (confirm("Sollen die Änderungen gespeichert werden?") === true) {
+					//		GM_setValue("VideoObjectDictionary-Version", 2);
+					//		console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + GM_getValue("VideoObjectDictionary-Version") + " geändert");
+					//		GM_setValue("VideoObjectDictionary", newStructure.toSource());
+					//	}
+					//	else {
+					//		throw "UserAbort";
+					//	}
+					}
+					else {
+						GM_setValue("SeenNewsArray-Version", 1);
+						
+						updateMsg = "Die Datenbank-Tabelle SeenNewsArray wurde erfolgreich initialisiert (Version: " + GM_getValue("WatchedVideoArray-Version") + ")";
+						console.log(updateMsg);
+						alert(updateMsg);
+					}
+					break;
+					
+				default:
+					throw("No Update Implemeneted!");
+					break;
+			}
+			
+		}
+		// ### SeenNewsArray ###
 	}
 	
-	function getArray(arrayName) {
-		var array = GM_getValue(arrayName);
-		if (array == null || array == "") {
-			array = "([])";
-			GM_setValue(arrayName, array);
-		}
-		array = eval(array);
-		return array;
+	function Syncronisieren() {
+		Feedback.showProgress(10, "Token erfassen");
+		var Token = prompt("Bitte Token eingeben") + "Golem";
+		Feedback.showProgress(20, "Request starten");
+		GM_xmlhttpRequest({
+			data: {Token:Token}.toSource(),
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json"
+			},
+			onabort: (function(response){console.log("onabort");console.info(response);}),
+			onerror: (function(response){console.log("onerror");console.info(response);alert("Receving Server Data Failed");Feedback.hideProgress();}),
+			onload: returnExec(function(response){console.log("onload_Output");console.info(response);
+				Feedback.showProgress(40, "Servernachricht auswerten");
+				var error = false;
+				if (response.status !== 200) {
+					alert("Statuscode:" + response.status);
+					Feedback.showProgress(100, "Abgebrochen, es konnten keine Daten empfangen werden");
+					return;
+				}
+				if (response.responseText.charAt(0) === '#') {
+					var errorCode = response.responseText.split("\r\n")[0].substring(1);
+					if (errorCode === "2") {
+						error = true;
+					}
+					else {
+						alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
+						Feedback.showProgress(100, "Abgebrochen");
+						return;
+					}
+				}
+				Feedback.showProgress(50, "Empfangene Daten migrieren");
+				if (!error) {
+					var responseData = eval(response.responseText);
+					console.warn(responseData);
+					if (responseData.ReadedNewsArray != null && responseData.SeenNewsArray != null) {
+						ImportData(responseData);
+					}
+					else {
+						alert("Der Wert des Response des Servers war ungültig!");
+					}
+				}
+				Feedback.showProgress(75, "Neue Daten auf dem Server speichern");
+				
+				var element = ({});
+				element.ReadedNewsArray = eval(GM_getValue("ReadedNewsArray") || "([])");
+				element.SeenNewsArray = eval(GM_getValue("SeenNewsArray") || "([])");
+				GM_xmlhttpRequest({
+					data: {Token:Token, data:element.toSource()}.toSource(),
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json"
+					},
+					onabort: (function(response){console.log("onabort");console.info(response);}),
+					onerror: (function(response){console.log("onerror");console.info(response);alert("Sending New Data Failed");Feedback.hideProgress();}),
+					onload: returnExec(function(response){console.log("onload_Input");console.info(response);
+						if (response.status !== 200) {
+							alert("Statuscode:" + response.status);
+							Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
+							return;
+						}
+						if (response.responseText.charAt(0) === '#') {
+							alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
+							Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
+							return;
+						}
+						Feedback.showProgress(100, "Senden der Daten erfolgreich abgeschlossen");
+					}),
+					ontimeout: (function(response){console.log("ontimeout");console.info(response);}),
+					timeout: 60000,
+					url: "https://tabnoc.gear.host/MyDataFiles//Input"
+				});
+			}),
+			ontimeout: (function(response){console.log("ontimeout");console.info(response);}),
+			timeout: 60000,
+			url: "https://tabnoc.gear.host/MyDataFiles//Output"
+		});
+		Feedback.showProgress(30, "Warte auf Rückmeldung vom Server");
+	}
+	
+	function ImportData(data) {
+alert("Not Implemented");
+throw "NotImplementedException";
 	}
 	
 	function Main() {
@@ -382,11 +504,11 @@ alert("readed");
 		
 		// Startseite
 		if (document.URL.includes("news") == false) {
-			$(StartPageLoader)
+			StartPageLoader();
 		}
 		// Nachrichtenseite
 		else if (document.URL.includes("news") == true) {
-			$(NewsPageLoader)
+			NewsPageLoader();
 		}
 		else {
 			alert("MarkGolemPages.user.js:Main()->No LoadObject found!");
@@ -394,7 +516,7 @@ alert("readed");
 		}
 	}
 	
-	Main();
+	$(Main());
 	
 	console.info("MarkGolemPages.user.js [v" + GM_info.script.version + ", Autoupdate: " + GM_info.scriptWillUpdate + "] readed");
 } catch (exc) {
