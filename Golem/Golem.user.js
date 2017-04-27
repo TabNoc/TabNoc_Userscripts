@@ -1,8 +1,8 @@
-﻿// ==UserScript==
+// ==UserScript==
 // @name        Golem.de Ad-Remover + Spritz
 // @namespace   TabNoc
 // @description Remove Golem.de Ads and append Spritz Reader
-// @version     1.1.0
+// @version     1.1.1
 // @include     http*://www.golem.de/news/*
 // @include     http*://video.golem.de/*
 // @require		http://code.jquery.com/jquery-2.1.1.min.js
@@ -54,7 +54,7 @@ try {
 
 	if (document.getElementById("list-jtoc")) {
 		document.getElementById("header").appendChild(document.getElementById("list-jtoc"));
-		document.getElementById("list-jtoc").setAttribute("style", "display: block;margin-right:-200px;margin-top:40px;border-width:1px;border-style:solid;border-color:blue;padding:2.5px;")
+		document.getElementById("list-jtoc").setAttribute("style", "display: block;margin-right:-160px;margin-top:40px;border-width:1px;border-style:solid;border-color:blue;padding:2.5px;")
 	}
 
 	var header = document.getElementById("header");
@@ -159,31 +159,66 @@ try {
 
 	function RemoveGolemAds() {
 		try {
-			// Golem Plus
-			$($("[src='http://www.golem.de/microsite/abo/minibanner_flat_620.shtml']")[0].parentNode).remove();
-			// $($("[src='http://www.golem.de/microsite/abo/desktop-medrec-art.html']")[0].parentNode).remove();
+			// Golem Plus Footer
+			if($("[src='https://www.golem.de/microsite/abo/minibanner_flat_620.shtml']").length == 0) {
+				alert("Werbung 1 nicht vorhanden");
+			}
+			else {
+				$($("[src='https://www.golem.de/microsite/abo/minibanner_flat_620.shtml']")[0].parentNode).remove();
+				// $($("[src='http://www.golem.de/microsite/abo/desktop-medrec-art.html']")[0].parentNode).remove();
+			}
 
 			// Big header Banner
 			setTimeout(function(){$("#screen").children()[0].remove();}, 5000);
 			
 			// Side Ad Banner Header
-			element = $("#iqadtile8").remove();
+			if( $("#iqadtile8").length == 0) {
+				alert("Werbung 2 nicht vorhanden");
+			}
+			else {
+				$("#iqadtile8").remove();
+			}
 			
 			// golem-promo side Information Ad
-			$("#abo-clip").remove();
-
+			if($("#gts-clip").length == 0) {
+				alert("Werbung 3 nicht vorhanden");
+			}
+			else {
+				$("#gts-clip").remove();
+			}
+			
 			// Content Ad Banner Header + PlaceHolder
-			$($("#iqadtile4")[0].parentNode).remove();
-
+			if($("#iqadtile4").length == 0) {
+				alert("Werbung 4 nicht vorhanden");
+			}
+			else {
+				$($("#iqadtile4")[0].parentNode).remove();
+			}
+			
 			// "Folgen Sie uns" - Side
-			$("#followrss").remove();
-
+			if($("#followrss").length == 0) {
+				alert("Werbung 5 nicht vorhanden");
+			}
+			else {
+				$("#followrss").remove();
+			}
+			
 			// Content Social Sites (double with Side)
-			$(".social-bar.social-bottom").remove();
-
+			if($(".social-bar.social-bottom").length == 0) {
+				alert("Werbung 6 nicht vorhanden");
+			}
+			else {
+				$(".social-bar.social-bottom").remove();
+			}
+			
 			// Side Newsletter
-			$("#newsletter").remove();
-
+			if($("#newsletter").length == 0) {
+				alert("Werbung 7 nicht vorhanden");
+			}
+			else {
+				$("#newsletter").remove();
+			}
+			
 			//disable video ads
 			$("article>div>p.text1").css("background-color", "red");
 			DisableVideoAds();
