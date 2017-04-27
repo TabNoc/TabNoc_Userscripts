@@ -76,21 +76,23 @@ try {
 	var Feedback = {
 		messageTimeout: null,
 		showMessage: (function (message, type, time, onClickFunction) {
-			Feedback.hideMessage();
-			var element = document.createElement("div");
-			element.id = "feedback";
-			element.title = "Dismiss";
-			var style = "";
-			if (type == "notify") {
-				style = "background-color: #00A550;";
+			clearTimeout(Feedback.messageTimeout);
+			Feedback.messageTimeout = null;
+			
+			if (document.getElementById("feedback") != null) {
+				var element = document.getElementById("feedback");
+			} 
+			else {
+				var element = document.createElement("div");
+				element.id = "feedback";
+				element.title = "Dismiss";
+				element.setAttribute("style", "position: fixed; top: 10px; text-align: center; width: 100%; z-index: 2147483647;");
+				element.innerHTML = '<span style="border-radius: 5px; cursor: pointer; color: #fff; padding: 3px 6px; font-size: 16px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); text-shadow: 0 1px rgba(0, 0, 0, 0.2);"></span>';
+				document.body.appendChild(element);
 			}
-			else if (type == "error") {
-				style = "background-color: #C41E3A;";
-			}
-			element.setAttribute("style", "position: fixed; top: 10px; text-align: center; width: 100%; z-index: 9999;");
-			element.innerHTML = '<span style="' + style + ' border-radius: 5px; cursor: pointer; color: #fff; padding: 3px 6px; font-size: 16px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); text-shadow: 0 1px rgba(0, 0, 0, 0.2);">' + message.replaceAll("\r\n", "<br>") + "</span>";
-			element.addEventListener("click", onClickFunction || Feedback.hideMessage, !1);
-			document.body.appendChild(element);
+			element.children[0].textContent = message.replaceAll("\r\n", "<br>");
+			element.children[0].style.backgroundColor = ((type == "notify") ? "#00A550" : "#C41E3A");
+			element.click = onClickFunction || Feedback.hideMessage;
 			time && (Feedback.messageTimeout = setTimeout(Feedback.hideMessage, time));
 		}),
 		hideMessage: (function () {
