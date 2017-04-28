@@ -8,10 +8,10 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.2.0_23042017
+// @version     2.2.1_28042017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
-// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/Syncable_MarkOpendVideos/base/TabNoc.js
+// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/String.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Youtube/Dialog.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/jquery_ui/jquery-ui.min.js
@@ -90,8 +90,11 @@ fixed:	- fixed StyleChanges from Youtube
 	added:	- ExportAllData
 			- ImportAllData
 
-23.04.2017 - 2.1.4
+23.04.2017 - 2.2.0
 	added:	- Implemented ServerBased Backup and Restore
+
+28.04.2017 - 2.2.1
+	changed:- Opical Improvments
 */
 
 try {
@@ -317,6 +320,10 @@ try {
 			}
 		};
 		
+		currentElement.style.borderRadius = "7px";
+		currentElement.style.border = "1px solid #eee";
+		currentElement.style.padding = "0px 5px 5px 5px";
+		
 		if (ToggleState === true) {
 			if (GetVideoWatched(scannedVideoArray, false, VideoID)) {
 				setColor("rgb(151, 255, 139)");
@@ -486,6 +493,8 @@ try {
 		}
 		for (i = 0; i < elements.length; i++) {
 			var element = elements[i].children[0].children[0];
+			elements[i].style.borderRadius = "10px";
+			elements[i].style.border = "1px solid #ddd";
 			var href = element.getAttribute("href");
 			if (href == null) {
 				href = element.children[0].getAttribute("href");
@@ -501,6 +510,8 @@ try {
 			}
 			for (i = 1; i < elements.length; i++) {
 				var element = elements[i].children[1];
+				elements[i].style.borderRadius = "10px";
+				elements[i].style.border = "1px solid #ddd";
 				var href = element.getAttribute("href");
 				if (href != null && href != "" && GetVideoWatched(watchedVideoArray, videoObjectDictionary, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
 					$(elements[i]).css("background-color", "rgb(166, 235, 158)");
@@ -615,8 +626,9 @@ try {
 		
 		var elements = $(".yt-lockup-video");
 		for (i = 0; i < elements.length; i++) {
-			var element = elements[i].children[0].children[0].children[0];
-			var href = element.getAttribute("href");
+			elements[i].style.borderRadius = "10px";
+			elements[i].style.border = "1px solid #ddd";
+			var href = elements[i].children[0].children[0].children[0].getAttribute("href");
 			if (href != null && href != "" && GetVideoWatched(watchedVideoArray, null, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
 				setColor(elements[i], "rgb(166, 235, 158)");
 			}
