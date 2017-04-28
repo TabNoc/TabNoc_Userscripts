@@ -3,13 +3,13 @@
 // @namespace   TabNoc
 // @description Marking of already readed Tweets and some other nice features 		©2017 TabNoc
 // @include     http*://twitter.com/*
-// @version     1.13.3_26022017
+// @version     1.13.4_28042017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
-// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
-// @require		https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
-// @require		https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/ImageHover.js
-// @require     https://github.com/trentrichardson/jQuery-Impromptu/raw/master/dist/jquery-impromptu.min.js
-// @resource	Impromptu https://github.com/trentrichardson/jQuery-Impromptu/raw/master/dist/jquery-impromptu.min.css
+// @require     https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
+// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
+// @require		https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/TabNoc.js
+// @require		https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/ImageHover.js
+// @resource	Impromptu http://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.css
 // @updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Twitter/Twitter.user.js
 // @noframes
 // @grant       GM_getResourceText
@@ -63,6 +63,11 @@ added:		- Promoted Tweets were blocked and the User will be informed about the a
 26.02.2017 - 1.13.3
 [Global]
 fixed:		- Using master branch Implementation of TabNoc.js
+
+28.04.2017 - 1.13.4
+[Global]
+changed:	- optical Improvements (borders)
+			- using Feedback Implementation from TabNoc.js
 */
 
 
@@ -463,12 +468,15 @@ try {
 			}
 		}
 		
+		checkElement.style.borderRadius = "10px";
+		checkElement.style.border = "1px solid #eee";
+		
 		if (elementIdArray.indexOf(ElementID) != -1) {
 			if (ToggleState === true) {
-				checkElement.setAttribute("style", "background-color:rgb(151, 255, 139)");
+				checkElement.style.backgroundColor = "rgb(151, 255, 139)";
 			}
 			else {
-				checkElement.setAttribute("style", "");
+				checkElement.style.backgroundColor = "";
 			}
 			return true;
 		}
@@ -489,45 +497,14 @@ try {
 			for (var i = 0; i < TabNoc.Settings.Personal.UninterestingTweetsText.length; i++) {
 				if (TextContent.includes(TabNoc.Settings.Personal.UninterestingTweetsText[i])) {
 					if (TabNoc.Settings.Personal.HideUninterestingTweets == true) {
-						checkElement.setAttribute("style", "display:none");
+						checkElement.style.display = "none";
 					} else {
-						checkElement.setAttribute("style", "background-color:rgb(255, 138, 138)");
+						checkElement.style.backgroundColor = "rgb(255, 138, 138)";
 					}
 				}
 			}
 		}
 	}
-	
-	var Feedback = {
-		messageTimeout : null,
-		showMessage : (function (message, type, time, onClickFunction) {
-			Feedback.hideMessage();
-			var element = document.createElement("div");
-			element.id = "feedback";
-			element.title = "Dismiss";
-			var style = "";
-			if (type == "notify") {
-				style = "background-color: #00A550;";
-			} else if (type == "error") {
-				style = "background-color: #C41E3A;";
-			}
-			element.setAttribute("style", "position: fixed; top: 10px; text-align: center; width: 100%; z-index: 9999;");
-			element.innerHTML = '<span style="' + style + ' border-radius: 5px; cursor: pointer; color: #fff; padding: 3px 6px; font-size: 16px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); text-shadow: 0 1px rgba(0, 0, 0, 0.2);">' + message.replaceAll("\r\n", "<br>") + "</span>";
-			element.addEventListener("click", onClickFunction || Feedback.hideMessage, !1);
-			document.body.appendChild(element);
-			time && (Feedback.messageTimeout = setTimeout(Feedback.hideMessage, time));
-		}),
-		hideMessage : (function () {
-			var element = document.getElementById("feedback");
-			element && (Feedback.messageTimeout && (clearTimeout(Feedback.messageTimeout), Feedback.messageTimeout = null), element.removeEventListener("click", Feedback.hideMessage, !1), document.body.removeChild(element))
-		}),
-		error : (function (message, time, onClickFunction) {
-			Feedback.showMessage(message || "Something went wrong", "error", (time == null ? 8000 : time), onClickFunction)
-		}),
-		notify : (function (message, time, onClickFunction) {
-			Feedback.showMessage(message, "notify", (time == null ? 5000 : time), onClickFunction)
-		})
-	};
 	
 	function scanRange(element){
 		try {

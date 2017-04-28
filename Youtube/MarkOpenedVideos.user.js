@@ -1,4 +1,4 @@
-// ==UserScript==
+﻿// ==UserScript==
 // @name        MarkOpenedVideos
 // @namespace   TabNoc
 // @include     https://www.youtube.com/feed/subscriptions*
@@ -300,7 +300,7 @@ try {
 		TabNoc.Variables.MarkToggleState = ToggleState;
 
 		Feedback.showProgress(100, "Finished " + (elements.length - UnScannedElements) + " elements marked");
-		console.log(String.format("Found {0} Elements ({1} Marked Elements | {2} UnMarked Elements) [{3} Scanned Videos | {4} Watched Videos | {5} Watched Videos(old)]", elements.length, elements.length - UnScannedElements, UnScannedElements, scannedVideoArray.length, videoObjectDictionary.length, watchedVideoArray.length))
+		console.log(String.format("Found {0} Elements ({1} Marked Elements | {2} UnMarked Elements) [{3} Scanned Videos | {4} Watched Videos | {5} Watched Videos(old)]", elements.length, elements.length - UnScannedElements, UnScannedElements, scannedVideoArray.length, Object.keys(videoObjectDictionary).length, watchedVideoArray.length));
 	}
 
 	function checkElement(watchedVideoArray, scannedVideoArray, videoObjectDictionary, currentElement, ToggleState) {
@@ -913,11 +913,14 @@ try {
 				var element = ({});
 				element.VideoObjectDictionary = eval(prompt("Please insert new VideoObjectDictionary Data"));
 				element.WatchedVideoArray = eval(prompt("Please insert new WatchedVideoArray Data"));
+				element.ScannedVideoArray = eval(prompt("Please insert new ScannedVideoArray Data"));
 			}
 			var videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
 			var watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "({})");
+			var scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "({})");
 			var count_vOD = 0;
 			var count_wVA = 0;
+			var count_sVA = 0;
 			
 			var newObject = ({});
 			
@@ -929,18 +932,32 @@ try {
 				count_vOD++;
 			}
 			
-			var newStructure = ([]);
+			var newWatchedStructure = ([]);
+			var newScannedStructure = ([]);
 			
 			for (var i in watchedVideoArray) {
-				if (GetVideoWatched(newStructure, newObject, watchedVideoArray[i]) === false) {
-					newStructure.push(watchedVideoArray[i]);
+				if (GetVideoWatched(newWatchedStructure, newObject, watchedVideoArray[i]) === false) {
+					newWatchedStructure.push(watchedVideoArray[i]);
 				}
 			}
 			
 			for (var i in element.WatchedVideoArray) {
-				if (GetVideoWatched(newStructure, newObject, element.WatchedVideoArray[i]) === false) {
-					newStructure.push(element.WatchedVideoArray[i]);
+				if (GetVideoWatched(newWatchedStructure, newObject, element.WatchedVideoArray[i]) === false) {
+					newWatchedStructure.push(element.WatchedVideoArray[i]);
 					count_wVA++;
+				}
+			}
+			
+			for (var i in scannedVideoArray) {
+				if (GetVideoWatched(newScannedStructure, newObject, scannedVideoArray[i]) === false) {
+					newScannedStructure.push(scannedVideoArray[i]);
+				}
+			}
+			
+			for (var i in element.ScannedVideoArray) {
+				if (GetVideoWatched(newScannedStructure, newObject, element.ScannedVideoArray[i]) === false) {
+					newScannedStructure.push(element.ScannedVideoArray[i]);
+					count_sVA++;
 				}
 			}
 			
@@ -948,10 +965,13 @@ try {
 				"VideoObjectDictionary:\r\n" + 
 				"\tEs wurden " + count_vOD + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newObject.toSource().length + "B)\r\n" +
 				"WatchedVideoArray:\r\n" + 
-				"\tEs wurden " + count_wVA + " Elemente aktualisiert (alte Datenmenge: " + watchedVideoArray.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B)");
+				"\tEs wurden " + count_wVA + " Elemente aktualisiert (alte Datenmenge: " + watchedVideoArray.toSource().length + "B | neue Datenmenge: " + newWatchedStructure.toSource().length + "B)\r\n" +
+				"ScannedVideoArray:\r\n" + 
+				"\tEs wurden " + count_sVA + " Elemente aktualisiert (alte Datenmenge: " + scannedVideoArray.toSource().length + "B | neue Datenmenge: " + newScannedStructure.toSource().length + "B)");
 			
 			GM_setValue("VideoObjectDictionary", newObject.toSource());
-			GM_setValue("WatchedVideoArray", newStructure.toSource());
+			GM_setValue("WatchedVideoArray", newWatchedStructure.toSource());
+			GM_setValue("ScannedVideoArray", newScannedStructure.toSource());
 		}
 		catch (exc) {
 			console.error(exc);
@@ -1150,9 +1170,9 @@ try {
 	}
 	
 	function Syncronisieren() {
-		Progressbar.show(10);
+		Feedback.showProgress(10, "Token erfassen");
 		var Token = prompt("Bitte Token eingeben");
-		Progressbar.show(20);
+		Feedback.showProgress(20, "Request starten");
 		GM_xmlhttpRequest({
 			data: {Token:Token}.toSource(),
 			method: "POST",
@@ -1160,13 +1180,13 @@ try {
 				"Content-Type": "application/json"
 			},
 			onabort: (function(response){console.log("onabort");console.info(response);}),
-			onerror: (function(response){console.log("onerror");console.info(response);alert("Receving Server Data Failed");Progressbar.hide();}),
+			onerror: (function(response){console.log("onerror");console.info(response);alert("Receving Server Data Failed");Feedback.hideProgress();}),
 			onload: returnExec(function(response){console.log("onload_Output");console.info(response);
-				Progressbar.show(40);
+				Feedback.showProgress(40, "Servernachricht auswerten");
 				var error = false;
 				if (response.status !== 200) {
 					alert("Statuscode:" + response.status);
-					Progressbar.show(100);
+					Feedback.showProgress(100, "Abgebrochen, es konnten keine Daten empfangen werden");
 					return;
 				}
 				if (response.responseText.charAt(0) === '#') {
@@ -1176,11 +1196,11 @@ try {
 					}
 					else {
 						alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
-						Progressbar.show(100);
+						Feedback.showProgress(100, "Abgebrochen, Fehler auf dem Server");
 						return;
 					}
 				}
-				Progressbar.show(50);
+				Feedback.showProgress(50, "Empfangene Daten migrieren");
 				if (!error) {
 					var responseData = eval(response.responseText);
 					console.warn(responseData);
@@ -1191,7 +1211,7 @@ try {
 						alert("Der Wert des Response des Servers war ungültig!");
 					}
 				}
-				Progressbar.show(75);
+				Feedback.showProgress(75, "Neue Daten auf dem Server speichern");
 				
 				var element = ({});
 				element.WatchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
@@ -1204,19 +1224,20 @@ try {
 						"Content-Type": "application/json"
 					},
 					onabort: (function(response){console.log("onabort");console.info(response);}),
-					onerror: (function(response){console.log("onerror");console.info(response);alert("Sending New Data Failed");Progressbar.hide();}),
+					onerror: (function(response){console.log("onerror");console.info(response);alert("Sending New Data Failed");Feedback.hideProgress();}),
 					onload: returnExec(function(response){console.log("onload_Input");console.info(response);
 						if (response.status !== 200) {
 							alert("Statuscode:" + response.status);
-							Progressbar.show(100);
+							Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
 							return;
 						}
 						if (response.responseText.charAt(0) === '#') {
 							alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
-							Progressbar.show(100);
+							Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
 							return;
 						}
-						Progressbar.show(100);
+						Feedback.showProgress(100, "Senden der Daten erfolgreich abgeschlossen");
+						alert("Die Syncronisierung der Daten mit dem Server wurde erfolgreich abgeschlossen.\r\nAktueller Versionsstand: " + response.responseText);
 					}),
 					ontimeout: (function(response){console.log("ontimeout");console.info(response);}),
 					timeout: 60000,
@@ -1227,7 +1248,7 @@ try {
 			timeout: 60000,
 			url: "https://tabnoc.gear.host/MyDataFiles//Output"
 		});
-		Progressbar.show(30);
+		Feedback.showProgress(30, "Warte auf Rückmeldung vom Server");
 	}
 	
 	function Main() {
