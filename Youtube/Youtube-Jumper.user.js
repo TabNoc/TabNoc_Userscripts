@@ -1,14 +1,17 @@
-// ==UserScript==
+﻿// ==UserScript==
 // @name        Youtube-Jumper
 // @description ©Marco Neuthor 2017
 // @include     http*://www.youtube.*/watch?*
-// @version     v2.2.0_06032017
+// @version     v2.2.1_18042017
 // @require		https://code.jquery.com/jquery-2.1.1.min.js
-// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
-// @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
-// @require		https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/VideoGreyDetector.js
-// @require     https://github.com/trentrichardson/jQuery-Impromptu/raw/master/dist/jquery-impromptu.min.js
-// @resource	Impromptu https://github.com/trentrichardson/jQuery-Impromptu/raw/master/dist/jquery-impromptu.min.css
+// @require		https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
+// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
+// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/TabNoc.js
+// @require		https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/VideoGreyDetector.js
+// require		SomeOtherStuff.js
+// add @ to switch to local solutions
+// require		GM__.js
+// @resource	Impromptu http://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.css
 // @resource	TabNocCSS https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/Youtube/TabNoc.css
 // @updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Youtube/Youtube-Jumper.user.js
 // @grant       GM_getResourceText
@@ -45,6 +48,12 @@ ChangeList started at 12.02.2017
 	- huge amount of cleanup, removed all Saving features
 [VideoGreyDetector]
 	- changed: liest nun echte Grauwerte aus
+	
+18.04.2017
+[VideoGreyDetector]
+	- added MaxVideoCheckTime, Timeout for VideoGreyDetector
+[!!KnownBug!!]
+	- "#TabNoc_YT_Jump" is getting overwritten instead of appended -> bugs with VideoGreyDetector
 */
 
 try {
@@ -289,6 +298,7 @@ try {
 					TriggerAmount : 1400,
 					TriggerDarkPercentage : 70,
 					StopIntervalAfterTrigger : true,
+					MaxVideoCheckTime : 60000
 				});
 			}
 		}
@@ -337,6 +347,9 @@ try {
 		}
 		if (Name === "ExcelIsFun") {
 			movie_player.setPlaybackRate(2);//(1.5);
+		}
+		if (Name === "Nilaus") {
+			movie_player.setPlaybackRate(2);
 		}
 
 		// Ignoring "Over Skippoint" when the Jumper is loaded but the Intervall is not called at the right time
@@ -425,9 +438,9 @@ alert("appling skipTime, maybe delete it if not used");
 				
 				// Warten bis das Vorschaubild Initialisiert wird
 				var VorschaubildInterval = setInterval(function() {
-					if (document.getElementsByClassName("ytp-tooltip ytp-bottom ytp-preview").legth != 0) {
+					if (document.getElementsByClassName("ytp-tooltip ytp-bottom ytp-preview").length != 0) {
 						// Vorschaubild anpassen
-						document.getElementsByClassName("ytp-tooltip ytp-bottom ytp-preview")[0].style.marginLeft = "126px";
+						document.getElementsByClassName("ytp-tooltip ytp-bottom ytp-preview")[0].style.marginLeft = "0px";
 						clearInterval(VorschaubildInterval);
 					}
 				}, 1000);
@@ -599,10 +612,10 @@ alert("appling skipTime, maybe delete it if not used");
 			// Initialize
 			TabNoc.Variables.Div_RemainTime.innerHTML = '<span id="RemainTimeStart">Es verbleiben </span><span id="RemainTimeTime"></span><span id="RemainTimeBuffer" style="display:none"><br>Buffer : ca. <span id="RemainTimeBufferText"></span>s<img id="RemainTimeImage"></span>';
 			
-			img = $(ImageId)[0];
-			img.setAttribute("onclick", 'TabNoc.Variables.HasPausedOnLowBuffer = false;document.getElementById("RemainTimeImage").style.display = "none";');
-			img.setAttribute("style", "vertical-align: middle; cursor: pointer; width: 22px; display:none");
-			img.setAttribute("src", "https://cdn0.iconfinder.com/data/icons/Tabs_Color_Social/40/Play-Pause.png");
+			img = $($(ImageId)[0]);
+			img.on("click", (function(){try{TabNoc.Variables.HasPausedOnLowBuffer = false;document.getElementById("RemainTimeImage").style.display = "none";}catch(exc){console.error(exc);alert(exc);}}));
+			img.attr("style", "vertical-align: middle; cursor: pointer; width: 22px; display:none");
+			img.attr("src", "https://cdn0.iconfinder.com/data/icons/Tabs_Color_Social/40/Play-Pause.png");
 		}
 		
 		if (remainingTimeString !== null && remainingTimeString !== undefined) {

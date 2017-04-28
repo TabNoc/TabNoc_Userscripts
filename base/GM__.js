@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name        GreaseMonkey-ExtensionFunctions
 // @description GreaseMonkey Lib ©2017 TabNoc
-// @version     v2.0.0
-// date			06.03.2017
+// @version     v2.0.1_27042017
 // @require     http://code.jquery.com/jquery-2.1.1.min.js
 // @grant       GM_setValue
 // @grant       GM_getValue
 // @grant       GM_deleteValue
+// @grant       GM_listValues
 // ==/UserScript==
 if (unsafeWindow.TabNoc_GM == undefined) {
 	TabNoc_GM = {};
@@ -22,6 +22,9 @@ if (unsafeWindow.TabNoc_GM == undefined) {
 	});
 	exportFunction(returnExec(function(arg1, arg2, arg3){return GM_deleteValue(arg1, arg2, arg3);}), unsafeWindow.TabNoc_GM, {
 		defineAs : "deleteValue"
+	});
+	exportFunction(returnExec(function(arg1, arg2, arg3){return GM_listValues(arg1, arg2, arg3);}), unsafeWindow.TabNoc_GM, {
+		defineAs : "listValues"
 	});
 
 	exportFunction(exec, unsafeWindow.TabNoc_GM, {

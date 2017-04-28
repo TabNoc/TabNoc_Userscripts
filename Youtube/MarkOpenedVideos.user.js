@@ -8,7 +8,7 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.1.3_29032017
+// @version     2.2.1_28042017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -26,6 +26,7 @@
 // @grant       GM_registerMenuCommand
 // @grant       GM_addStyle
 // @grant       GM_getResourceText
+// @grant       GM_xmlhttpRequest
 // @noframes
 // ==/UserScript==
 
@@ -84,6 +85,16 @@ fixed:	- fixed StyleChanges from Youtube
 29.03.2017 - 2.1.3
 	added:	- JqueryUI
 	fixed:	- if the VideoTitle or the VideoAuthor has changed and none of them are empty, a Dialog will be shown to let the user choose witch Version shall be used 
+
+18.04.2017 - 2.1.4
+	added:	- ExportAllData
+			- ImportAllData
+
+23.04.2017 - 2.2.0
+	added:	- Implemented ServerBased Backup and Restore
+
+28.04.2017 - 2.2.1
+	changed:- Opical Improvments
 */
 
 try {
@@ -113,7 +124,7 @@ try {
 			SavingEnabled: true,
 			TimerInterval: 5000,
 			UninterestingVideos: (["Recht für YouTuber:"]),
-			NotWantedVideos: (["Arumba Plays DOTA", "Europa Universalis IV", "Let's Play Crusader Kings 2", "Challenge WBS:", "Let's Play Civilization VI", "Let's Play Galactic Civilizations 3", "The Binding of Isaac ", "Civilization 6", "Endless Space", "Galactic Cililisations 3", "Civilization V", "Let's Play Stellaris", "SPAZ2", "[EU4]"]),
+			NotWantedVideos: (["Arumba Plays DOTA", "Europa Universalis IV", "Let's Play Crusader Kings 2", "Challenge WBS:", "Let's Play Civilization VI", "Let's Play Galactic Civilizations 3", "The Binding of Isaac ", "Civilization 6", "Endless Space", "Galactic Cililisations 3", "Civilization V", "Let's Play Stellaris", "SPAZ2", "EU4", "Factorio S7E"]),
 			DeleteNotWantedVideos: false,
 			HideAlreadyWatchedVideos: false,
 			ShowAlreadyWatchedDialog: true,
@@ -144,48 +155,75 @@ try {
 	}
 	
 	function registerTabNoc() {
-		
-		// Scannen
-		// exportFunction(getAllElements, unsafeWindow, {
-			// defineAs: "getAllElements"
+		// //ResetDataBaseVersion
+		// exportFunction(function(){
+			// if (confirm("Sollen wirklich die Versionen von allen Tabellen gelöscht werden?") !== true) {return;}
+			// // ### WatchedVideoArray-Version ###
+			// Version_WatchedVideoArray = eval(GM_getValue("WatchedVideoArray-Version"));
+			// if (Version_WatchedVideoArray != null) {
+				// GM_deleteValue("WatchedVideoArray-Version")
+			// }
+			
+			// // ### ScannedVideoArray-Version ###
+			// Version_ScannedVideoArray = eval(GM_getValue("ScannedVideoArray-Version"));
+			// if (Version_ScannedVideoArray != null) {
+				// GM_deleteValue("ScannedVideoArray-Version")
+			// }
+			
+			// // ### VideoObjectDictionary-Version ###
+			// Version_VideoObjectDictionary = eval(GM_getValue("VideoObjectDictionary-Version"));
+			// if (Version_VideoObjectDictionary != null) {
+				// GM_deleteValue("VideoObjectDictionary-Version")
+			// }
+		// }, unsafeWindow, {
+			// defineAs: "ResetDataBaseVersion"
 		// });
-		
-		//ResetAllTNData
-		exportFunction(function(){alert("Not Implemented!")}, unsafeWindow, {
-			defineAs: "ResetAllTNData"
-		});
-		
-		//ResetDataBaseVersion
-		exportFunction(function(){
-			if (confirm("Sollen wirklich die Versionen von allen Tabellen gelöscht werden?") !== true) {return;}
-			// ### WatchedVideoArray-Version ###
-			Version_WatchedVideoArray = eval(GM_getValue("WatchedVideoArray-Version"));
-			if (Version_WatchedVideoArray != null) {
-				GM_deleteValue("WatchedVideoArray-Version")
-			}
-			
-			// ### ScannedVideoArray-Version ###
-			Version_ScannedVideoArray = eval(GM_getValue("ScannedVideoArray-Version"));
-			if (Version_ScannedVideoArray != null) {
-				GM_deleteValue("ScannedVideoArray-Version")
-			}
-			
-			// ### VideoObjectDictionary-Version ###
-			Version_VideoObjectDictionary = eval(GM_getValue("VideoObjectDictionary-Version"));
-			if (Version_VideoObjectDictionary != null) {
-				GM_deleteValue("VideoObjectDictionary-Version")
-			}
-		}, unsafeWindow, {
-			defineAs: "ResetDataBaseVersion"
-		});
-		
-		//GM_addStyle(".display-none{display:none}");
-		//TODO?!?! Visited
-		//GM_addStyle(".display-none{display:none}");
 		
 		GM_registerMenuCommand("Hide Watched Videos", function () {
 			TabNoc.Settings.HideAlreadyWatchedVideos = true;
 			startCheckElements(true, true);
+		});
+		
+		GM_registerMenuCommand("Test", function () {
+			exportFunction(returnExec(function(arg1, arg2, arg3){return GM_xmlhttpRequest(arg1, arg2, arg3);}), unsafeWindow.TabNoc_GM, {
+				defineAs : "GM_xmlhttpRequest"
+			});
+			// GM_xmlhttpRequest({
+				// data: "Token=bla&data=abcdefghijklmnopqrstuvwxyz",
+				// method: "POST",
+				// headers: {
+					// "Content-Type": "application/x-www-form-urlencoded"
+				// },
+				// onabort: (function(response){console.log("onabort");console.info(response);}),
+				// onerror: (function(response){console.log("onerror");console.info(response);}),
+				// onload: (function(response){console.log("onload_Input");console.info(response);}),
+				// // onprogress: (function(response){console.log("onprogress");}),
+				// // onreadystatechange: (function(response){console.log("onreadystatechange");}),
+				// ontimeout: (function(response){console.log("ontimeout");console.info(response);}),
+				// timeout: 60000,
+				// url: "https://tabnoc.gear.host//MyDataFiles//Input"
+			// });
+			GM_xmlhttpRequest({
+				data: "Token=bla&data=abcdefghijklmnopqrstuvwxyz",
+				method: "POST",
+				headers: {
+					"Content-Type": "application/x-www-form-urlencoded"
+				},
+				onabort: (function(response){console.log("onabort");console.info(response);}),
+				onerror: (function(response){console.log("onerror");console.info(response);}),
+				onload: (function(response){console.log("onload_Output");console.info(response);}),
+				// onprogress: (function(response){console.log("onprogress");}),
+				// onreadystatechange: (function(response){console.log("onreadystatechange");}),
+				ontimeout: (function(response){console.log("ontimeout");console.info(response);}),
+				timeout: 60000,
+				url: "https://tabnoc.gear.host//MyDataFiles//Output"
+			});
+	
+			//jQuery.post("https://tabnoc.gear.host/MyDataFiles/Output", {bla:"Baum!"}, function(data){console.log(data);}).fail(function(){console.log("failed");});
+		});
+		
+		GM_registerMenuCommand("ManuelleSyncronisation", function () {
+			Syncronisieren()
 		});
 		
 		GM_registerMenuCommand("ImportData", function () {
@@ -193,18 +231,24 @@ try {
 		});
 		
 		GM_registerMenuCommand("ExportData", function () {
-			//alert(ExportData());
 			$.prompt(ImportExportDialog);
+		});
+		
+		GM_registerMenuCommand("ExportAllData", function () {
+			var element = ({});
+			element.WatchedVideoArray = GM_getValue("WatchedVideoArray") || "([])";
+			element.ScannedVideoArray = GM_getValue("ScannedVideoArray") || "([])";
+			element.VideoObjectDictionary = GM_getValue("VideoObjectDictionary") || "({})";
+			prompt("Bitte die Exportierten Daten kopieren", element.toSource());
+		});
+		
+		GM_registerMenuCommand("ImportAllData", function () {
+			ImportData(true);
 		});
 
 		GM_registerMenuCommand("Markieren", function () {
-			// startCheckElements(true);
 			startCheckElements(!TabNoc.Variables.MarkToggleState);
 		});
-
-		// GM_registerMenuCommand("Einlesen", function () {
-			// getAllElements();
-		// });
 	}
 
 	function startCheckElements(ToggleState, force) {
@@ -216,7 +260,8 @@ try {
 			// ### VideoObjectDictionary ###
 			videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
 
-			if ($(".item-section").find(".yt-uix-tile-link").length == 0) {
+			//if ($(".item-section").find(".yt-uix-tile-link").length == 0) {
+			if ($(".yt-shelf-grid-item").length > 0) {
 				TabNoc.Variables.MultiRow = true;
 			}
 			
@@ -237,12 +282,14 @@ try {
 
 	function checkElements(watchedVideoArray, scannedVideoArray, videoObjectDictionary, elements, ToggleState) {
 		var UnScannedElements = 0;
+		Feedback.showProgress(0, "Initialised Scan");
 
 		if (ToggleState == null) {
 			ToggleState = TabNoc.Variables.MarkToggleState;
 		}
 		
 		for (i = 0; i < elements.length; i++) {
+			Feedback.showProgress(i / elements.length * 100, "Analysing Element " + i + " from " + elements.length);
 			var currentElement = elements[i];
 
 			if (currentElement.className == "undefined") { continue; }
@@ -255,7 +302,8 @@ try {
 		}
 		TabNoc.Variables.MarkToggleState = ToggleState;
 
-		console.log(String.format("Found {0} Elements ({1} Marked Elements | {2} UnMarked Elements) [{3} Scanned Videos | {4} Watched Videos | {5} Watched Videos(old)]", elements.length, elements.length - UnScannedElements, UnScannedElements, scannedVideoArray.length, videoObjectDictionary.length, watchedVideoArray.length))
+		Feedback.showProgress(100, "Finished " + (elements.length - UnScannedElements) + " elements marked");
+		console.log(String.format("Found {0} Elements ({1} Marked Elements | {2} UnMarked Elements) [{3} Scanned Videos | {4} Watched Videos | {5} Watched Videos(old)]", elements.length, elements.length - UnScannedElements, UnScannedElements, scannedVideoArray.length, Object.keys(videoObjectDictionary).length, watchedVideoArray.length));
 	}
 
 	function checkElement(watchedVideoArray, scannedVideoArray, videoObjectDictionary, currentElement, ToggleState) {
@@ -271,6 +319,10 @@ try {
 				$(currentElement).find(".yt-uix-tile-link, .yt-lockup-description").css("background-color", color);
 			}
 		};
+		
+		currentElement.style.borderRadius = "7px";
+		currentElement.style.border = "1px solid #eee";
+		currentElement.style.padding = "0px 5px 5px 5px";
 		
 		if (ToggleState === true) {
 			if (GetVideoWatched(scannedVideoArray, false, VideoID)) {
@@ -441,6 +493,8 @@ try {
 		}
 		for (i = 0; i < elements.length; i++) {
 			var element = elements[i].children[0].children[0];
+			elements[i].style.borderRadius = "10px";
+			elements[i].style.border = "1px solid #ddd";
 			var href = element.getAttribute("href");
 			if (href == null) {
 				href = element.children[0].getAttribute("href");
@@ -456,6 +510,8 @@ try {
 			}
 			for (i = 1; i < elements.length; i++) {
 				var element = elements[i].children[1];
+				elements[i].style.borderRadius = "10px";
+				elements[i].style.border = "1px solid #ddd";
 				var href = element.getAttribute("href");
 				if (href != null && href != "" && GetVideoWatched(watchedVideoArray, videoObjectDictionary, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
 					$(elements[i]).css("background-color", "rgb(166, 235, 158)");
@@ -570,8 +626,9 @@ try {
 		
 		var elements = $(".yt-lockup-video");
 		for (i = 0; i < elements.length; i++) {
-			var element = elements[i].children[0].children[0].children[0];
-			var href = element.getAttribute("href");
+			elements[i].style.borderRadius = "10px";
+			elements[i].style.border = "1px solid #ddd";
+			var href = elements[i].children[0].children[0].children[0].getAttribute("href");
 			if (href != null && href != "" && GetVideoWatched(watchedVideoArray, null, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
 				setColor(elements[i], "rgb(166, 235, 158)");
 			}
@@ -856,38 +913,63 @@ try {
 		}
 	}
 	
-	function ImportData() {
+	function ImportData(allData) {
 		try {
-			var data_vOD = eval(prompt("Please insert new VideoObjectDictionary Data"));
-			var data_wVA = eval(prompt("Please insert new WatchedVideoArray Data"));
-			
+			if (typeof(allData) == "object") {
+				var element = allData;
+			}
+			else if (allData === true) {
+				var element = eval(prompt("Bitte die exportierten Daten eintragen"));
+			} 
+			else {
+				var element = ({});
+				element.VideoObjectDictionary = eval(prompt("Please insert new VideoObjectDictionary Data"));
+				element.WatchedVideoArray = eval(prompt("Please insert new WatchedVideoArray Data"));
+				element.ScannedVideoArray = eval(prompt("Please insert new ScannedVideoArray Data"));
+			}
 			var videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
 			var watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "({})");
+			var scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "({})");
 			var count_vOD = 0;
 			var count_wVA = 0;
+			var count_sVA = 0;
 			
 			var newObject = ({});
 			
 			for (var i in videoObjectDictionary) {
 				PushVideoObject(newObject, videoObjectDictionary[i], false);
 			}
-			for (var i in data_vOD) {
-				PushVideoObject(newObject, data_vOD[i], false);
+			for (var i in element.VideoObjectDictionary) {
+				PushVideoObject(newObject, element.VideoObjectDictionary[i], false);
 				count_vOD++;
 			}
 			
-			var newStructure = ([]);
+			var newWatchedStructure = ([]);
+			var newScannedStructure = ([]);
 			
 			for (var i in watchedVideoArray) {
-				if (GetVideoWatched(newStructure, newObject, watchedVideoArray[i]) === false) {
-					newStructure.push(watchedVideoArray[i]);
+				if (GetVideoWatched(newWatchedStructure, newObject, watchedVideoArray[i]) === false) {
+					newWatchedStructure.push(watchedVideoArray[i]);
 				}
 			}
 			
-			for (var i in data_wVA) {
-				if (GetVideoWatched(newStructure, newObject, data_wVA[i]) === false) {
-					newStructure.push(data_wVA[i]);
+			for (var i in element.WatchedVideoArray) {
+				if (GetVideoWatched(newWatchedStructure, newObject, element.WatchedVideoArray[i]) === false) {
+					newWatchedStructure.push(element.WatchedVideoArray[i]);
 					count_wVA++;
+				}
+			}
+			
+			for (var i in scannedVideoArray) {
+				if (GetVideoWatched(newScannedStructure, newObject, scannedVideoArray[i]) === false) {
+					newScannedStructure.push(scannedVideoArray[i]);
+				}
+			}
+			
+			for (var i in element.ScannedVideoArray) {
+				if (GetVideoWatched(newScannedStructure, newObject, element.ScannedVideoArray[i]) === false) {
+					newScannedStructure.push(element.ScannedVideoArray[i]);
+					count_sVA++;
 				}
 			}
 			
@@ -895,19 +977,18 @@ try {
 				"VideoObjectDictionary:\r\n" + 
 				"\tEs wurden " + count_vOD + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newObject.toSource().length + "B)\r\n" +
 				"WatchedVideoArray:\r\n" + 
-				"\tEs wurden " + count_wVA + " Elemente aktualisiert (alte Datenmenge: " + watchedVideoArray.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B)");
+				"\tEs wurden " + count_wVA + " Elemente aktualisiert (alte Datenmenge: " + watchedVideoArray.toSource().length + "B | neue Datenmenge: " + newWatchedStructure.toSource().length + "B)\r\n" +
+				"ScannedVideoArray:\r\n" + 
+				"\tEs wurden " + count_sVA + " Elemente aktualisiert (alte Datenmenge: " + scannedVideoArray.toSource().length + "B | neue Datenmenge: " + newScannedStructure.toSource().length + "B)");
 			
 			GM_setValue("VideoObjectDictionary", newObject.toSource());
-			GM_setValue("WatchedVideoArray", newStructure.toSource());
+			GM_setValue("WatchedVideoArray", newWatchedStructure.toSource());
+			GM_setValue("ScannedVideoArray", newScannedStructure.toSource());
 		}
 		catch (exc) {
 			console.error(exc);
 			alert("Das Importieren ist fehlgeschlagen!\r\n" + exc);
 		}
-	}
-	
-	function ExportData(Value) {
-		return (GM_getValue(Value) || "({})");
 	}
 	
 	function GetVideoWatched(watchedVideoArray, videoObjectDictionary, VideoID) {
@@ -1100,44 +1181,87 @@ try {
 		var videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
 	}
 	
-	var Feedback = {
-		messageTimeout: null,
-		showMessage: (function (message, type, time, onClickFunction) {
-			Feedback.hideMessage();
-			var element = document.createElement("div");
-			element.id = "feedback";
-			element.title = "Dismiss";
-			var style = "";
-			if (type == "notify") {
-				style = "background-color: #00A550;";
-			}
-			else if (type == "error") {
-				style = "background-color: #C41E3A;";
-			}
-			element.setAttribute("style", "position: fixed; top: 10px; text-align: center; width: 100%; z-index: 9999;");
-			element.innerHTML = '<span style="' + style + ' border-radius: 5px; cursor: pointer; color: #fff; padding: 3px 6px; font-size: 16px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); text-shadow: 0 1px rgba(0, 0, 0, 0.2);">' + message.replaceAll("\r\n", "<br>") + "</span>";
-			element.addEventListener("click", onClickFunction || Feedback.hideMessage, !1);
-			document.body.appendChild(element);
-			time && (Feedback.messageTimeout = setTimeout(Feedback.hideMessage, time));
-		}),
-		hideMessage: (function () {
-			var element = document.getElementById("feedback");
-			if (element != null) {
-				if (Feedback.messageTimeout != null) {
-					clearTimeout(Feedback.messageTimeout);
-					Feedback.messageTimeout = null;
+	function Syncronisieren() {
+		Feedback.showProgress(10, "Token erfassen");
+		var Token = prompt("Bitte Token eingeben");
+		Feedback.showProgress(20, "Request starten");
+		GM_xmlhttpRequest({
+			data: {Token:Token}.toSource(),
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json"
+			},
+			onabort: (function(response){console.log("onabort");console.info(response);}),
+			onerror: (function(response){console.log("onerror");console.info(response);alert("Receving Server Data Failed");Feedback.hideProgress();}),
+			onload: returnExec(function(response){console.log("onload_Output");console.info(response);
+				Feedback.showProgress(40, "Servernachricht auswerten");
+				var error = false;
+				if (response.status !== 200) {
+					alert("Statuscode:" + response.status);
+					Feedback.showProgress(100, "Abgebrochen, es konnten keine Daten empfangen werden");
+					return;
 				}
-				element.removeEventListener("click", Feedback.hideMessage, false)
-				document.body.removeChild(element)
-			}
-		}),
-		error: (function (message, time, onClickFunction) {
-			Feedback.showMessage(message || "Something went wrong", "error", (time == null ? 8000 : time), onClickFunction)
-		}),
-		notify: (function (message, time, onClickFunction) {
-			Feedback.showMessage(message, "notify", (time == null ? 5000 : time), onClickFunction)
-		})
-	};
+				if (response.responseText.charAt(0) === '#') {
+					var errorCode = response.responseText.split("\r\n")[0].substring(1);
+					if (errorCode === "2") {
+						error = true;
+					}
+					else {
+						alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
+						Feedback.showProgress(100, "Abgebrochen, Fehler auf dem Server");
+						return;
+					}
+				}
+				Feedback.showProgress(50, "Empfangene Daten migrieren");
+				if (!error) {
+					var responseData = eval(response.responseText);
+					console.warn(responseData);
+					if (responseData.VideoObjectDictionary != null && responseData.WatchedVideoArray != null) {
+						ImportData(responseData);
+					}
+					else {
+						alert("Der Wert des Response des Servers war ungültig!");
+					}
+				}
+				Feedback.showProgress(75, "Neue Daten auf dem Server speichern");
+				
+				var element = ({});
+				element.WatchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
+				element.ScannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
+				element.VideoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
+				GM_xmlhttpRequest({
+					data: {Token:Token, data:element.toSource()}.toSource(),
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json"
+					},
+					onabort: (function(response){console.log("onabort");console.info(response);}),
+					onerror: (function(response){console.log("onerror");console.info(response);alert("Sending New Data Failed");Feedback.hideProgress();}),
+					onload: returnExec(function(response){console.log("onload_Input");console.info(response);
+						if (response.status !== 200) {
+							alert("Statuscode:" + response.status);
+							Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
+							return;
+						}
+						if (response.responseText.charAt(0) === '#') {
+							alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
+							Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
+							return;
+						}
+						Feedback.showProgress(100, "Senden der Daten erfolgreich abgeschlossen");
+						alert("Die Syncronisierung der Daten mit dem Server wurde erfolgreich abgeschlossen.\r\nAktueller Versionsstand: " + response.responseText);
+					}),
+					ontimeout: (function(response){console.log("ontimeout");console.info(response);}),
+					timeout: 60000,
+					url: "https://tabnoc.gear.host/MyDataFiles//Input"
+				});
+			}),
+			ontimeout: (function(response){console.log("ontimeout");console.info(response);}),
+			timeout: 60000,
+			url: "https://tabnoc.gear.host/MyDataFiles//Output"
+		});
+		Feedback.showProgress(30, "Warte auf Rückmeldung vom Server");
+	}
 	
 	function Main() {
 		GM_addStyle(GM_getResourceText("Impromptu"));

@@ -16,6 +16,7 @@
 	TriggerAmount : int32, 
 	TriggerDarkPercentage : int32[0-100],
 	StopIntervalAfterTrigger : bool[default:true],
+	MaxVideoCheckTime : int32[default:0]
 }
 	*/
 
@@ -27,6 +28,7 @@ function AddGreyDetector(Config) {
 				return;
 			else
 				clearInterval(WaitInterval);
+			
 			Config.TN_canvas = document.createElement("canvas");
 			var CanvasContent = Config.TN_canvas.getContext('2d');
 			var VidHeigth = Math.floor(Config.BaseVideo.videoHeight * (Config.CopySizePercentage / 100));
@@ -37,17 +39,17 @@ function AddGreyDetector(Config) {
 			Config.TN_canvas.height = VidHeigth;
 			Config.TN_canvas.width = VidWidth;
 			
-			$("#TabNoc_YT_Jump").append("<div id='GreyAmount'>N/A</div>");
+			setTimeout(function(){$("#TabNoc_YT_Jump").append("<div id='GreyAmount'>N/A</div>");}, 750);
 
 			function GetDarkerPercentage(DarkPercentage) {
 				// var ColorDefinition = Math.floor(255 * (DarkPercentage / 100));
-				
+
 				// check performance
 				// maybe use clipped Function	context.drawImage(img,sx,sy,swidth,sheight,x,y,width,height);
 				CanvasContent.drawImage(Config.BaseVideo, 0, 0, VidWidth, VidHeigth);
 				// check performance
 				// maybe get complete Image
-				var data = CanvasContent.getImageData(0, Math.floor(VidHeigth / 10 * 0), VidWidth, Math.floor(VidHeigth / 10)).data;
+				var data = CanvasContent.getImageData(0, Math.floor(VidHeigth / 10 * 0), Math.floor(VidWidth / 2), Math.floor(VidHeigth / 2)).data; // durch 2 ist gut, performance eher nicht
 				var amount = 0;
 				// check performance
 				// maybe positionate i based on getImageData
@@ -58,25 +60,34 @@ function AddGreyDetector(Config) {
 				}
 				return amount;
 			}
+			
+			function CleanUpDetector(){
+				clearInterval(Config.DetectorInterval);
+				$("#GreyAmount").hide();
+			}
 
+			if (Config.MaxVideoCheckTime > 1) {
+				WaitInterval = setTimeout(function(){console.log("VideoGreyDetector: clearInterval after Timeout"); CleanUpDetector();}, Config.MaxVideoCheckTime);
+			}
+			
 			var count = 0;
 			return Config.DetectorInterval = setInterval(function () {
-					try {
-						if (document.hidden === true) {return;}
-						var amount = 0;
-						if ((amount = GetDarkerPercentage(Config.TriggerDarkPercentage)) > Config.TriggerAmount && (count++) > 5) {
-							if (Config.StopIntervalAfterTrigger !== false) {
-								clearInterval(Config.DetectorInterval);
-								$("#GreyAmount").hide();
-							}
-							Config.CallBack(amount);
+				try {
+					if (document.hidden === true) {return;}
+					var amount = 0;
+					if ((amount = GetDarkerPercentage(Config.TriggerDarkPercentage)) > Config.TriggerAmount && (count++) > 5) {
+						if (Config.StopIntervalAfterTrigger !== false) {
+							CleanUpDetector()
 						}
-						$("#GreyAmount").text(amount);
-					} catch (exc) {
-						console.error(exc);
-						alert(exc);
+						Config.CallBack(amount);
+						return;
 					}
-				}, Config.Interval);
+					$("#GreyAmount").text(amount);
+				} catch (exc) {
+					console.error(exc);
+					alert(exc);
+				}
+			}, Config.Interval);
 		} catch (exc) {
 			console.error(exc);
 			alert(exc);
