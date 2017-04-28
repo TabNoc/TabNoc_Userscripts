@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.1.0_27042017
+// @version     1.1.1_28042017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/Syncable_MarkOpendVideos/base/TabNoc.js
@@ -22,6 +22,9 @@ Start Writing Script
 
 27.04.2017 - 1.1.0
 	- changed a bunch
+
+28.04.2017 - 1.1.1
+	- optical Improvements
 */
 
 try {
@@ -65,7 +68,8 @@ try {
 		HTML: {
 			StyleMarked: "background-color:rgb(151, 255, 139);background-image:linear-gradient(rgb(255, 255, 255), transparent)",
 			StyleMustScanning: "background-color:rgb(255, 138, 138);background-image:linear-gradient(rgb(255, 255, 255), transparent)",
-			TweetsDropDownButtons: '<br/><button class="dropdown-link js-dropdown-toggle" onclick="getAllElements({element});return true;">Bis hier Markieren [/\\]</button><button class="dropdown-link js-dropdown-toggle" onclick="getAllElements(null, {element});return true;">Ab hier Markieren [\\/]</button><button class="dropdown-link js-dropdown-toggle" onclick="scanRange({element});return true;">Markierbereich</button>'
+			TweetsDropDownButtons: '<br/><button class="dropdown-link js-dropdown-toggle" onclick="getAllElements({element});return true;">Bis hier Markieren [/\\]</button><button class="dropdown-link js-dropdown-toggle" onclick="getAllElements(null, {element});return true;">Ab hier Markieren [\\/]</button><button class="dropdown-link js-dropdown-toggle" onclick="scanRange({element});return true;">Markierbereich</button>',
+			ScanButton: '<div class="MyScanButton" style="position: absolute; top: 10px;z-index: 2147483647;right: 10px;"><div style="border-radius: 5px; cursor: pointer;box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);background-color: rgb(0, 165, 80); height: 25px; width: 25px;"></div></div>'
 		}
 	});
 	
@@ -159,7 +163,11 @@ try {
 		
 		var setColor = function(color) {
 			$(checkElement).css("background-color", color);
+			$(checkElement).find("MyScanButton").remove();
 		};
+		
+		checkElement.style.borderRadius = "10px";
+		checkElement.style.border = "1px solid #ddd";
 		
 		if (ToggleState === true) {
 			if (ReadedID != -1) {
@@ -184,7 +192,14 @@ try {
 			}
 		}
 		else {
-			checkElement.setAttribute("style", "");
+			checkElement.style.display = "";
+			checkElement.style.backgroundColor = "";
+		}
+		
+		if ($(checkElement).find(".MyScanButton").length === 0) {
+			var ScanButton = $(TabNoc.HTML.ScanButton);
+			ScanButton.click(function(){getAllElements(SearchString, SearchString)});
+			$(checkElement).append(ScanButton);
 		}
 		
 		return false;
