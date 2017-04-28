@@ -163,7 +163,7 @@ try {
 		
 		var setColor = function(color) {
 			$(checkElement).css("background-color", color);
-			$(checkElement).find("MyScanButton").remove();
+			$(checkElement).find(".MyScanButton").remove();
 		};
 		
 		checkElement.style.borderRadius = "10px";
