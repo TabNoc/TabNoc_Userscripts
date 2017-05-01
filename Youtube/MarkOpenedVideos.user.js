@@ -8,7 +8,7 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.2.1_28042017
+// @version     2.2.2_01052017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -95,6 +95,10 @@ fixed:	- fixed StyleChanges from Youtube
 
 28.04.2017 - 2.2.1
 	changed:- Opical Improvments
+
+01.05.2017 - 2.2.2
+	changed:	- Opical Improvments
+				- more Details on DataMerge
 */
 
 try {
@@ -140,6 +144,10 @@ try {
 		console.log("MarkOpenedVideos.user.js loading");
 		try {
 			registerTabNoc();
+			
+			if (document.getElementById("content").clientWidth == 1262) {
+				document.getElementById("content").style.width = "1330px";
+			}
 			
 			TabNoc.Variables.checkElementsInterval = setInterval(returnExec(function () {
 				startCheckElements(TabNoc.Variables.MarkToggleState);
@@ -961,13 +969,13 @@ try {
 			}
 			
 			for (var i in scannedVideoArray) {
-				if (GetVideoWatched(newScannedStructure, newObject, scannedVideoArray[i]) === false) {
+				if (GetVideoWatched(newScannedStructure, newObject, scannedVideoArray[i]) === false && GetVideoWatched(newWatchedStructure, false, scannedVideoArray[i]) === false) {
 					newScannedStructure.push(scannedVideoArray[i]);
 				}
 			}
 			
 			for (var i in element.ScannedVideoArray) {
-				if (GetVideoWatched(newScannedStructure, newObject, element.ScannedVideoArray[i]) === false) {
+				if (GetVideoWatched(newScannedStructure, newObject, element.ScannedVideoArray[i]) === false && GetVideoWatched(newWatchedStructure, false, element.ScannedVideoArray[i]) === false) {
 					newScannedStructure.push(element.ScannedVideoArray[i]);
 					count_sVA++;
 				}
@@ -975,11 +983,11 @@ try {
 			
 			alert("Das Importieren wurde erfolgreich abgeschlossen!\r\n" + 
 				"VideoObjectDictionary:\r\n" + 
-				"\tEs wurden " + count_vOD + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newObject.toSource().length + "B)\r\n" +
+				"\tEs wurden " + count_vOD + " Elemente aktualisiert (gespeicherte Datenmenge: " + videoObjectDictionary.toSource().length + "B (" + Object.keys(videoObjectDictionary).length + ") | importierte Datenmenge: " + element.VideoObjectDictionary.toSource().length + "B (" + Object.keys(element.VideoObjectDictionary).length + ") | neue Datenmenge: " + newObject.toSource().length + "B) (" + Object.keys(newObject).length + ")\r\n" +
 				"WatchedVideoArray:\r\n" + 
-				"\tEs wurden " + count_wVA + " Elemente aktualisiert (alte Datenmenge: " + watchedVideoArray.toSource().length + "B | neue Datenmenge: " + newWatchedStructure.toSource().length + "B)\r\n" +
+				"\tEs wurden " + count_wVA + " Elemente aktualisiert (gespeicherte Datenmenge: " + watchedVideoArray.toSource().length + "B (" + watchedVideoArray.length + ") | importierte Datenmenge: " + element.WatchedVideoArray.toSource().length + "B (" + element.WatchedVideoArray.length + ") | neue Datenmenge: " + newWatchedStructure.toSource().length + "B) (" + newWatchedStructure.length + ")\r\n" +
 				"ScannedVideoArray:\r\n" + 
-				"\tEs wurden " + count_sVA + " Elemente aktualisiert (alte Datenmenge: " + scannedVideoArray.toSource().length + "B | neue Datenmenge: " + newScannedStructure.toSource().length + "B)");
+				"\tEs wurden " + count_sVA + " Elemente aktualisiert (gespeicherte Datenmenge: " + scannedVideoArray.toSource().length + "B (" + scannedVideoArray.length + ") | importierte Datenmenge: " + element.ScannedVideoArray.toSource().length + "B (" + element.ScannedVideoArray.length + ") | neue Datenmenge: " + newScannedStructure.toSource().length + "B) (" + newScannedStructure.length + ")");
 			
 			GM_setValue("VideoObjectDictionary", newObject.toSource());
 			GM_setValue("WatchedVideoArray", newWatchedStructure.toSource());
