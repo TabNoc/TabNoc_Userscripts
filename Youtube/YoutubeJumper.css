@@ -1,0 +1,20 @@
+#RemainTimeBuffer {
+	color: red;
+	font-weight: bold;
+}
+#RemainTimeImage {
+	vertical-align: middle;
+	cursor: pointer;
+	width: 22px;
+	display:none;
+}
+
+.MyAddMarginPage {
+	margin-top: 17px;
+}
+.MyAddMarginPageWithoutImage {
+	margin-top: 34px;
+}
+.MyAddMarginPageWithImage {
+	margin-top: 39px;
+}

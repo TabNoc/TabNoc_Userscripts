@@ -1,5 +1,5 @@
 function getTabNocVersion(){
-	return "v1.2.0-25042017";
+	return "v1.2.1-09052017";
 }
 
 
@@ -73,75 +73,79 @@ try {
 		set HTML(obj){},
 	}
 	
-	var Feedback = {
-		messageTimeout: null,
-		showMessage: (function (message, type, time, onClickFunction) {
-			clearTimeout(Feedback.messageTimeout);
-			Feedback.messageTimeout = null;
-			
-			if (document.getElementById("feedback") != null) {
+	var Feedback = null;
+	if (jQuery != undefined) {
+		Feedback = {
+			messageTimeout: null,
+			showMessage: (function (message, type, time, onClickFunction) {
+				clearTimeout(Feedback.messageTimeout);
+				Feedback.messageTimeout = null;
+				
+				if (document.getElementById("feedback") != null) {
+					var element = document.getElementById("feedback");
+					$(element).off();
+				} 
+				else {
+					var element = document.createElement("div");
+					element.id = "feedback";
+					element.title = "Dismiss";
+					element.setAttribute("style", "position: fixed; top: 10px; text-align: center; width: 100%; z-index: 2147483647;");
+					element.innerHTML = '<span style="border-radius: 5px; cursor: pointer; color: #fff; padding: 3px 6px; font-size: 16px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); text-shadow: 0 1px rgba(0, 0, 0, 0.2);"></span>';
+					document.body.appendChild(element);
+				}
+				element.children[0].textContent = message.replaceAll("\r\n", "<br>");
+				element.children[0].style.backgroundColor = ((type == "notify") ? "#00A550" : "#C41E3A");
+				$(element).on("click", onClickFunction || Feedback.hideMessage);
+				time && (Feedback.messageTimeout = setTimeout(Feedback.hideMessage, time));
+			}),
+			hideMessage: (function () {
 				var element = document.getElementById("feedback");
-			} 
-			else {
-				var element = document.createElement("div");
-				element.id = "feedback";
-				element.title = "Dismiss";
-				element.setAttribute("style", "position: fixed; top: 10px; text-align: center; width: 100%; z-index: 2147483647;");
-				element.innerHTML = '<span style="border-radius: 5px; cursor: pointer; color: #fff; padding: 3px 6px; font-size: 16px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); text-shadow: 0 1px rgba(0, 0, 0, 0.2);"></span>';
-				document.body.appendChild(element);
-			}
-			element.children[0].textContent = message.replaceAll("\r\n", "<br>");
-			element.children[0].style.backgroundColor = ((type == "notify") ? "#00A550" : "#C41E3A");
-			element.click = onClickFunction || Feedback.hideMessage;
-			time && (Feedback.messageTimeout = setTimeout(Feedback.hideMessage, time));
-		}),
-		hideMessage: (function () {
-			var element = document.getElementById("feedback");
-			if (element != null) {
-				if (Feedback.messageTimeout != null) {
-					clearTimeout(Feedback.messageTimeout);
-					Feedback.messageTimeout = null;
+				if (element != null) {
+					if (Feedback.messageTimeout != null) {
+						clearTimeout(Feedback.messageTimeout);
+						Feedback.messageTimeout = null;
+					}
+					element.removeEventListener("click", Feedback.hideMessage, false)
+					document.body.removeChild(element)
 				}
-				element.removeEventListener("click", Feedback.hideMessage, false)
-				document.body.removeChild(element)
-			}
-		}),
-		error: (function (message, time, onClickFunction) {
-			Feedback.showMessage(message || "Something went wrong", "error", (time == null ? 8000 : time), onClickFunction)
-		}),
-		notify: (function (message, time, onClickFunction) {
-			Feedback.showMessage(message, "notify", (time == null ? 5000 : time), onClickFunction)
-		}),
-		showProgress: (function(percent, msg) {
-			if (msg != null) {
-				Feedback.showMessage(msg, "notify", 900);
-			}
-			if (percent >= 100 || percent < 0) {
+			}),
+			error: (function (message, time, onClickFunction) {
+				Feedback.showMessage(message || "Something went wrong", "error", (time == null ? 8000 : time), onClickFunction)
+			}),
+			notify: (function (message, time, onClickFunction) {
+				Feedback.showMessage(message, "notify", (time == null ? 5000 : time), onClickFunction)
+			}),
+			showProgress: (function(percent, msg) {
+				if (msg != null) {
+					Feedback.showMessage(msg, "notify", 900);
+				}
+				if (percent >= 100 || percent < 0) {
+					if ($("#myProgress").length === 1) {
+						$("#myProgress").css("transition-duration", "900ms");
+						$("#myProgress").css("width", Math.round(percent) + "%");
+						setTimeout(Feedback.hideProgress, 800);
+					}
+					return;
+				}
+				if ($("#myProgress").length !== 1 && percent < 100 && percent >= 0) {
+					var style = "position: fixed; z-index: 2147483647; top: 0; left: -6px; width: 0%; height: 2px; background: #b91f1f; border-radius: 1px; transition: width 500ms ease-out,opacity 500ms linear; transform: translateZ(0); will-change: width,opacity;"
+					var styleNested = "position: absolute; top: 0; height: 2px; box-shadow: #b91f1f 1px 0 6px 1px;border-radius: 100%;"
+					var styleDt = "opacity: .6; width: 180px; right: -80px; clip: rect(-6px,90px,14px,-6px);"
+					var styleDd = "opacity: .6; width: 20px; right: 0; clip: rect(-6px,22px,14px,10px);"
+					var progressBarHTML = $("<div id=\"myProgress\" style=\"" + style + "transition-duration: 300ms;width: 0%;height: 2px\"><dt style=\"" + styleNested + styleDt + "\"></dt><dd style=\"" + styleNested + styleDd + "\"></dd></div>");
+				
+					$(document.body).append(progressBarHTML);
+				}
+				$("#myProgress").show();
+				$("#myProgress").css("width", Math.round(percent) + "%");
+			}),
+			hideProgress: (function() {
 				if ($("#myProgress").length === 1) {
-					$("#myProgress").css("transition-duration", "900ms");
-					$("#myProgress").css("width", Math.round(percent) + "%");
-					setTimeout(Feedback.hideProgress, 800);
+					$("#myProgress").hide();
 				}
-				return;
-			}
-			if ($("#myProgress").length !== 1 && percent < 100 && percent >= 0) {
-				var style = "position: fixed; z-index: 2147483647; top: 0; left: -6px; width: 0%; height: 2px; background: #b91f1f; border-radius: 1px; transition: width 500ms ease-out,opacity 500ms linear; transform: translateZ(0); will-change: width,opacity;"
-				var styleNested = "position: absolute; top: 0; height: 2px; box-shadow: #b91f1f 1px 0 6px 1px;border-radius: 100%;"
-				var styleDt = "opacity: .6; width: 180px; right: -80px; clip: rect(-6px,90px,14px,-6px);"
-				var styleDd = "opacity: .6; width: 20px; right: 0; clip: rect(-6px,22px,14px,10px);"
-				var progressBarHTML = $("<div id=\"myProgress\" style=\"" + style + "transition-duration: 300ms;width: 0%;height: 2px\"><dt style=\"" + styleNested + styleDt + "\"></dt><dd style=\"" + styleNested + styleDd + "\"></dd></div>");
-			
-				$(document.body).append(progressBarHTML);
-			}
-			$("#myProgress").show();
-			$("#myProgress").css("width", Math.round(percent) + "%");
-		}),
-		hideProgress: (function() {
-			if ($("#myProgress").length === 1) {
-				$("#myProgress").hide();
-			}
-		})
-	};
+			})
+		};
+	}
 	
 	console.log("TabNoc.js: Readed TabNoc_Config " + getTabNocVersion() + " by TabNoc");
 } catch (exc) {

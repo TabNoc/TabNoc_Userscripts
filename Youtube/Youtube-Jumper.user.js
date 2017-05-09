@@ -11,8 +11,9 @@
 // require		SomeOtherStuff.js
 // add @ to switch to local solutions
 // require		GM__.js
-// @resource	Impromptu http://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.css
+// @resource	Impromptu https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.css
 // @resource	TabNocCSS https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/Youtube/TabNoc.css
+// @resource	YoutubeJumperCSS https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/Youtube/YoutubeJumper.css
 // @updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Youtube/Youtube-Jumper.user.js
 // @grant       GM_getResourceText
 // @grant       GM_addStyle
@@ -49,11 +50,17 @@ ChangeList started at 12.02.2017
 [VideoGreyDetector]
 	- changed: liest nun echte Grauwerte aus
 	
-18.04.2017
+18.04.2017 - v2.2.1
 [VideoGreyDetector]
 	- added MaxVideoCheckTime, Timeout for VideoGreyDetector
 [!!KnownBug!!]
 	- "#TabNoc_YT_Jump" is getting overwritten instead of appended -> bugs with VideoGreyDetector
+	
+09.05.2017 - v2.2.2
+[VideoGreyDetector]
+	- now checks the complete Image
+[RemainingTimeMagager]
+	- rewritten all styling parts an building of string
 */
 
 try {
@@ -75,7 +82,6 @@ try {
 		Settings : {
 			ModifyTitleToVideoState : true,
 			AddMarginWhenRemainTime : true,
-			MarginWhenRemainTime : 17, //Passend festgelegt am 09.01.2016
 			PauseOnSpacePress : true,
 			TogglePauseOnStrgPress : true,
 			AskToJumpIfOverSkipPoint : true,
@@ -84,7 +90,6 @@ try {
 			LowBufferSecondAmount : 10,
 			ImgToDisableRestart : true,
 			ImgToSwitchCloseTab : true,
-			MarginWhenLowBuffer : 50, //Passend festgelegt am 07.01.2016
 			
 			//Hide
 			AddButtonToHideAll : true,
@@ -114,10 +119,11 @@ try {
 			RefreshTimer : null,
 			Hidden : false,
 			SkipOver : [],
-			remainingTimeString : "",
-			lastCheckBufferSize : 0,
+			RemainingTimeString : "",
+			LastCheckBufferSize : 0,
 			OldTitleName : document.title,
 			HasPausedOnLowBuffer : false,
+			LastCheckLowBuffer : false,
 			ExpectedPlayerStateAfterSpace : 0
 		},
 
@@ -144,6 +150,7 @@ try {
 		
 		GM_addStyle(GM_getResourceText("Impromptu"));
 		GM_addStyle(GM_getResourceText("TabNocCSS"));
+		GM_addStyle(GM_getResourceText("YoutubeJumperCSS"));
 	}
 
 	function InitializeUI() {
@@ -215,7 +222,7 @@ try {
 				/*Check if Function has already been executed*/
 				if (document.getElementById(TabNoc.Const.remainTimeID) === null) {
 					/*create div to write the remainingTime*/
-					$("#" + TabNoc.Const.LabelContainerID).append("<div id='" + TabNoc.Const.remainTimeID + "'></div>")
+					$("#" + TabNoc.Const.LabelContainerID).append("<div id='" + TabNoc.Const.remainTimeID + "'></div>");
 					TabNoc.Variables.Div_RemainTime = $("#" + TabNoc.Const.remainTimeID)[0];
 					
 					/*create the TabNoc.Variables.Interval*/
@@ -295,7 +302,7 @@ try {
 					DetectorInterval : null,
 					CopySizePercentage : 10,
 					BaseVideo : document.getElementsByClassName("html5-main-video")[0],
-					TriggerAmount : 1400,
+					TriggerAmount : 14000,
 					TriggerDarkPercentage : 70,
 					StopIntervalAfterTrigger : true,
 					MaxVideoCheckTime : 60000
@@ -351,6 +358,9 @@ try {
 		if (Name === "Nilaus") {
 			movie_player.setPlaybackRate(2);
 		}
+		if (Name === "Cliff Harris") {
+			movie_player.setPlaybackRate(1.25);
+		}
 
 		// Ignoring "Over Skippoint" when the Jumper is loaded but the Intervall is not called at the right time
 		var TimeOnLoadCalled = movie_player.getCurrentTime();
@@ -378,9 +388,6 @@ alert("AskToJumpIfOverSkipPoint, maybe delete it if not used");
 						} else if (TabNoc.Variables.SkipTime > 0) {
 							movie_player.seekTo(TabNoc.Variables.SkipTime);
 						}
-					} else if (movie_player.getCurrentTime() < TabNoc.Variables.SkipTime){
-						document.getElementById(TabNoc.Const.remainTimeID).innerHTML += "  appling skipTime...";
-alert("appling skipTime, maybe delete it if not used");
 					}
 				}
 				catch (exc) {
@@ -525,83 +532,71 @@ alert("appling skipTime, maybe delete it if not used");
 	}
 
 	function remainingTimeManager(duration, currentTime, remainingTime) {
-		var oldRemainingTimeString = TabNoc.Variables.remainingTimeString;
-		TabNoc.Variables.remainingTimeString = "";
+		var oldRemainingTimeString = TabNoc.Variables.RemainingTimeString;
+		TabNoc.Variables.RemainingTimeString = "";
+		
+		remainingTime = Math.floor((remainingTime - TabNoc.Variables.EndTime) / movie_player.children[0].children[0].playbackRate); //movie_player.getPlaybackRate());
 		
 		// Zeitwert-string formatieren
-		remainingTime = Math.floor((remainingTime - TabNoc.Variables.EndTime) / movie_player.children[0].children[0].playbackRate); //movie_player.getPlaybackRate());
 		if (remainingTime >= 60) { // über einer Minute
-			TabNoc.Variables.remainingTimeString += Math.floor(remainingTime / 60)
-			if (remainingTime < 120) {
-				TabNoc.Variables.remainingTimeString += " Minute";
-			} else {
-				TabNoc.Variables.remainingTimeString += " Minuten";
-			}
-
-			TabNoc.Variables.remainingTimeString += " und ";
+			TabNoc.Variables.RemainingTimeString += Math.floor(remainingTime / 60) + ((remainingTime < 120) ? " Minute und " : " Minuten und ");
 		}
-		TabNoc.Variables.remainingTimeString += (remainingTime % 60 < 10 ? "0" : "") + (remainingTime % 60) + " Sekunde" + (remainingTime % 60 !== 1 ? "n" : "");
+		TabNoc.Variables.RemainingTimeString += (remainingTime % 60 < 10 ? "0" : "") + (remainingTime % 60) + " Sekunde" + (remainingTime % 60 !== 1 ? "n" : "");
 
 		
 		// Verwaltung der RemainTime anzeige
-		if (TabNoc.Variables.remainingTimeString !== oldRemainingTimeString) {
-			remainingTimeOutput(TabNoc.Variables.remainingTimeString);
+		if (TabNoc.Variables.RemainingTimeString !== oldRemainingTimeString) {
+			remainingTimeOutput(TabNoc.Variables.RemainingTimeString);
 		}
 		if (TabNoc.Settings.AddMarginWhenRemainTime === true) {
-			document.getElementById("page").style.marginTop = TabNoc.Settings.MarginWhenRemainTime + "px";
+			$("#page").addClass("MyAddMarginPage");
 			// Disable Change after executing finished
 			TabNoc.Settings.AddMarginWhenRemainTime = false;
 		}
 		
 		//MarkRemainTimeOnLowBuffer
 		if (TabNoc.Settings.MarkRemainTimeOnLowBuffer === true) {
-			//current Video Buffer Size
+			// current Video Buffer Size
 			var BufferSize = (movie_player.getVideoLoadedFraction() * movie_player.getDuration() - movie_player.getCurrentTime()) / movie_player.getPlaybackRate();
-			//is the BufferSize below the SettingValue and not fully loaded
+			// is the BufferSize below the SettingValue and not fully loaded
 			var LowBuffer = BufferSize < TabNoc.Settings.LowBufferSecondAmount && movie_player.getVideoLoadedFraction() !== 1;
 
 			// Buffer is getting Low -> Start Showing red Label
-			if (LowBuffer === true && TabNoc.Variables.Div_RemainTime.getAttribute("LowBuffer") !== "true") {
-				$("#RemainTimeBuffer").css("color", "red").css("font-weight", "bold");
-				if (document.getElementById("page").style !== "") {
-					// document.getElementById("page").style.marginTop = TabNoc.Settings.MarginWhenLowBuffer + "px"; //55:200
-				}
+			if (LowBuffer === true && TabNoc.Variables.LastCheckLowBuffer === false) {
+				$("#page").removeClass("MyAddMarginPage").addClass("MyAddMarginPageWithoutImage");
+				remainingTimeOutput(TabNoc.Variables.RemainingTimeString, BufferSize);
 			}
 			
 			// Buffer is Low and Buffersize has changed [Pause when to Low]
-			if (LowBuffer === true && TabNoc.Variables.lastCheckBufferSize !== BufferSize) {
+			if (LowBuffer === true && TabNoc.Variables.LastCheckBufferSize !== BufferSize) {
 				// AutoPause
-				if (BufferSize <= 1 & BufferSize >= 0 && movie_player.getPlayerState() !== 3) {
+				if (BufferSize <= 1 && BufferSize >= 0 && movie_player.getPlayerState() !== 3) {
 					TabNoc.Variables.HasPausedOnLowBuffer = true;
 					movie_player.pauseVideo();
-					remainingTimeOutput(TabNoc.Variables.remainingTimeString, BufferSize, true);
+					remainingTimeOutput(TabNoc.Variables.RemainingTimeString, BufferSize, true);
+					$("#page").removeClass("MyAddMarginPage").removeClass("MyAddMarginPageWithoutImage").addClass("MyAddMarginPageWithImage");
 				}
 				else {
-					remainingTimeOutput(TabNoc.Variables.remainingTimeString, BufferSize);
+					remainingTimeOutput(TabNoc.Variables.RemainingTimeString, BufferSize);
 				}
-				TabNoc.Variables.lastCheckBufferSize = BufferSize;
+				TabNoc.Variables.LastCheckBufferSize = BufferSize;
 			}
 			// Buffer is getting high -> remove red Label [Play when high enouth]
-			else if (LowBuffer === false && TabNoc.Variables.Div_RemainTime.getAttribute("LowBuffer") !== "false") {
-				TabNoc.Variables.Div_RemainTime.setAttribute("style", "");
-				if (document.getElementById("page").style !== "") {
-					document.getElementById("page").style.marginTop = TabNoc.Settings.MarginWhenRemainTime + "px";
-				}
+			else if (LowBuffer === false && TabNoc.Variables.LastCheckLowBuffer === true) {
+				$("#page").addClass("MyAddMarginPage").removeClass("MyAddMarginPageWithoutImage").removeClass("MyAddMarginPageWithImage");
+				
 				// AutoPlay
 				if (TabNoc.Variables.HasPausedOnLowBuffer === true) {
 					TabNoc.Variables.HasPausedOnLowBuffer = false;
 					movie_player.playVideo();
-					remainingTimeOutput(TabNoc.Variables.remainingTimeString, false, false);
 				}
-				else {
-					remainingTimeOutput(TabNoc.Variables.remainingTimeString, false, false);
-				}
+				remainingTimeOutput(TabNoc.Variables.RemainingTimeString, false, false);
 			}
-			TabNoc.Variables.Div_RemainTime.setAttribute("LowBuffer", LowBuffer);
+			TabNoc.Variables.LastCheckLowBuffer = LowBuffer;
 		}
 	}
 	
-	function remainingTimeOutput(remainingTimeString, BufferSize, hasPaused) {
+	function remainingTimeOutput(RemainingTimeString, BufferSize, hasPaused) {
 		var StartTextId = "#RemainTimeStart";
 		var TimeTextId = "#RemainTimeTime";
 		var BufferId = "#RemainTimeBuffer";
@@ -614,24 +609,19 @@ alert("appling skipTime, maybe delete it if not used");
 			
 			img = $($(ImageId)[0]);
 			img.on("click", (function(){try{TabNoc.Variables.HasPausedOnLowBuffer = false;document.getElementById("RemainTimeImage").style.display = "none";}catch(exc){console.error(exc);alert(exc);}}));
-			img.attr("style", "vertical-align: middle; cursor: pointer; width: 22px; display:none");
 			img.attr("src", "https://cdn0.iconfinder.com/data/icons/Tabs_Color_Social/40/Play-Pause.png");
 		}
 		
-		if (remainingTimeString !== null && remainingTimeString !== undefined) {
-			if (remainingTimeString !== "") {
-				$(TimeTextId)[0].textContent = remainingTimeString;
-			}
-			else {
-				$(TimeTextId)[0].textContent = "";
+		if (RemainingTimeString !== null && RemainingTimeString != undefined) {
+			$(TimeTextId)[0].textContent = RemainingTimeString;
+			if (RemainingTimeString === "") {
 				$(StartTextId).hide();
 			}
 		}
 		
-		if (BufferSize !== "" && BufferSize !== null && BufferSize !== undefined) {
+		if (BufferSize !== "" && BufferSize !== null && BufferSize != undefined) {
 			if (BufferSize === false) {
 				$(BufferId).hide();
-				$(BufferId)[0].style.display = "none";
 			}
 			else {
 				$(BufferId).show();
@@ -639,14 +629,14 @@ alert("appling skipTime, maybe delete it if not used");
 			}
 		}
 		
-		if (hasPaused !== "" && hasPaused !== null && hasPaused !== undefined) {
-			if (hasPaused === true) {
-				if (TabNoc.Settings.ImgToDisableRestart === true) {
+		if (TabNoc.Settings.ImgToDisableRestart === true) {
+			if (hasPaused !== "" && hasPaused !== null && hasPaused != undefined) {
+				if (hasPaused === true) {
 					$(ImageId).show();
 				}
-			}
-			else if (hasPaused === false) {
-				$(ImageId).hide();
+				else {
+					$(ImageId).hide();
+				}
 			}
 		}
 	}

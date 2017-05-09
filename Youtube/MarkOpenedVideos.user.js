@@ -4,11 +4,12 @@
 // @include     https://www.youtube.com/feed/subscriptions*
 // @include     https://www.youtube.com/user/*/videos*
 // @include     https://www.youtube.com/channel/*/videos*
+// @include     https://www.youtube.com/channel/*/featured*
 // @include     https://www.youtube.com/watch?v=*
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.2.2_01052017
+// @version     2.2.3_09052017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -99,6 +100,9 @@ fixed:	- fixed StyleChanges from Youtube
 01.05.2017 - 2.2.2
 	changed:	- Opical Improvments
 				- more Details on DataMerge
+
+09.05.2017 - 2.2.3
+	added:	- support for featured videos from channel
 */
 
 try {
@@ -303,7 +307,10 @@ try {
 			if (currentElement.className == "undefined") { continue; }
 			
 			if (currentElement.className.includes("item-section") || currentElement.className.includes("yt-shelf-grid-item")) {
-				UnScannedElements = checkElement(watchedVideoArray, scannedVideoArray, videoObjectDictionary, currentElement, ToggleState) == true ? UnScannedElements : UnScannedElements + 1;
+				// ".compact-shelf-view-all-card" -> "Alle Anzeigen" im SideScroler
+				if (currentElement.className.includes("compact-shelf-view-all-card") === false) {
+					UnScannedElements = checkElement(watchedVideoArray, scannedVideoArray, videoObjectDictionary, currentElement, ToggleState) == true ? UnScannedElements : UnScannedElements + 1;
+				}
 			} else {
 				console.warn(currentElement);
 			}
@@ -479,6 +486,8 @@ try {
 			TabNoc.Variables.HasSavedDataOnEnd = false;
 			
 			TabNoc.Variables.WatchingVideoInterval = setInterval(WatchingVideoIntervalHandler, 1000);
+			
+			Feedback.notify("Aktuelles Video: " + eval(TabNoc.Variables.VideoStatisticsObject).VideoTitle, 2000);
 			
 		} catch (exc) {
 			console.error(exc);

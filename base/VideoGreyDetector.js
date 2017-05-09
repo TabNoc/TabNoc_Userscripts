@@ -39,7 +39,7 @@ function AddGreyDetector(Config) {
 			Config.TN_canvas.height = VidHeigth;
 			Config.TN_canvas.width = VidWidth;
 			
-			setTimeout(function(){$("#TabNoc_YT_Jump").append("<div id='GreyAmount'>N/A</div>");}, 750);
+			$("#TabNoc_YT_Jump").append("<div id='GreyAmount'>N/A</div>");
 
 			function GetDarkerPercentage(DarkPercentage) {
 				// var ColorDefinition = Math.floor(255 * (DarkPercentage / 100));
@@ -49,7 +49,7 @@ function AddGreyDetector(Config) {
 				CanvasContent.drawImage(Config.BaseVideo, 0, 0, VidWidth, VidHeigth);
 				// check performance
 				// maybe get complete Image
-				var data = CanvasContent.getImageData(0, Math.floor(VidHeigth / 10 * 0), Math.floor(VidWidth / 2), Math.floor(VidHeigth / 2)).data; // durch 2 ist gut, performance eher nicht
+				var data = CanvasContent.getImageData(0, 0, VidWidth, VidHeigth).data;
 				var amount = 0;
 				// check performance
 				// maybe positionate i based on getImageData
