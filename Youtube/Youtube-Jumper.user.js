@@ -59,6 +59,7 @@ ChangeList started at 12.02.2017
 09.05.2017 - v2.2.2
 [VideoGreyDetector]
 	- now checks the complete Image
+	- fixed Label bug
 [RemainingTimeMagager]
 	- rewritten all styling parts an building of string
 */
@@ -605,7 +606,7 @@ alert("AskToJumpIfOverSkipPoint, maybe delete it if not used");
 		
 		if ($(StartTextId).length === 0) {
 			// Initialize
-			TabNoc.Variables.Div_RemainTime.innerHTML = '<span id="RemainTimeStart">Es verbleiben </span><span id="RemainTimeTime"></span><span id="RemainTimeBuffer" style="display:none"><br>Buffer : ca. <span id="RemainTimeBufferText"></span>s<img id="RemainTimeImage"></span>';
+			$(TabNoc.Variables.Div_RemainTime).append('<span id="RemainTimeStart">Es verbleiben </span><span id="RemainTimeTime"></span><span id="RemainTimeBuffer" style="display:none"><br>Buffer : ca. <span id="RemainTimeBufferText"></span>s<img id="RemainTimeImage"></span>');
 			
 			img = $($(ImageId)[0]);
 			img.on("click", (function(){try{TabNoc.Variables.HasPausedOnLowBuffer = false;document.getElementById("RemainTimeImage").style.display = "none";}catch(exc){console.error(exc);alert(exc);}}));
