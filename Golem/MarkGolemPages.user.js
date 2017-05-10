@@ -2,15 +2,20 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.1.1_28042017
+// @version     1.2.0_10052017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/Syncable_MarkOpendVideos/base/TabNoc.js
+// @resource	MyCss https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/Golem/MarkGolemPages.css
+// @updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Golem/MarkGolemPages.user.js
 // @grant       GM_setValue
 // @grant       GM_getValue
 // @grant       GM_deleteValue
 // @grant       GM_registerMenuCommand
 // @grant       GM_listValues
+// @grant       GM_addStyle
+// @grant       GM_getResourceText
+// @grant       GM_xmlhttpRequest
 // @noframes
 // ==/UserScript==
 
@@ -25,6 +30,10 @@ Start Writing Script
 
 28.04.2017 - 1.1.1
 	- optical Improvements
+
+08.05.2017 - 1.2.0
+	- rewritten Styling, Script now uses own css file instead of node styles
+	- further optical Improvements
 */
 
 try {
@@ -66,10 +75,7 @@ try {
 		},
 
 		HTML: {
-			StyleMarked: "background-color:rgb(151, 255, 139);background-image:linear-gradient(rgb(255, 255, 255), transparent)",
-			StyleMustScanning: "background-color:rgb(255, 138, 138);background-image:linear-gradient(rgb(255, 255, 255), transparent)",
-			TweetsDropDownButtons: '<br/><button class="dropdown-link js-dropdown-toggle" onclick="getAllElements({element});return true;">Bis hier Markieren [/\\]</button><button class="dropdown-link js-dropdown-toggle" onclick="getAllElements(null, {element});return true;">Ab hier Markieren [\\/]</button><button class="dropdown-link js-dropdown-toggle" onclick="scanRange({element});return true;">Markierbereich</button>',
-			ScanButton: '<div class="MyScanButton" style="position: absolute; top: 10px;z-index: 2147483647;right: 10px;"><div style="border-radius: 5px; cursor: pointer;box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);background-color: rgb(0, 165, 80); height: 25px; width: 25px;"></div></div>'
+			ScanButton: '<div class="MyScanButton"><div></div></div>'
 		}
 	});
 	
@@ -79,6 +85,15 @@ try {
 		try {
 			registerTabNoc();
 			
+			var ScanButton = $(TabNoc.HTML.ScanButton);
+			ScanButton.click(function(){getAllElements();$("#grandwrapper>.MyScanButton").remove();});
+			$("#grandwrapper").append(ScanButton);
+			
+			$("#index-vica2").remove();
+			
+			$(".list-articles>li").detach().appendTo($(".list-articles").first());
+			
+		
 			TabNoc.Variables.checkElementsInterval = setInterval(returnExec(function () {
 				startCheckElements(TabNoc.Variables.MarkToggleState);
 			}), TabNoc.Settings.Personal.TimerInterval);
@@ -97,13 +112,9 @@ try {
 			defineAs: "getAllElements"
 		});
 
-		GM_registerMenuCommand("Einlesen", function () {
-			getAllElements();
-		});
+		GM_registerMenuCommand("Einlesen", returnExec(getAllElements));
 		
-		GM_registerMenuCommand("ManuelleSyncronisation", function () {
-			Syncronisieren()
-		});
+		GM_registerMenuCommand("ManuelleSyncronisation", returnExec(Syncronisieren));
 	}
 
 	function startCheckElements(ToggleState, force) {
@@ -128,14 +139,14 @@ try {
 
 	function checkElements(ReadedNewsArray, elements, ToggleState, SeenNewsArray) {
 		var UnScannedElements = 0;
-		Feedback.showProgress(0, "Initialised Scan");
+		Feedback.showProgress(0, "Initialised Scan", true);
 
 		if (ToggleState == null) {
 			ToggleState = TabNoc.Variables.MarkToggleState;
 		}
 		
 		for (i = 0; i < elements.length; i++) {
-			Feedback.showProgress(i / elements.length * 100, "Analysing Element " + i + " from " + elements.length);
+			Feedback.showProgress(i / elements.length * 100, "Analysing Element " + i + " from " + elements.length, true);
 			var element = elements[i];
 			
 			if ($(element).children("a").length === 1 && ($(element).children("a")[0].getAttribute("id").includes("hpalt") || 
@@ -147,7 +158,7 @@ try {
 		}
 		TabNoc.Variables.MarkToggleState = ToggleState;
 
-		Feedback.showProgress(100, "Finished " + (elements.length - UnScannedElements) + " elements marked");
+		Feedback.showProgress(100, "Finished " + (elements.length - UnScannedElements) + " elements marked", true);
 		console.log((elements.length - UnScannedElements) + " Marked Elements | " + UnScannedElements + " UnMarked Elements | Total " + elements.length + " Elements (" + ReadedNewsArray.length + " Newspages listed)")
 		if (TabNoc.Settings.HideAlreadyWatchedNews === false) {
 			Feedback.notify(UnScannedElements + " UnMarked Elements", 10000, function(){TabNoc.Settings.HideAlreadyWatchedNews = !TabNoc.Settings.HideAlreadyWatchedNews; startCheckElements(true, true);Feedback.hideMessage();});
@@ -161,39 +172,31 @@ try {
 		var ReadedID = ReadedNewsArray.indexOf(SearchString);
 		var SeenID = SeenNewsArray.indexOf(SearchString);
 		
-		var setColor = function(color) {
-			$(checkElement).css("background-color", color);
-			$(checkElement).find(".MyScanButton").remove();
-		};
-		
-		checkElement.style.borderRadius = "10px";
-		checkElement.style.border = "1px solid #ddd";
-		
 		if (ToggleState === true) {
-			if (ReadedID != -1) {
-				setColor("rgb(151, 255, 139)");
+			$(checkElement).addClass("MyPageElement");
+			if (ReadedID !== -1) {
+				$(checkElement).addClass("MyMarkedReadedElement").removeClass("MyMarkedSeenElement").find(".MyScanButton").remove();
 				if (TabNoc.Settings.HideAlreadyWatchedNews === true) {
-					checkElement.style.display = "none";
+					$(checkElement).hide();
 				}
 				else {
-					checkElement.style.display = "";
+					$(checkElement).show();
 				}
 				return true;
 			} 
-			else if (SeenID != -1) {
-				setColor("rgb(216, 246, 225)");
+			else if (SeenID !== -1) {
+				$(checkElement).removeClass("MyMarkedReadedElement").addClass("MyMarkedSeenElement").find(".MyScanButton").remove();
 				if (TabNoc.Settings.HideAlreadyWatchedNews === true) {
-					checkElement.style.display = "none";
+					$(checkElement).hide();
 				}
 				else {
-					checkElement.style.display = "";
+					$(checkElement).show();
 				}
 				return true;
 			}
 		}
 		else {
-			checkElement.style.display = "";
-			checkElement.style.backgroundColor = "";
+			$(checkElement).removeClass("MyMarkedReadedElement").removeClass("MyMarkedSeenElement").removeClass("MyPageElement").show();
 		}
 		
 		if ($(checkElement).find(".MyScanButton").length === 0) {
@@ -284,7 +287,7 @@ try {
 			
 			if (SeenNewsArray.indexOf(document.URL) !== -1 && reverse === false) {
 				console.log(SeenNewsArray);
-				SeenNewsArray.remove(document.URL);
+				SeenNewsArray.splice(SeenNewsArray.indexOf(document.URL), 1);
 				GM_setValue("SeenNewsArray", SeenNewsArray.toSource());
 			}
 			
@@ -295,7 +298,7 @@ try {
 			}
 			else {
 				if (reverse === true) {
-					ReadedNewsArray.remove(document.URL);
+					ReadedNews.splice(SeenNewsArray.indexOf(document.URL), 1);
 					GM_setValue("ReadedNewsArray", ReadedNewsArray.toSource());
 					console.info("MarkGolemPages.user.js: Newspage removed!");
 				} 
@@ -516,6 +519,8 @@ throw "NotImplementedException";
 	
 	function Main() {
 		UpdateDataBase();
+		
+		GM_addStyle(GM_getResourceText("MyCss"));
 		
 		// Startseite
 		if (document.URL.includes("news") == false) {
