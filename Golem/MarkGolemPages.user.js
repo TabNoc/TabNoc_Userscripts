@@ -2,10 +2,10 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.2.0_10052017
+// @version     1.2.1_10052017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
-// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/Syncable_MarkOpendVideos/base/TabNoc.js
+// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/TabNoc.js
 // @resource	MyCss https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/Golem/MarkGolemPages.css
 // @updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Golem/MarkGolemPages.user.js
 // @grant       GM_setValue
@@ -34,6 +34,10 @@ Start Writing Script
 08.05.2017 - 1.2.0
 	- rewritten Styling, Script now uses own css file instead of node styles
 	- further optical Improvements
+	
+10.05.2017 - 1.2.1
+	- added @updateURL
+	- fixed wrong TabNoc.js file being loaded
 */
 
 try {
