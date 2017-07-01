@@ -299,11 +299,11 @@ try {
 						console.log("VideoGreyDetector Triggered: " + amount);
 						movie_player.seekTo(movie_player.getCurrentTime() + 11 + (document.title.contains("Dr. Carsten Föhlisch") ? 5 : 0));
 					}),
-					Interval : 50,
+					Interval : 100,
 					DetectorInterval : null,
 					CopySizePercentage : 10,
 					BaseVideo : document.getElementsByClassName("html5-main-video")[0],
-					TriggerAmount : 14000,
+					TriggerAmount : 5000, //14000,
 					TriggerDarkPercentage : 70,
 					StopIntervalAfterTrigger : true,
 					MaxVideoCheckTime : 60000

@@ -17,8 +17,7 @@
 	TriggerDarkPercentage : int32[0-100],
 	StopIntervalAfterTrigger : bool[default:true],
 	MaxVideoCheckTime : int32[default:0]
-}
-	*/
+}*/
 
 function AddGreyDetector(Config) {
 	console.log("VideoGreyDetector loaded");
@@ -39,6 +38,9 @@ function AddGreyDetector(Config) {
 			Config.TN_canvas.height = VidHeigth;
 			Config.TN_canvas.width = VidWidth;
 			
+			if ($("#TabNoc_YT_Jump").length === 0) {
+				alert("#TabNoc_YT_Jump nicht gefunden");
+			}
 			$("#TabNoc_YT_Jump").append("<div id='GreyAmount'>N/A</div>");
 
 			function GetDarkerPercentage(DarkPercentage) {
@@ -54,7 +56,7 @@ function AddGreyDetector(Config) {
 				// check performance
 				// maybe positionate i based on getImageData
 				for (i = 0; i < data.length; i += 4) {
-					if (data[i] === data[i + 1] && data[i + 1] === data[i + 2]) {
+					if (data[i + 1] < 250 && data[i] === data[i + 1] && data[i + 1] === data[i + 2]) {
 						amount++;
 					}
 				}

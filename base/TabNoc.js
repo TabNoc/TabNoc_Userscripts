@@ -1,5 +1,5 @@
 function getTabNocVersion(){
-	return "v1.2.1-09052017";
+	return "v1.2.0-25042017";
 }
 
 
@@ -115,34 +115,53 @@ try {
 			notify: (function (message, time, onClickFunction) {
 				Feedback.showMessage(message, "notify", (time == null ? 5000 : time), onClickFunction)
 			}),
-			showProgress: (function(percent, msg) {
+			showProgress: (function(percent, msg, time, onClickFunction) {
 				if (msg != null) {
-					Feedback.showMessage(msg, "notify", 900);
+					Feedback.showMessage(msg, "notify", time || 900, onClickFunction);
 				}
+				var elementID = this.Locked === true ? "myProgress2" : "myProgress";
 				if (percent >= 100 || percent < 0) {
-					if ($("#myProgress").length === 1) {
-						$("#myProgress").css("transition-duration", "900ms");
-						$("#myProgress").css("width", Math.round(percent) + "%");
-						setTimeout(Feedback.hideProgress, 800);
+					if ($("#" + elementID).length === 1) {
+						$("#" + elementID).css("transition-duration", "900ms");
+						$("#" + elementID).css("width", Math.round(percent) + "%");
+						setTimeout(this.Locked === true ? Feedback.hideProgress2 : Feedback.hideProgress, 800);
 					}
 					return;
 				}
-				if ($("#myProgress").length !== 1 && percent < 100 && percent >= 0) {
-					var style = "position: fixed; z-index: 2147483647; top: 0; left: -6px; width: 0%; height: 2px; background: #b91f1f; border-radius: 1px; transition: width 500ms ease-out,opacity 500ms linear; transform: translateZ(0); will-change: width,opacity;"
-					var styleNested = "position: absolute; top: 0; height: 2px; box-shadow: #b91f1f 1px 0 6px 1px;border-radius: 100%;"
+				if ($("#" + elementID).length !== 1 && percent < 100 && percent >= 0) {
+					var style = "position: fixed; z-index: 2147483647; top: " + (this.Locked === true ? "2" : "0") + "px; left: -6px; width: 0%; height: 2px; background: #b91f1f; border-radius: 1px; transition: width 500ms ease-out,opacity 500ms linear; transform: translateZ(0); will-change: width,opacity;"
+					var styleNested = "position: absolute; top: " + (this.Locked === true ? "2" : "0") + "px; height: 2px; box-shadow: #b91f1f 1px 0 6px 1px;border-radius: 100%;"
 					var styleDt = "opacity: .6; width: 180px; right: -80px; clip: rect(-6px,90px,14px,-6px);"
 					var styleDd = "opacity: .6; width: 20px; right: 0; clip: rect(-6px,22px,14px,10px);"
-					var progressBarHTML = $("<div id=\"myProgress\" style=\"" + style + "transition-duration: 300ms;width: 0%;height: 2px\"><dt style=\"" + styleNested + styleDt + "\"></dt><dd style=\"" + styleNested + styleDd + "\"></dd></div>");
+					var progressBarHTML = $("<div id=\"" + elementID + "\" style=\"" + style + "transition-duration: 300ms;width: 0%;height: 2px\"><dt style=\"" + styleNested + styleDt + "\"></dt><dd style=\"" + styleNested + styleDd + "\"></dd></div>");
 				
 					$(document.body).append(progressBarHTML);
 				}
-				$("#myProgress").show();
-				$("#myProgress").css("width", Math.round(percent) + "%");
+				$("#" + elementID).show();
+				$("#" + elementID).css("width", Math.round(percent) + "%");
 			}),
 			hideProgress: (function() {
 				if ($("#myProgress").length === 1) {
 					$("#myProgress").hide();
 				}
+			}),
+			hideProgress2: (function() {
+				if ($("#myProgress2").length === 1) {
+					$("#myProgress2").hide();
+				}
+			}),
+			Locked : false,
+			lockProgress: (function() {
+				if (this.Locked === true) {
+					throw "TabNoc.js:Fedback.lockProgress->Die Progressbar kann nicht gesperrt werden wenn sie bereits gesperrt ist.";
+				}
+				this.Locked = true;
+			}),
+			unlockProgress: (function() {
+				if (this.Locked === false) {
+					throw "TabNoc.js:Fedback.unlockProgress->Die Progressbar kann nicht entsperrt werden wenn sie nicht gesperrt ist.";
+				}
+				this.Locked = false;
 			})
 		};
 	}
@@ -152,3 +171,4 @@ try {
 	console.error(exc);
 	alert(exc);
 }
+

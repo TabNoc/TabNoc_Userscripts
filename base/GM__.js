@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        GreaseMonkey-ExtensionFunctions
 // @description GreaseMonkey Lib ©2017 TabNoc
-// @version     v2.0.1_27042017
+// @version     v2.0.2_21052017
 // @require     http://code.jquery.com/jquery-2.1.1.min.js
 // @grant       GM_setValue
 // @grant       GM_getValue
@@ -88,3 +88,46 @@ function replaceAll(string, find, replace) {
 	return string.replace(new RegExp(escapeRegExp(find), 'g'), replace);
 }
 
+
+var LockID = Math.floor(Math.random() * 1000000);
+
+function GM_Lock() {
+	if (GM_getValue("Lock") === undefined) {
+		GM_setValue("Lock", 0);
+	}
+	// prüfen ob alles io ist
+	if (GM_getValue("Lock") === LockID) {
+		console.log("Database already locked!");
+		return;
+	}
+	else {
+		// wait until Database is unlocked
+		while (GM_getValue("Lock") !== 0) {}
+		// set unique LockID
+		GM_setValue("Lock", LockID);
+	}
+}
+
+function GM_setValueLocked(name, value) {
+	GM_Lock();
+	
+	// prüfen ob alles io ist
+	if (GM_getValue("Lock") === LockID) {
+		GM_setValue(name, value);
+	}
+	else {
+		alert("Desync des Lock wertes, 1");
+		GM_setValue("Lock", 0);
+		throw "Desync des Lock wertes, 1";
+	}
+	
+	// aufräumen
+	if (GM_getValue("Lock") === LockID) {
+		GM_setValue("Lock", 0);
+	}
+	else {
+		alert("Desync des Lock wertes, 2");
+		GM_setValue("Lock", 0);
+		throw "Desync des Lock wertes, 2";
+	}
+}

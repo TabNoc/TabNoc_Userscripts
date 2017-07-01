@@ -3,13 +3,14 @@
 // @namespace   TabNoc
 // @include     https://www.youtube.com/feed/subscriptions*
 // @include     https://www.youtube.com/user/*/videos*
+// @include     https://www.youtube.com/channel/*
 // @include     https://www.youtube.com/channel/*/videos*
 // @include     https://www.youtube.com/channel/*/featured*
-// @include     https://www.youtube.com/watch?v=*
+// @include     https://www.youtube.com/watch?*v=*
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.2.3_09052017
+// @version     2.2.5_13062017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -30,6 +31,12 @@
 // @grant       GM_xmlhttpRequest
 // @noframes
 // ==/UserScript==
+
+//TODO:
+/*
+- add a intervall wich checks periodical if a movie_player exists, if yes: mybe ask if video loader should be executed
+- in the same interval as above, check if the movie_player does not exists anymore, then quit the normal intervalls. There has to be a better way
+*/
 
 /*
 ChangeList started at 20.09.2016
@@ -103,6 +110,13 @@ fixed:	- fixed StyleChanges from Youtube
 
 09.05.2017 - 2.2.3
 	added:	- support for featured videos from channel
+
+21.05.2017 - 2.2.4
+	changed:	- changes to Database are now locked
+	
+13.06.2017 - 2.2.5
+	changed:	- Clicking on Feedback Message on SubscriptionPage now set HideAlreadyWatchedVideos to true
+	changed:	- Importing Data now shows an additional ProgressBar
 */
 
 try {
@@ -317,7 +331,7 @@ try {
 		}
 		TabNoc.Variables.MarkToggleState = ToggleState;
 
-		Feedback.showProgress(100, "Finished " + (elements.length - UnScannedElements) + " elements marked");
+		Feedback.showProgress(100, "Finished " + (elements.length - UnScannedElements) + " elements marked", (TabNoc.Settings.HideAlreadyWatchedVideos === true ? 1000 : 7500), function(){TabNoc.Settings.HideAlreadyWatchedVideos = true;startCheckElements(true, true);Feedback.hideMessage();});
 		console.log(String.format("Found {0} Elements ({1} Marked Elements | {2} UnMarked Elements) [{3} Scanned Videos | {4} Watched Videos | {5} Watched Videos(old)]", elements.length, elements.length - UnScannedElements, UnScannedElements, scannedVideoArray.length, Object.keys(videoObjectDictionary).length, watchedVideoArray.length));
 	}
 
@@ -383,6 +397,7 @@ try {
 		try {
 			var start = new Date().getTime();
 
+			GM_Lock();
 			// ### ScannedVideoArray ###
 			scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
 			// ### WatchedVideoArray ###
@@ -412,7 +427,7 @@ try {
 				}
 			}
 
-			GM_setValue("ScannedVideoArray", scannedVideoArray.toSource());
+			GM_setValueLocked("ScannedVideoArray", scannedVideoArray.toSource());
 			
 			startCheckElements(true);
 			
@@ -488,6 +503,7 @@ try {
 			TabNoc.Variables.WatchingVideoInterval = setInterval(WatchingVideoIntervalHandler, 1000);
 			
 			Feedback.notify("Aktuelles Video: " + eval(TabNoc.Variables.VideoStatisticsObject).VideoTitle, 2000);
+			console.log("Aktuelles Video: " + eval(TabNoc.Variables.VideoStatisticsObject).VideoTitle);
 			
 		} catch (exc) {
 			console.error(exc);
@@ -944,9 +960,10 @@ try {
 				element.WatchedVideoArray = eval(prompt("Please insert new WatchedVideoArray Data"));
 				element.ScannedVideoArray = eval(prompt("Please insert new ScannedVideoArray Data"));
 			}
+			GM_Lock();
 			var videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
-			var watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "({})");
-			var scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "({})");
+			var watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
+			var scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
 			var count_vOD = 0;
 			var count_wVA = 0;
 			var count_sVA = 0;
@@ -1000,7 +1017,7 @@ try {
 			
 			GM_setValue("VideoObjectDictionary", newObject.toSource());
 			GM_setValue("WatchedVideoArray", newWatchedStructure.toSource());
-			GM_setValue("ScannedVideoArray", newScannedStructure.toSource());
+			GM_setValueLocked("ScannedVideoArray", newScannedStructure.toSource());
 		}
 		catch (exc) {
 			console.error(exc);
@@ -1039,6 +1056,7 @@ try {
 		}
 		if (typeof(videoObject) !== "object") {throw "WrongTypeException:Only Objects can be Pushed into the Database."}
 		if (videoObjectDictionary === null) {
+			GM_Lock();
 			videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
 			save = true;
 		}
@@ -1057,7 +1075,7 @@ try {
 		}
 		
 		if (save === true) {
-			GM_setValue("VideoObjectDictionary", videoObjectDictionary.toSource());
+			GM_setValueLocked("VideoObjectDictionary", videoObjectDictionary.toSource());
 		}
 	}
 	
@@ -1193,11 +1211,6 @@ try {
 		return eval(videoObject_1.toSource());
 	}
 	
-	function MergeRequest(oldData) {
-		// var data_vOD = eval(prompt("Please insert new VideoObjectDictionary Data"));
-		var videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
-	}
-	
 	function Syncronisieren() {
 		Feedback.showProgress(10, "Token erfassen");
 		var Token = prompt("Bitte Token eingeben");
@@ -1234,7 +1247,9 @@ try {
 					var responseData = eval(response.responseText);
 					console.warn(responseData);
 					if (responseData.VideoObjectDictionary != null && responseData.WatchedVideoArray != null) {
+						Feedback.lockProgress();
 						ImportData(responseData);
+						Feedback.unlockProgress();
 					}
 					else {
 						alert("Der Wert des Response des Servers war ungültig!");

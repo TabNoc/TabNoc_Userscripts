@@ -91,7 +91,13 @@ try {
 			SavedWatchedTime: 0,
 			TimeSaveCycle: 0,
 			
-			ScanRangeElement: null
+			ScanRangeElement: null,
+			
+			Stat_UnMarkedElements: 0,
+			Stat_VisibleElements: 0,
+			Stat_InVisibleElements: 0,
+			Stat_RemovedElements: 0,
+			Stat_AllElementsCount: 0
 		},
 
 		Settings: {
@@ -315,7 +321,7 @@ try {
 						condition : true,
 						element : $("#stream-items-id")[0],
 						getUserArgs : function (target) {
-							return !(target.className.includes("avatar ") || target.className.includes("twitter-hashflag"));
+							return !(target.className.includes("avatar ") || target.className.includes("twitter-hashflag") || target.className === "Emoji Emoji--forText");
 						}
 					}, {
 						condition : ($(".PhotoRail-mediaBox").length > 0),
@@ -382,6 +388,12 @@ try {
 					TabNoc.Variables.lastCheckItemCount !== elements.length ||
 					TabNoc.Variables.lastCheckScanBufferAmount !== elementIdArray.length ||
 					force === true)) {
+					TabNoc.Variables.Stat_UnMarkedElements = 0;
+					TabNoc.Variables.Stat_VisibleElements = 0;
+					TabNoc.Variables.Stat_InVisibleElements = 0;
+					TabNoc.Variables.Stat_RemovedElements = 0;
+					TabNoc.Variables.Stat_AllElementsCount = 0;
+					
 					var UnScannedElements = checkElements(elementIdArray.reverse(), ToggleState, elements);
 					TabNoc.Variables.lastCheckScanBufferAmount = elementIdArray.length;
 					TabNoc.Variables.lastCheckItemCount = elements.length;
@@ -404,6 +416,8 @@ try {
 	function checkElements(elementIdArray, ToggleState, elements) {
 		var UnScannedElements = 0;
 		var RemovedElements = 0;
+		
+		TabNoc.Variables.fadeTime = 0;
 
 		if (ToggleState == null) {
 			ToggleState = TabNoc.Variables.MarkToggleState;
@@ -468,12 +482,21 @@ try {
 			}
 		}
 		
-		checkElement.style.borderRadius = "10px";
-		checkElement.style.border = "1px solid #eee";
+		checkElement.style.borderRadius = "15px"; //"10px";
+		checkElement.parentNode.style.borderRadius = "15px"; //"10px";
+		// checkElement.style.border = "1px solid #eee";
+		checkElement.parentNode.style.padding = "0.5px 1.5px";
 		
 		if (elementIdArray.indexOf(ElementID) != -1) {
 			if (ToggleState === true) {
 				checkElement.style.backgroundColor = "rgb(151, 255, 139)";
+				// checkElement.style.display = "none";
+				if (checkElement.style.display !== "none") {
+					// console.log(TabNoc.Variables.fadeTime);
+					// TabNoc.Variables.fadeTime += 1000;
+					// $(checkElement).fadeOut(TabNoc.Variables.fadeTime);
+					// $(checkElement).remove();
+				}
 			}
 			else {
 				checkElement.style.backgroundColor = "";
