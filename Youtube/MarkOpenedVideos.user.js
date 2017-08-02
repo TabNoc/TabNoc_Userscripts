@@ -10,7 +10,7 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.2.5_13062017
+// @version     2.2.7_02082017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -117,6 +117,16 @@ fixed:	- fixed StyleChanges from Youtube
 13.06.2017 - 2.2.5
 	changed:	- Clicking on Feedback Message on SubscriptionPage now set HideAlreadyWatchedVideos to true
 	changed:	- Importing Data now shows an additional ProgressBar
+	
+02.08.0017 - 2.2.7
+	changed:	- Updated GM__.js, now uses GM_Unlock for DataBase
+	changed:	- VideoStatisticsObject.Watches.Date is now saved as .toString() instead of .toLocalString()
+	added:		- Updating Database to Version 3 (convert VideoStatisticsObject.Watches.Date)
+	changed:	- Doubled frequency of saving Video Statistics
+	changed:	- PushVideoObject now returns new Object and will overwrite used one
+	added:		- Merging of VideoStatisticsObject.Watches with less then 2 minutes difference
+	changed:	- the execution will be blocked if the URL contains "feature=youtu.be"
+	added:		- if the Database is locked when loading page a warining will be displayed, if still locked after confirm, then possibility to unlock
 */
 
 try {
@@ -150,7 +160,7 @@ try {
 			DeleteNotWantedVideos: false,
 			HideAlreadyWatchedVideos: false,
 			ShowAlreadyWatchedDialog: true,
-			Debug: true
+			Debug: false
 		},
 
 		HTML: {
@@ -428,6 +438,7 @@ try {
 			}
 
 			GM_setValueLocked("ScannedVideoArray", scannedVideoArray.toSource());
+			GM_Unlock();
 			
 			startCheckElements(true);
 			
@@ -473,23 +484,31 @@ try {
 	}
 	
 	function WatchingVideo(){
+		if (TabNoc.Settings.Debug === true) {
+			console.log("WatchingVideo()->old: " + TabNoc.Variables.VideoStatisticsObject);
+		}
 		try {
 			// prepare Current VideoStatisticsObject
 			TabNoc.Variables.VideoStatisticsObject = {
 				VideoID: unsafeWindow.document.getElementById("movie_player").getVideoData().video_id,
 				VideoTitle: unsafeWindow.document.getElementById("movie_player").getVideoData().title,
 				VideoAuthor: unsafeWindow.document.getElementById("movie_player").getVideoData().author,
-				Watches: [{WatchedLength: -99, Date: new Date().toLocaleString()}],
+				Watches: [{WatchedLength: -99, Date: new Date().toString()}],
 				VideoLength: Math.floor(unsafeWindow.document.getElementById("movie_player").getDuration())
 			}.toSource();
+			
+			if (TabNoc.Settings.Debug === true) {
+				console.log("WatchingVideo()->new: " + TabNoc.Variables.VideoStatisticsObject);
+			}
 			
 			if (TabNoc.Settings.ShowAlreadyWatchedDialog === true ) {
 				if (GetVideoWatched(null, null, eval(TabNoc.Variables.VideoStatisticsObject).VideoID) === true) {
 					setTimeout(function(){alert("watched");}, 10);
 					Feedback.showMessage("Watched!", "error", 60000);
+					console.log("Video already watched!");
 				}
 			}
-			PushVideoObject(null, eval(TabNoc.Variables.VideoStatisticsObject), true);
+			TabNoc.Variables.VideoStatisticsObject = PushVideoObject(null, eval(TabNoc.Variables.VideoStatisticsObject), true).toSource();
 			
 			// new YT version (the one with the black player) doesn't have this button
 			if ($("#watch-more-related-button").length > 0) {
@@ -503,7 +522,7 @@ try {
 			TabNoc.Variables.WatchingVideoInterval = setInterval(WatchingVideoIntervalHandler, 1000);
 			
 			Feedback.notify("Aktuelles Video: " + eval(TabNoc.Variables.VideoStatisticsObject).VideoTitle, 2000);
-			console.log("Aktuelles Video: " + eval(TabNoc.Variables.VideoStatisticsObject).VideoTitle);
+			console.log("Aktuelles Video: " + eval(TabNoc.Variables.VideoStatisticsObject).VideoTitle + " ID: " + eval(TabNoc.Variables.VideoStatisticsObject).VideoID);
 			
 		} catch (exc) {
 			console.error(exc);
@@ -568,6 +587,7 @@ try {
 	function WatchingVideoIntervalHandler() {
 		if (TabNoc.Settings.Debug === true) {
 			var start = new Date().getTime();
+			movie_player.pauseVideo();
 		}
 		try {
 			// ############################### TabNoc.Variables.WatchedLengthInterval ###############################
@@ -576,11 +596,12 @@ try {
 				TabNoc.Variables.HasSavedDataOnEnd = false;
 			}
 			if (unsafeWindow.document.getElementById("movie_player").getPlayerState() == 0 && TabNoc.Variables.HasSavedDataOnEnd === false) {
+				console.info("PlayerID: " + unsafeWindow.document.getElementById("movie_player").getVideoData().video_id + "; intern ID: " + eval(TabNoc.Variables.VideoStatisticsObject).VideoID + ": finished Video, now Saving an Marking")
 				SaveVideoStatistics();
 				MarkWatchedVideos();
 				TabNoc.Variables.HasSavedDataOnEnd = true;
 			}
-			if (TabNoc.Variables.WatchedLength % 30 === 0) {
+			if (TabNoc.Variables.WatchedLength % 15 === 1) {
 				SaveVideoStatistics();
 			}
 			// ############################### TabNoc.Variables.WatchedLengthInterval ###############################
@@ -613,11 +634,17 @@ try {
 			alert(exc);
 		}
 		if (TabNoc.Settings.Debug === true) {
-			console.log('WatchingVideoIntervalHandler execution time: ' + (new Date().getTime() - start));
+			var time = (new Date().getTime() - start);
+			if (time > 1) {
+				console.log('WatchingVideoIntervalHandler execution time: ' + time);
+			}
 		}
 	}
 	
 	function SaveVideoStatistics(){
+		if (TabNoc.Settings.Debug === true) {
+			console.log("SaveVideoStatistics()->" + TabNoc.Variables.VideoStatisticsObject);
+		}
 		if (TabNoc.Variables.VideoStatisticsObject == null){return false;}
 		try {
 			VideoStatisticsObject = eval(TabNoc.Variables.VideoStatisticsObject);
@@ -673,7 +700,7 @@ try {
 	function UpdateDataBase() {
 		var CurrentVersion_WatchedVideoArray = 0;
 		var CurrentVersion_ScannedVideoArray = 0;
-		var CurrentVersion_VideoObjectDictionary = 2;
+		var CurrentVersion_VideoObjectDictionary = 3;
 		
 		// ### WatchedVideoArray-Version ###
 		Version_WatchedVideoArray = eval(GM_getValue("WatchedVideoArray-Version"));
@@ -830,7 +857,7 @@ try {
 			}
 			else {
 				// ### VideoObjectDictionary ###
-				videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "([])");
+				videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
 				
 				// Dieser Code entfernt alle Einträge, welche keinen Objekt eintrag haben (allerdings sind es bei mir ~1500, das ist ziemlich viel
 				{
@@ -931,6 +958,52 @@ try {
 						}
 						break;
 						
+					case 2:
+						GM_setValue("VideoObjectDictionary-Version-2", videoObjectDictionary.toSource());
+						
+						var newStructure = eval(videoObjectDictionary.toSource());
+						var count = 0;
+						var regex = new RegExp(/(\d{1,2}).(\d{1,2}).(\d{4})(.*,.*\d{2}:\d{2}:\d{2})?/);
+						
+						for (var i in videoObjectDictionary) {
+							for (var j in videoObjectDictionary[i].Watches) {
+								if (videoObjectDictionary[i].Watches[j].Date === "unknown" || videoObjectDictionary[i].Watches[j].Date === null) {
+									// "unknown" is a good string, but null seems to be better (NullPointer Exception is easy to find)
+									newStructure[i].Watches[j].Date = null;
+								}
+								else {
+									var matches = videoObjectDictionary[i].Watches[j].Date.match(regex);
+									if (matches.length === 5 && matches[4] != undefined) {
+										var newDate = new Date(matches[2] + "/" + matches[1] + "/" + matches[3] + matches[4]);
+									}
+									// das Datum {videoObjectDictionary[i].Watches[j].Date} vom Datensatz {videoObjectDictionary[i].toSource()} auf die Zeit 00:00:00Uhr setzen 
+									else {
+										var newDate = new Date(matches[2] + "/" + matches[1] + "/" + matches[3]);
+									}
+									if (isNaN(newDate.getTime()) === false) {
+										newStructure[i].Watches[j].Date = newDate.toString();
+									}
+									else {
+										alert(videoObjectDictionary[i].Watches[j].Date);
+										throw "The converted Date is not a Date Object"
+									}
+								}
+								count++;
+							}
+						}
+						
+						console.log("Die Version der Tabelle VideoObjectDictionary ist " + GM_getValue("VideoObjectDictionary-Version"));
+						alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B)");
+						if (confirm("Sollen die Änderungen gespeichert werden?") === true) {
+							GM_setValue("VideoObjectDictionary-Version", 3);
+							console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + GM_getValue("VideoObjectDictionary-Version") + " geändert");
+							GM_setValue("VideoObjectDictionary", newStructure.toSource());
+						}
+						else {
+							throw "UserAbort";
+						}
+						break;
+						
 					default:
 						throw("No Update Implemeneted!");
 						break;
@@ -1015,9 +1088,10 @@ try {
 				"ScannedVideoArray:\r\n" + 
 				"\tEs wurden " + count_sVA + " Elemente aktualisiert (gespeicherte Datenmenge: " + scannedVideoArray.toSource().length + "B (" + scannedVideoArray.length + ") | importierte Datenmenge: " + element.ScannedVideoArray.toSource().length + "B (" + element.ScannedVideoArray.length + ") | neue Datenmenge: " + newScannedStructure.toSource().length + "B) (" + newScannedStructure.length + ")");
 			
-			GM_setValue("VideoObjectDictionary", newObject.toSource());
-			GM_setValue("WatchedVideoArray", newWatchedStructure.toSource());
+			GM_setValueLocked("VideoObjectDictionary", newObject.toSource());
+			GM_setValueLocked("WatchedVideoArray", newWatchedStructure.toSource());
 			GM_setValueLocked("ScannedVideoArray", newScannedStructure.toSource());
+			GM_Unlock();
 		}
 		catch (exc) {
 			console.error(exc);
@@ -1052,7 +1126,7 @@ try {
 	function PushVideoObject(videoObjectDictionary, videoObject, save) {
 		if (TabNoc.Settings.Debug === true) {
 			console.log("Pushing ...");
-			console.log(videoObject);
+			console.log(eval(videoObject.toSource()));
 		}
 		if (typeof(videoObject) !== "object") {throw "WrongTypeException:Only Objects can be Pushed into the Database."}
 		if (videoObjectDictionary === null) {
@@ -1076,7 +1150,10 @@ try {
 		
 		if (save === true) {
 			GM_setValueLocked("VideoObjectDictionary", videoObjectDictionary.toSource());
+			GM_Unlock();
 		}
+		
+		return videoObjectDictionary[videoObject.VideoID];
 	}
 	
 	function GetElementCount(videoObjectDictionary) {
@@ -1112,20 +1189,21 @@ try {
 			if (videoObject_1[objectIndex].toSource() !== videoObject_2[objectIndex].toSource()) {
 				switch(objectIndex) {
 					case "Watches":
-						newObject = ([]);
+						newArray = ([]);
 						for (var index1_i in videoObject_1[objectIndex]) {
-							if (videoObject_1[objectIndex][index1_i].WatchedLength === -99) {continue;}
+							// if (videoObject_1[objectIndex][index1_i].WatchedLength === -99) {alert("Object1: " + videoObject_1[objectIndex][index1_i].toSource() + "\r\nObject2: " + videoObject_2[objectIndex].toSource());   continue;}
 							
 							var found = false;
 							for (var index2_i in videoObject_2[objectIndex]) {
 								if (videoObject_1[objectIndex][index1_i].toSource() === videoObject_2[objectIndex][index2_i].toSource()) {
-									newObject.push(eval(videoObject_1[objectIndex][index1_i].toSource()));
+									newArray.push(eval(videoObject_1[objectIndex][index1_i].toSource()));
 									delete videoObject_2[objectIndex][index2_i];
 									found = true;
+									//TODO: anpassen so dass wenn der unterschied < 1minute ist es gemerged wird
 								} else if (videoObject_1[objectIndex][index1_i].Date === videoObject_2[objectIndex][index2_i].Date) {
 									// Same Date and Time from Website Call, thats the same, choose the highest WatchedLength
 									videoObject_1[objectIndex][index1_i].WatchedLength = Math.max(videoObject_1[objectIndex][index1_i].WatchedLength, videoObject_2[objectIndex][index2_i].WatchedLength);
-									newObject.push(eval(videoObject_1[objectIndex][index1_i].toSource()));
+									newArray.push(eval(videoObject_1[objectIndex][index1_i].toSource()));
 									delete videoObject_2[objectIndex][index2_i];
 									found = true;
 								}
@@ -1133,20 +1211,42 @@ try {
 							
 							if (found === false) {
 								// Der Eintrag ist nur im ersten Element vorhanden -> hinzufügen
-								newObject.push(eval(videoObject_1[objectIndex][index1_i].toSource()));
+								newArray.push(eval(videoObject_1[objectIndex][index1_i].toSource()));
 							}
 						}
 						if (videoObject_2[objectIndex].length !== 0){
 							// ich füge diese Elemente jetzt erstmal dazu, weiß nicht so genau ob ich noch einen Fehler haben könnte
 							for (var j in videoObject_2[objectIndex]) {
-								newObject.push(eval(videoObject_2[objectIndex][j].toSource()));
+								newArray.push(eval(videoObject_2[objectIndex][j].toSource()));
 							}
 						}
-					
-					
+						
+						do {
+							var changed = false;
+							// Ab hier ist das Array fertig gemerged, jetzt wird aufgeräumt
+							for (var index1 in newArray) {
+								for (var index2 in newArray) {
+									if (index1 == index2) {continue;}
+									// Wenn die beiden Zeitstempel weniger als 120 sekunden auseinander liegen
+									if (Math.abs(Math.floor(new Date(newArray[index1].Date).getTime() - (new Date(newArray[index2].Date).getTime())) / 1000) < 120) {
+										// Dann nutze den früheren Zeitstempel
+										
+										newArray[index1].Date = new Date(Math.min(new Date(newArray[index1].Date).getTime(), new Date(newArray[index2].Date).getTime())).toString();
+										newArray[index1].WatchedLength = Math.max(newArray[index1].WatchedLength, newArray[index2].WatchedLength);
+										
+										newArray.splice(index2, 1)
+										
+										changed = true;
+										break;
+									}
+								}
+								if (changed == true) {break;}
+							}
+						} while (changed === true)
+						
 						// gleichstellen, damit vergleich funktioniert
-						videoObject_1.Watches = eval(newObject.toSource());
-						videoObject_2.Watches = eval(newObject.toSource());
+						videoObject_1.Watches = eval(newArray.toSource());
+						videoObject_2.Watches = eval(newArray.toSource());
 						break;
 					
 					case "VideoLength":
@@ -1296,6 +1396,23 @@ try {
 	}
 	
 	function Main() {
+		if (document.URL.contains("feature=youtu.be")) {
+			console.info("URL contains feature=youtu.be, skipping execution");
+			return;
+		}
+		
+		var count = 0;
+		while (GM_Locked() == true) {
+			setTimeout(function() {if (document.getElementById("movie_player") != null) {document.getElementById("movie_player").pauseVideo();}}, 0);
+			count = count + 1;
+			alert("Der Aktuelle Sperrzustand der Datenbank ist positiv, dies wird durch Fehlermeldungen während der Ausführung ausgelöst oder ist nur eine kurzweilige erscheinung. \r\n\r\n Bitte Meldung bestätigen!");
+			if (count >= 2) {
+				if(confirm("Soll der Sperrzustand der Datenbank aufgehoben werden [empfohlen]?") === true ) {
+					GM_Unlock(true);
+				}
+			}
+		}
+		
 		GM_addStyle(GM_getResourceText("Impromptu"));
 		GM_addStyle(GM_getResourceText("JqueryUI"));
 		UpdateDataBase();
@@ -1327,3 +1444,4 @@ try {
 	console.error(exc);
 	alert(exc);
 }
+
