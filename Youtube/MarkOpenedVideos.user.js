@@ -10,7 +10,7 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.2.7_02082017
+// @version     2.2.8_02082017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -127,6 +127,10 @@ fixed:	- fixed StyleChanges from Youtube
 	added:		- Merging of VideoStatisticsObject.Watches with less then 2 minutes difference
 	changed:	- the execution will be blocked if the URL contains "feature=youtu.be"
 	added:		- if the Database is locked when loading page a warining will be displayed, if still locked after confirm, then possibility to unlock
+	
+02.08.2017 - 2.2.8
+	added:		- Importing Data now checks the DataBase Version, if wrong simply fails (currently no conversation planned
+	fixed:		- Merging VideoObjects now checks if the Date Property is valid
 */
 
 try {
@@ -275,6 +279,9 @@ try {
 			element.WatchedVideoArray = GM_getValue("WatchedVideoArray") || "([])";
 			element.ScannedVideoArray = GM_getValue("ScannedVideoArray") || "([])";
 			element.VideoObjectDictionary = GM_getValue("VideoObjectDictionary") || "({})";
+			element["VideoObjectDictionary-Version"] = eval(GM_getValue("VideoObjectDictionary-Version") || 0);
+			element["WatchedVideoArray-Version"] = eval(GM_getValue("WatchedVideoArray-Version") || 0);
+			element["ScannedVideoArray-Version"] = eval(GM_getValue("ScannedVideoArray-Version") || 0);
 			prompt("Bitte die Exportierten Daten kopieren", element.toSource());
 		});
 		
@@ -1023,6 +1030,24 @@ try {
 		try {
 			if (typeof(allData) == "object") {
 				var element = allData;
+				
+				var errorList = ([]);
+				if (element["VideoObjectDictionary-Version"] !== GM_getValue("VideoObjectDictionary-Version")) {
+					errorList.push("Die Version vom VideoObjectDictionary passt nicht (Serverversion: " + element["VideoObjectDictionary-Version"] + ", lokale Version: " + GM_getValue("VideoObjectDictionary-Version") + ")");
+				}
+				if (element["WatchedVideoArray-Version"] !== GM_getValue("WatchedVideoArray-Version")) {
+					errorList.push("Die Version vom WatchedVideoArray passt nicht (Serverversion: " + element["WatchedVideoArray-Version"] + ", lokale Version: " + GM_getValue("WatchedVideoArray-Version") + ")");
+				}
+				if (element["ScannedVideoArray-Version"] !== GM_getValue("ScannedVideoArray-Version")) {
+					errorList.push("Die Version vom ScannedVideoArray passt nicht (Serverversion: " + element["ScannedVideoArray-Version"] + ", lokale Version: " + GM_getValue("ScannedVideoArray-Version") + ")");
+				}
+				
+				var msg = "Das Importieren kann nicht durchgeführt werden, da:\r\n";
+				for (var i in errorList) {
+					msg = msg + "\r\n\t- " + errorList[i];
+				}
+				alert(msg);
+				throw new Error("ImportData impossible!");
 			}
 			else if (allData === true) {
 				var element = eval(prompt("Bitte die exportierten Daten eintragen"));
@@ -1033,6 +1058,7 @@ try {
 				element.WatchedVideoArray = eval(prompt("Please insert new WatchedVideoArray Data"));
 				element.ScannedVideoArray = eval(prompt("Please insert new ScannedVideoArray Data"));
 			}
+			
 			GM_Lock();
 			var videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
 			var watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
@@ -1096,6 +1122,7 @@ try {
 		catch (exc) {
 			console.error(exc);
 			alert("Das Importieren ist fehlgeschlagen!\r\n" + exc);
+			throw(exc)
 		}
 	}
 	
@@ -1199,8 +1226,24 @@ try {
 									newArray.push(eval(videoObject_1[objectIndex][index1_i].toSource()));
 									delete videoObject_2[objectIndex][index2_i];
 									found = true;
-									//TODO: anpassen so dass wenn der unterschied < 1minute ist es gemerged wird
-								} else if (videoObject_1[objectIndex][index1_i].Date === videoObject_2[objectIndex][index2_i].Date) {
+									continue;
+								}
+								
+								// check if the Dates are valid
+								if (isNaN(new Date(videoObject_1[objectIndex][index1_i].Date).getTime()) === true)
+								{
+									console.error(videoObject_1[objectIndex]);
+									alert(videoObject_1[objectIndex]);
+									throw new Error("The converted Date is not a Date Object");
+								}
+								if (isNaN(new Date(videoObject_2[objectIndex][index2_i].Date).getTime()) === true)
+								{
+									console.error(videoObject_2[objectIndex]);
+									alert(videoObject_2[objectIndex]);
+									throw new Error("The converted Date is not a Date Object");
+								}
+								
+								if (new Date(videoObject_1[objectIndex][index1_i].Date).getTime() === new Date(videoObject_2[objectIndex][index2_i].Date).getTime()) {
 									// Same Date and Time from Website Call, thats the same, choose the highest WatchedLength
 									videoObject_1[objectIndex][index1_i].WatchedLength = Math.max(videoObject_1[objectIndex][index1_i].WatchedLength, videoObject_2[objectIndex][index2_i].WatchedLength);
 									newArray.push(eval(videoObject_1[objectIndex][index1_i].toSource()));
@@ -1233,6 +1276,11 @@ try {
 										
 										newArray[index1].Date = new Date(Math.min(new Date(newArray[index1].Date).getTime(), new Date(newArray[index2].Date).getTime())).toString();
 										newArray[index1].WatchedLength = Math.max(newArray[index1].WatchedLength, newArray[index2].WatchedLength);
+										
+										if (isNaN(new Date(newArray[index1].Date).getTime()) === true) {
+											alert(newArray[index1]);
+											throw new Error("The converted Date is not a Date Object");
+										}
 										
 										newArray.splice(index2, 1)
 										
@@ -1299,7 +1347,7 @@ try {
 						console.log(videoObject_1);
 						console.log(videoObject_2);
 						alert("Für diesen Unterschied wurde kein automatisches Zusammenführen definiert!\r\nSiehe Konsole für mehr Informationen.");
-						throw "NotDefinedException"
+						throw new Error("NotDefinedException");
 						break;
 				}
 			}
@@ -1355,12 +1403,16 @@ try {
 						alert("Der Wert des Response des Servers war ungültig!");
 					}
 				}
+				if (confirm("Daten auf dem Server speichern?") === false) { Feedback.showProgress(100, "Senden der Daten abgebrochen"); return;}
 				Feedback.showProgress(75, "Neue Daten auf dem Server speichern");
 				
 				var element = ({});
 				element.WatchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
 				element.ScannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
 				element.VideoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
+				element["VideoObjectDictionary-Version"] = eval(GM_getValue("VideoObjectDictionary-Version") || 0);
+				element["WatchedVideoArray-Version"] = eval(GM_getValue("WatchedVideoArray-Version") || 0);
+				element["ScannedVideoArray-Version"] = eval(GM_getValue("ScannedVideoArray-Version") || 0);
 				GM_xmlhttpRequest({
 					data: {Token:Token, data:element.toSource()}.toSource(),
 					method: "POST",
