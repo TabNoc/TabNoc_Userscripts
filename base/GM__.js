@@ -91,43 +91,73 @@ function replaceAll(string, find, replace) {
 
 var LockID = Math.floor(Math.random() * 1000000);
 
-function GM_Lock() {
-	if (GM_getValue("Lock") === undefined) {
+function GM_Lock(ignoreLockedValue = false) {
+	if (GM_getValue("Lock") == undefined) {
 		GM_setValue("Lock", 0);
 	}
 	// prüfen ob alles io ist
 	if (GM_getValue("Lock") === LockID) {
-		console.log("Database already locked!");
+		// console.log(ignoreLockedValue);
+		if (ignoreLockedValue === false) {
+			console.log("Database already locked from this Session, continue");
+			console.log(new Error().stack);
+		}
 		return;
 	}
 	else {
 		// wait until Database is unlocked
 		while (GM_getValue("Lock") !== 0) {}
 		// set unique LockID
+		// console.info("Locking Database");
 		GM_setValue("Lock", LockID);
 	}
 }
 
+function GM_Locked() {
+	// when checking for boolean Value must compare with 2 '='
+	// when checking for LockReason must compare with 3 '='
+	if (GM_getValue("Lock") == undefined) {
+		GM_setValue("Lock", 0);
+	}
+	// prüfen ob alles io ist
+	if (GM_getValue("Lock") === 0) {
+		// Database Unlocked
+		return false;
+	}
+	else if (GM_getValue("Lock") === LockID) {
+		// Database Locked from this Instance
+		return 1;
+	}
+	else {
+		// Database Locked from other Instance
+		return true;
+	}
+}
+
 function GM_setValueLocked(name, value) {
-	GM_Lock();
+	// console.info("GM_setValueLocked");
+	GM_Lock(true);
 	
 	// prüfen ob alles io ist
 	if (GM_getValue("Lock") === LockID) {
 		GM_setValue(name, value);
 	}
 	else {
-		alert("Desync des Lock wertes, 1");
+		alert("Desync des Lock wertes, in GM_setValueLocked");
 		GM_setValue("Lock", 0);
-		throw "Desync des Lock wertes, 1";
+		throw "Desync des Lock wertes, in GM_setValueLocked";
 	}
-	
+}
+
+function GM_Unlock(forceUnlock = false){
 	// aufräumen
-	if (GM_getValue("Lock") === LockID) {
+	if (GM_getValue("Lock") === LockID || GM_getValue("Lock") === 0 || GM_getValue("Lock") == undefined || forceUnlock === true) {
+		// console.info("Unlocking Database");
 		GM_setValue("Lock", 0);
 	}
 	else {
-		alert("Desync des Lock wertes, 2");
+		alert("Desync des Lock wertes, in GM_Unlock");
 		GM_setValue("Lock", 0);
-		throw "Desync des Lock wertes, 2";
+		throw "Desync des Lock wertes, in GM_Unlock";
 	}
 }

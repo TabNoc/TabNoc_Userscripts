@@ -1,5 +1,5 @@
 function getTabNocVersion(){
-	return "v1.2.0-25042017";
+	return "v1.2.2-16072017";
 }
 
 
@@ -166,7 +166,7 @@ try {
 		};
 	}
 	
-	console.log("TabNoc.js: Readed TabNoc_Config " + getTabNocVersion() + " by TabNoc");
+	console.log("TabNoc.js: Readed TabNoc_Config " + getTabNocVersion() + " by TabNoc (namespace: " + GM_info.script.name + ")");
 } catch (exc) {
 	console.error(exc);
 	alert(exc);

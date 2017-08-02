@@ -150,7 +150,7 @@ try {
 			DeleteNotWantedVideos: false,
 			HideAlreadyWatchedVideos: false,
 			ShowAlreadyWatchedDialog: true,
-			Debug: false
+			Debug: true
 		},
 
 		HTML: {
