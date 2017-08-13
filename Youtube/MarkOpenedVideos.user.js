@@ -36,6 +36,11 @@
 /*
 - add a intervall wich checks periodical if a movie_player exists, if yes: mybe ask if video loader should be executed
 - in the same interval as above, check if the movie_player does not exists anymore, then quit the normal intervalls. There has to be a better way
+
+- add generic DatabaseLoader with memory of changes (so undo is very easy and can apply multiple states)
+- add generic Error handler, wich is used EVERY time, this one logs Errors in Database, and send them to Server
+
+- Meine Datenbank wiederherstellen, da sind alle Daten kaputt, am besten die Daten des alten Versionsstandes wiederherstellen, und dann ausschließlich die neuen Daten reinmergen, die müssten ja eigendlich io sein, außerdem im vergleicher null mit undefined gleichstellen, so dass diese gemerged werden!
 */
 
 /*
@@ -153,7 +158,9 @@ try {
 			lastCheckVideoObjectAmount:0,
 			
 			MultiRow: false,
-			LastFullScreenElement: null
+			LastFullScreenElement: null,
+			
+			Data: ({})
 		},
 
 		Settings: {
@@ -164,7 +171,7 @@ try {
 			DeleteNotWantedVideos: false,
 			HideAlreadyWatchedVideos: false,
 			ShowAlreadyWatchedDialog: true,
-			Debug: false
+			Debug: true
 		},
 
 		HTML: {
@@ -173,12 +180,25 @@ try {
 
 	// ### https://www.youtube.com/feed/subscriptions ###
 	function SubscriptionPageLoader() {
-		console.log("MarkOpenedVideos.user.js loading");
+		console.log("MarkOpenedVideos.user.js loading [SubscriptionPageLoader]");
 		try {
 			registerTabNoc();
 			
-			if (document.getElementById("content").clientWidth == 1262) {
-				document.getElementById("content").style.width = "1330px";
+			if (TabNoc.Variables.NewYoutubeLayout === true) {
+				if ($("ytd-two-column-browse-results-renderer").width() == 1284) {
+					$("ytd-two-column-browse-results-renderer").css("width", "1356px");
+				}
+			}
+			else {
+				if (document.getElementById("content").clientWidth == 1262) {
+					document.getElementById("content").style.width = "1330px";
+				}
+				if ($(".yt-shelf-grid-item").length > 0) {
+					TabNoc.Variables.MultiRow = true;
+					if (TabNoc.Settings.Debug === true) {
+						console.log("MultiRow found!");
+					}
+				}
 			}
 			
 			TabNoc.Variables.checkElementsInterval = setInterval(returnExec(function () {
@@ -302,13 +322,14 @@ try {
 			watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
 			// ### VideoObjectDictionary ###
 			videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
-
-			//if ($(".item-section").find(".yt-uix-tile-link").length == 0) {
-			if ($(".yt-shelf-grid-item").length > 0) {
-				TabNoc.Variables.MultiRow = true;
+			
+			if (TabNoc.Variables.NewYoutubeLayout === true) {
+				var elements = $("ytd-grid-video-renderer,ytd-video-renderer");
+			}
+			else {
+				var elements = TabNoc.Variables.MultiRow ? $(".yt-shelf-grid-item") : $(".item-section");
 			}
 			
-			var elements = TabNoc.Variables.MultiRow ? $(".yt-shelf-grid-item") : $(".item-section");
 			if (force === true || TabNoc.Variables.lastCheckItemCount !== elements.length || 
 					TabNoc.Variables.lastCheckVideoIdAmount !== scannedVideoArray.length || 
 					TabNoc.Variables.lastCheckWatchedVideoAmount !== watchedVideoArray.length ||
@@ -335,15 +356,21 @@ try {
 			Feedback.showProgress(i / elements.length * 100, "Analysing Element " + i + " from " + elements.length);
 			var currentElement = elements[i];
 
-			if (currentElement.className == "undefined") { continue; }
-			
-			if (currentElement.className.includes("item-section") || currentElement.className.includes("yt-shelf-grid-item")) {
-				// ".compact-shelf-view-all-card" -> "Alle Anzeigen" im SideScroler
-				if (currentElement.className.includes("compact-shelf-view-all-card") === false) {
-					UnScannedElements = checkElement(watchedVideoArray, scannedVideoArray, videoObjectDictionary, currentElement, ToggleState) == true ? UnScannedElements : UnScannedElements + 1;
+			if (TabNoc.Variables.NewYoutubeLayout) {
+				UnScannedElements = checkElement(watchedVideoArray, scannedVideoArray, videoObjectDictionary, currentElement, ToggleState) == true ? UnScannedElements : UnScannedElements + 1;
+			}
+			else {
+				if (currentElement.className == "undefined") { console.error(currentElement);throw new Error("no ClassName found"); }
+				
+				if (currentElement.className.includes("item-section") || currentElement.className.includes("yt-shelf-grid-item")) {
+					// ".compact-shelf-view-all-card" -> "Alle Anzeigen" im SideScroler
+					if (currentElement.className.includes("compact-shelf-view-all-card") === false) {
+						UnScannedElements = checkElement(watchedVideoArray, scannedVideoArray, videoObjectDictionary, currentElement, ToggleState) == true ? UnScannedElements : UnScannedElements + 1;
+					}
 				}
-			} else {
-				console.warn(currentElement);
+				else {
+					console.error(currentElement);
+				}
 			}
 		}
 		TabNoc.Variables.MarkToggleState = ToggleState;
@@ -354,21 +381,29 @@ try {
 
 	function checkElement(watchedVideoArray, scannedVideoArray, videoObjectDictionary, currentElement, ToggleState) {
 		//return true if checkedElement is already Scanned
-		var VideoID = $(currentElement).find("." + (TabNoc.Variables.MultiRow ? "yt-uix-sessionlink" : "yt-uix-tile-link"))[0].getAttribute("href").replace("/watch?v=", "").split("&list")[0].split("&t=")[0];
+		if (TabNoc.Variables.NewYoutubeLayout) {
+			var VideoID = $(currentElement).find("#thumbnail")[0].getAttribute("href").replace("/watch?v=", "").split("&list")[0].split("&t=")[0];
+		}
+		else {
+			var VideoID = $(currentElement).find("." + (TabNoc.Variables.MultiRow ? "yt-uix-sessionlink" : "yt-uix-tile-link"))[0].getAttribute("href").replace("/watch?v=", "").split("&list")[0].split("&t=")[0];
+		}
 		
 		var setColor = function(color) {
 			$(currentElement).css("background-color", color);
-			if (TabNoc.Variables.MultiRow) {
-				$(currentElement).find(".yt-lockup-title, .yt-uix-sessionlink, .yt-lockup-byline").css("background-color", color);//yt-lockup-byline yt-uix-sessionlink yt-lockup-title
-			}
-			else {
-				$(currentElement).find(".yt-uix-tile-link, .yt-lockup-description").css("background-color", color);
+			if (TabNoc.Variables.NewYoutubeLayout != true) {
+				if (TabNoc.Variables.MultiRow) {
+					$(currentElement).find(".yt-lockup-title, .yt-uix-sessionlink, .yt-lockup-byline").css("background-color", color);//yt-lockup-byline yt-uix-sessionlink yt-lockup-title
+				}
+				else {
+					$(currentElement).find(".yt-uix-tile-link, .yt-lockup-description").css("background-color", color);
+				}
 			}
 		};
 		
-		currentElement.style.borderRadius = "7px";
-		currentElement.style.border = "1px solid #eee";
-		currentElement.style.padding = "0px 5px 5px 5px";
+		currentElement.style.borderRadius = "15px";
+		currentElement.style.border = "1px solid #ddd";
+		currentElement.style.padding = "5px";
+		currentElement.style.minHeight = "187px";
 		
 		if (ToggleState === true) {
 			if (GetVideoWatched(scannedVideoArray, false, VideoID)) {
@@ -391,18 +426,38 @@ try {
 		}
 		
 		for (var i = 0; i < TabNoc.Settings.UninterestingVideos.length; i++) {
-			if ($(currentElement).find(".yt-uix-sessionlink.yt-ui-ellipsis")[0].textContent.includes(TabNoc.Settings.UninterestingVideos[i])) {
-				setColor("rgb(255, 175, 175)");
+			if (TabNoc.Variables.NewYoutubeLayout) {
+				if ($(currentElement).find("#video-title")[0].textContent.includes(TabNoc.Settings.UninterestingVideos[i])) {
+					setColor("rgb(255, 175, 175)");
+				}
+			}
+			else {
+				if ($(currentElement).find(".yt-uix-sessionlink.yt-ui-ellipsis")[0].textContent.includes(TabNoc.Settings.UninterestingVideos[i])) {
+					setColor("rgb(255, 175, 175)");
+				}
 			}
 		}
 		for (var i = 0; i < TabNoc.Settings.NotWantedVideos.length; i++) {
-			if ($(currentElement).find(".yt-uix-sessionlink.yt-ui-ellipsis")[0].textContent.includes(TabNoc.Settings.NotWantedVideos[i])) {
-				//disableVideo 
-				if (TabNoc.Settings.DeleteNotWantedVideos === true) {
-					$(currentElement).remove();
+			if (TabNoc.Variables.NewYoutubeLayout) {
+				if ($(currentElement).find("#video-title")[0].textContent.includes(TabNoc.Settings.NotWantedVideos[i])) {
+					//disableVideo 
+					if (TabNoc.Settings.DeleteNotWantedVideos === true) {
+						$(currentElement).remove();
+					}
+					else {
+						currentElement.style.display = "none";
+					}
 				}
-				else if(TabNoc.Settings.DeleteNotWantedVideos === false) {
-					currentElement.style.display = "none";
+			}
+			else {
+				if ($(currentElement).find(".yt-uix-sessionlink.yt-ui-ellipsis")[0].textContent.includes(TabNoc.Settings.NotWantedVideos[i])) {
+					//disableVideo 
+					if (TabNoc.Settings.DeleteNotWantedVideos === true) {
+						$(currentElement).remove();
+					}
+					else {
+						currentElement.style.display = "none";
+					}
 				}
 			}
 		}
@@ -440,7 +495,7 @@ try {
 						scannedVideoArray.push(currentElementId);
 					}
 				} else {
-					console.warn(element);
+					console.error(element);
 				}
 			}
 
@@ -459,8 +514,8 @@ try {
 	// ### https://www.youtube.com/feed/subscriptions ###
 	
 	// ### https://www.youtube.com/watch?v=* ###
-	function VideoPageLoader(){
-		console.log("MarkOpenedVideos.user.js loading");
+	function VideoPageLoader() {
+		console.log("MarkOpenedVideos.user.js loading [VideoPageLoader]");
 		try {
 			if (unsafeWindow.document.getElementById("movie_player") == null) {return false;}
 			
@@ -490,7 +545,7 @@ try {
 		}
 	}
 	
-	function WatchingVideo(){
+	function WatchingVideo() {
 		if (TabNoc.Settings.Debug === true) {
 			console.log("WatchingVideo()->old: " + TabNoc.Variables.VideoStatisticsObject);
 		}
@@ -667,8 +722,8 @@ try {
 
 	// ### https://www.youtube.com/feed/history ### 
 	// ### https://www.youtube.com/results?* ### 
-	function SearchResultLoader(){
-		console.log("MarkOpenedVideos.user.js loading");
+	function SearchResultLoader() {
+		console.log("MarkOpenedVideos.user.js loading [SearchResultLoader]");
 		try {
 			MarkSearchResults();
 			
@@ -679,22 +734,23 @@ try {
 		}
 	}
 	
-	function MarkSearchResults(){
+	function MarkSearchResults() {
 		var setColor = function(checkElement, color) {
 			$(checkElement).css("background-color", color);
 			$(checkElement).find(".yt-uix-tile-link, .yt-lockup-description").css("background-color", color);
 		};
 		
 		// ### ScannedVideoArray ###
-		var scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
+		var scannedVideoArray = GetData("ScannedVideoArray", "([])");
 		
 		// ### WatchedVideoArray ###
-		var watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
+		var watchedVideoArray = GetData("WatchedVideoArray","([])");
+		
+		$("#results").css("background", "#f1f1f1");
+		$(".yt-lockup-tile").css("border-radius", "15px").css("border", "1px solid #ddd").css("background-color", "white").parent().css("padding", "1px 3px");
 		
 		var elements = $(".yt-lockup-video");
 		for (i = 0; i < elements.length; i++) {
-			elements[i].style.borderRadius = "10px";
-			elements[i].style.border = "1px solid #ddd";
 			var href = elements[i].children[0].children[0].children[0].getAttribute("href");
 			if (href != null && href != "" && GetVideoWatched(watchedVideoArray, null, href.replace("/watch?v=", "").split("&list")[0].split("&t=")[0]) === true) {
 				setColor(elements[i], "rgb(166, 235, 158)");
@@ -703,6 +759,56 @@ try {
 	}
 	// ### https://www.youtube.com/results?* ### 
 	// ### https://www.youtube.com/feed/history ### 
+	
+	function GetData(keyName, defaultValue) {
+		try {
+			if (TabNoc.Variables.Debug === true) {
+				console.log("GetData(" + keyName + ", " + defaultValue + ")");
+			}
+			
+			var data = GM_getValue(keyName);
+			
+			if (data == null || data == "") {
+				data = defaultValue || null;
+			}
+			
+			if (TabNoc.Variables.Data[keyName] == null) {
+				TabNoc.Variables.Data[keyName] = ({});
+				var time = (new Date).getTime();
+				
+				TabNoc.Variables.Data[keyName][time] = data;
+				TabNoc.Variables.Data[keyName].latest = time;
+			}
+			else if (TabNoc.Variables.Data[keyName][TabNoc.Variables.Data[keyName].latest] != data) {
+				var time = (new Date).getTime();
+				
+				TabNoc.Variables.Data[keyName][time] = data;
+				TabNoc.Variables.Data[keyName].latest = time;
+				
+				if (TabNoc.Variables.Debug === true) {
+					console.log("Es wurde ein neuer  Eintrag in TabNoc.Variables.Data eingefügt ([" + keyName + "][" + time + "])");
+				}
+			}
+			
+			try {
+				data = eval(data);
+			}
+			catch (exc) {
+				ErrorHandler(exc, "Die Daten von >" + keyName + "< aus der Datenbank konnten nicht ausgewertet werden");
+			}
+			return data;
+		}
+		catch (exc) {
+			ErrorHandler(exc);
+			throw exc;
+		}
+	}
+	
+	function ErrorHandler (exc, msg) {
+		if (msg != null && msg != "") {alert(msg);}
+		console.error(exc);
+		alert(exc);
+	}
 	
 	function UpdateDataBase() {
 		var CurrentVersion_WatchedVideoArray = 0;
@@ -1393,7 +1499,7 @@ try {
 				Feedback.showProgress(50, "Empfangene Daten migrieren");
 				if (!error) {
 					var responseData = eval(response.responseText);
-					console.warn(responseData);
+					console.error(responseData);
 					if (responseData.VideoObjectDictionary != null && responseData.WatchedVideoArray != null) {
 						Feedback.lockProgress();
 						ImportData(responseData);
@@ -1469,31 +1575,56 @@ try {
 		GM_addStyle(GM_getResourceText("JqueryUI"));
 		UpdateDataBase();
 		
-		// SearchResult
-		// if ($("#results").length == 1){
-		if (document.URL.contains("https://www.youtube.com/results?") === true || document.URL === "https://www.youtube.com/feed/history") {
-			$(SearchResultLoader);
-		}
-		// Watching Video
-		else if ($("#placeholder-player").length == 1) {
-			$(VideoPageLoader);
-		}
-		// SubscriptionPage
-		else if ($("#browse-items-primary").length == 1 || document.URL === "https://www.youtube.com/") {
-			$(SubscriptionPageLoader);
+		if ($("ytd-page-manager").length != 0) {
+			TabNoc.Variables.NewYoutubeLayout = true;
+			console.info("NewYoutubeLayout found!");
 		}
 		
+		if (TabNoc.Variables.NewYoutubeLayout) {
+			// SearchResult
+			// if ($("#results").length == 1){
+			if (false) {
+				$(SearchResultLoader);
+			}
+			// Watching Video
+			else if ($("#placeholder-player").length == 1) {
+				$(VideoPageLoader);
+			}
+			// SubscriptionPage
+			else if ($("ytd-grid-renderer").length >= 1 || $("ytd-video-renderer").length >= 1) {
+				$(SubscriptionPageLoader);
+			}
+			else {
+				alert("MarkOpenedVideos.user.js:Main() -> No LoadObject found!");
+				console.info("No LoadObject found!");
+			}
+		}
 		else {
-			alert("MarkOpenedVideos.user.js:Main() -> No LoadObject found!");
-			console.info("No LoadObject found!");
+			// SearchResult
+			// if ($("#results").length == 1){
+			if (document.URL.contains("https://www.youtube.com/results?") === true || document.URL === "https://www.youtube.com/feed/history") {
+				$(SearchResultLoader);
+			}
+			// Watching Video
+			else if ($("#placeholder-player").length == 1) {
+				$(VideoPageLoader);
+			}
+			// SubscriptionPage
+			else if ($("#browse-items-primary").length == 1 || document.URL === "https://www.youtube.com/") {
+				$(SubscriptionPageLoader);
+			}
+			else {
+				alert("MarkOpenedVideos.user.js:Main() -> No LoadObject found!");
+				console.info("No LoadObject found!");
+			}
 		}
 	}
 	
 	Main();
 	
 	console.info(String.format("MarkOpenedVideos.user.js[Version: {0}, Autoupdate: {1}] readed", GM_info.script.version, GM_info.scriptWillUpdate));
-} catch (exc) {
-	console.error(exc);
-	alert(exc);
+}
+catch (exc) {
+	ErrorHandler(exc, "Exception in UserScript");
 }
 
