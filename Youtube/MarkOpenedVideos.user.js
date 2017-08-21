@@ -1,4 +1,4 @@
-﻿// ==UserScript==
+// ==UserScript==
 // @name        MarkOpenedVideos
 // @namespace   TabNoc
 // @include     https://www.youtube.com/feed/subscriptions*
@@ -10,7 +10,7 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.2.8_02082017
+// @version     2.2.9_21082017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -134,8 +134,11 @@ fixed:	- fixed StyleChanges from Youtube
 	added:		- if the Database is locked when loading page a warining will be displayed, if still locked after confirm, then possibility to unlock
 	
 02.08.2017 - 2.2.8
-	added:		- Importing Data now checks the DataBase Version, if wrong simply fails (currently no conversation planned
+	added:		- Importing Data now checks the DataBase Version, if wrong simply fails (currently no conversation planned)
 	fixed:		- Merging VideoObjects now checks if the Date Property is valid
+
+21.08.2017 - 2.2.9
+	added:		- width changer now supports 850px content width
 */
 
 try {
@@ -192,6 +195,9 @@ try {
 			else {
 				if (document.getElementById("content").clientWidth == 1262) {
 					document.getElementById("content").style.width = "1330px";
+				}
+				if (document.getElementById("content").clientWidth == 850) {
+					document.getElementById("content").style.width = "886px";
 				}
 				if ($(".yt-shelf-grid-item").length > 0) {
 					TabNoc.Variables.MultiRow = true;
