@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.2.1_10052017
+// @version     1.2.2_21082017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/TabNoc.js
@@ -38,6 +38,10 @@ Start Writing Script
 10.05.2017 - 1.2.1
 	- added @updateURL
 	- fixed wrong TabNoc.js file being loaded
+	
+21.08.2017 - 1.2.2
+	- fixed: very short Message Display Time after Marking
+	- changed: Marking Button will only be displayed, if Element isn't marked 
 */
 
 try {
@@ -97,6 +101,8 @@ try {
 			
 			$(".list-articles>li").detach().appendTo($(".list-articles").first());
 			
+			$(".iqadlinetop>div").css("border-color", "transparent");
+			
 		
 			TabNoc.Variables.checkElementsInterval = setInterval(returnExec(function () {
 				startCheckElements(TabNoc.Variables.MarkToggleState);
@@ -143,14 +149,14 @@ try {
 
 	function checkElements(ReadedNewsArray, elements, ToggleState, SeenNewsArray) {
 		var UnScannedElements = 0;
-		Feedback.showProgress(0, "Initialised Scan", true);
+		Feedback.showProgress(0, "Initialised Scan");
 
 		if (ToggleState == null) {
 			ToggleState = TabNoc.Variables.MarkToggleState;
 		}
 		
 		for (i = 0; i < elements.length; i++) {
-			Feedback.showProgress(i / elements.length * 100, "Analysing Element " + i + " from " + elements.length, true);
+			Feedback.showProgress(i / elements.length * 100, "Analysing Element " + i + " from " + elements.length);
 			var element = elements[i];
 			
 			if ($(element).children("a").length === 1 && ($(element).children("a")[0].getAttribute("id").includes("hpalt") || 
@@ -162,8 +168,9 @@ try {
 		}
 		TabNoc.Variables.MarkToggleState = ToggleState;
 
-		Feedback.showProgress(100, "Finished " + (elements.length - UnScannedElements) + " elements marked", true);
+		Feedback.showProgress(100, "Finished " + (elements.length - UnScannedElements) + " elements marked");
 		console.log((elements.length - UnScannedElements) + " Marked Elements | " + UnScannedElements + " UnMarked Elements | Total " + elements.length + " Elements (" + ReadedNewsArray.length + " Newspages listed)")
+		
 		if (TabNoc.Settings.HideAlreadyWatchedNews === false) {
 			Feedback.notify(UnScannedElements + " UnMarked Elements", 10000, function(){TabNoc.Settings.HideAlreadyWatchedNews = !TabNoc.Settings.HideAlreadyWatchedNews; startCheckElements(true, true);Feedback.hideMessage();});
 		}
@@ -175,6 +182,12 @@ try {
 		
 		var ReadedID = ReadedNewsArray.indexOf(SearchString);
 		var SeenID = SeenNewsArray.indexOf(SearchString);
+		
+		if ($(checkElement).find(".MyScanButton").length === 0 && $(checkElement).find(".MyMarkedReadedElement").length === 0 && $(checkElement).find(".MyMarkedSeenElement").length === 0) {
+			var ScanButton = $(TabNoc.HTML.ScanButton);
+			ScanButton.click(function(){getAllElements(SearchString, SearchString)});
+			$(checkElement).append(ScanButton);
+		}
 		
 		if (ToggleState === true) {
 			$(checkElement).addClass("MyPageElement");
@@ -201,12 +214,6 @@ try {
 		}
 		else {
 			$(checkElement).removeClass("MyMarkedReadedElement").removeClass("MyMarkedSeenElement").removeClass("MyPageElement").show();
-		}
-		
-		if ($(checkElement).find(".MyScanButton").length === 0) {
-			var ScanButton = $(TabNoc.HTML.ScanButton);
-			ScanButton.click(function(){getAllElements(SearchString, SearchString)});
-			$(checkElement).append(ScanButton);
 		}
 		
 		return false;
