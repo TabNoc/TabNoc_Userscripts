@@ -193,12 +193,16 @@ try {
 				}
 			}
 			else {
-				if (document.getElementById("content").clientWidth == 1262) {
-					document.getElementById("content").style.width = "1330px";
+				if ($("#content").width() == 1262) {
+					$("#content").css("width", "1330px");
 				}
-				if (document.getElementById("content").clientWidth == 850) {
-					document.getElementById("content").style.width = "886px";
+				else if ($("#content").width() == 850) {
+					$("#content").css("width", "889px");
 				}
+				else {
+					console.log("no width change defined for " + $("#content").width());
+				}
+				
 				if ($(".yt-shelf-grid-item").length > 0) {
 					TabNoc.Variables.MultiRow = true;
 					if (TabNoc.Settings.Debug === true) {
@@ -219,32 +223,8 @@ try {
 			alert(exc);
 		}
 	}
-	
+
 	function registerTabNoc() {
-		// //ResetDataBaseVersion
-		// exportFunction(function(){
-			// if (confirm("Sollen wirklich die Versionen von allen Tabellen gelöscht werden?") !== true) {return;}
-			// // ### WatchedVideoArray-Version ###
-			// Version_WatchedVideoArray = eval(GM_getValue("WatchedVideoArray-Version"));
-			// if (Version_WatchedVideoArray != null) {
-				// GM_deleteValue("WatchedVideoArray-Version")
-			// }
-			
-			// // ### ScannedVideoArray-Version ###
-			// Version_ScannedVideoArray = eval(GM_getValue("ScannedVideoArray-Version"));
-			// if (Version_ScannedVideoArray != null) {
-				// GM_deleteValue("ScannedVideoArray-Version")
-			// }
-			
-			// // ### VideoObjectDictionary-Version ###
-			// Version_VideoObjectDictionary = eval(GM_getValue("VideoObjectDictionary-Version"));
-			// if (Version_VideoObjectDictionary != null) {
-				// GM_deleteValue("VideoObjectDictionary-Version")
-			// }
-		// }, unsafeWindow, {
-			// defineAs: "ResetDataBaseVersion"
-		// });
-		
 		GM_registerMenuCommand("Hide Watched Videos", function () {
 			TabNoc.Settings.HideAlreadyWatchedVideos = true;
 			startCheckElements(true, true);
@@ -302,12 +282,12 @@ try {
 		
 		GM_registerMenuCommand("ExportAllData", function () {
 			var element = ({});
-			element.WatchedVideoArray = GM_getValue("WatchedVideoArray") || "([])";
-			element.ScannedVideoArray = GM_getValue("ScannedVideoArray") || "([])";
-			element.VideoObjectDictionary = GM_getValue("VideoObjectDictionary") || "({})";
-			element["VideoObjectDictionary-Version"] = eval(GM_getValue("VideoObjectDictionary-Version") || 0);
-			element["WatchedVideoArray-Version"] = eval(GM_getValue("WatchedVideoArray-Version") || 0);
-			element["ScannedVideoArray-Version"] = eval(GM_getValue("ScannedVideoArray-Version") || 0);
+			element.WatchedVideoArray = GetData("WatchedVideoArray", "([])", true);
+			element.ScannedVideoArray = GetData("ScannedVideoArray", "([])", true);
+			element.VideoObjectDictionary = GetData("VideoObjectDictionary", "({})", true);
+			element["VideoObjectDictionary-Version"] = GetData("VideoObjectDictionary-Version", 0, true);
+			element["WatchedVideoArray-Version"] = GetData("WatchedVideoArray-Version", 0, true);
+			element["ScannedVideoArray-Version"] = GetData("ScannedVideoArray-Version", 0, true);
 			prompt("Bitte die Exportierten Daten kopieren", element.toSource());
 		});
 		
@@ -323,11 +303,11 @@ try {
 	function startCheckElements(ToggleState, force) {
 		if (document.hidden === false || force === true) {
 			// ### ScannedVideoArray ###
-			scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
+			scannedVideoArray = GetData("ScannedVideoArray", "([])", true);
 			// ### WatchedVideoArray ###
-			watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
+			watchedVideoArray = GetData("WatchedVideoArray", "([])", true);
 			// ### VideoObjectDictionary ###
-			videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
+			videoObjectDictionary = GetData("VideoObjectDictionary", "({})", true);
 			
 			if (TabNoc.Variables.NewYoutubeLayout === true) {
 				var elements = $("ytd-grid-video-renderer,ytd-video-renderer");
@@ -477,11 +457,11 @@ try {
 
 			GM_Lock();
 			// ### ScannedVideoArray ###
-			scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
+			scannedVideoArray = GetData("ScannedVideoArray", "([])", true);
 			// ### WatchedVideoArray ###
-			watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
+			watchedVideoArray = GetData("WatchedVideoArray", "([])", true);
 			// ### VideoObjectDictionary ###
-			videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
+			videoObjectDictionary = GetData("VideoObjectDictionary", "({})", true);
 			
 			var elements = $(".item-section");
 
@@ -602,10 +582,10 @@ try {
 		var start = new Date().getTime();
 		
 		// ### VideoObjectDictionary ###
-		videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "([])");
+		videoObjectDictionary = GetData("VideoObjectDictionary", "([])", true);
 		
 		// ### WatchedVideoArray ###
-		watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
+		watchedVideoArray = GetData("WatchedVideoArray", "([])", true);
 		
 		var elements = $(".video-list-item");
 		if (elements.length == undefined || elements.length <= 1) {
@@ -765,16 +745,16 @@ try {
 	// ### https://www.youtube.com/results?* ### 
 	// ### https://www.youtube.com/feed/history ### 
 	
-	function GetData(keyName, defaultValue) {
+	function GetData(keyName, defaultValue, evalValue) {
 		try {
-			if (TabNoc.Settings.Debug === true) {
-				console.log("GetData(" + keyName + ", " + defaultValue + ")");
-			}
-			
 			var data = GM_getValue(keyName);
 			
-			if (data == null || data == "") {
+			if (data === null || data === "") {
 				data = defaultValue || null;
+			}
+			
+			if (TabNoc.Settings.Debug === true) {
+				console.log("GetData(" + keyName + ", " + defaultValue + ", " + evalValue + ") -> " + data);
 			}
 			
 			if (TabNoc.Variables.Data[keyName] == null) {
@@ -791,15 +771,17 @@ try {
 				TabNoc.Variables.Data[keyName].latest = time;
 				
 				if (TabNoc.Settings.Debug === true) {
-					console.log("Es wurde ein neuer  Eintrag in TabNoc.Variables.Data eingefügt ([" + keyName + "][" + time + "])");
+					console.log("Es wurde ein neuer Eintrag in TabNoc.Variables.Data eingefügt ([" + keyName + "][" + time + "])");
 				}
 			}
 			
-			try {
-				data = eval(data);
-			}
-			catch (exc) {
-				ErrorHandler(exc, "Die Daten von >" + keyName + "< aus der Datenbank konnten nicht ausgewertet werden");
+			if (evalValue === true) {
+				try {
+					data = eval(data);
+				}
+				catch (exc) {
+					ErrorHandler(exc, "Die Daten von >" + keyName + "< aus der Datenbank konnten nicht ausgewertet werden");
+				}
 			}
 			return data;
 		}
@@ -821,14 +803,14 @@ try {
 			functions = ({
 				lock: GM_Lock,
 				unlock: GM_Unlock,
-				getValue: GM_getValue,
+				getValue: GetData,
 				setValue: GM_setValue
 			});
 		}
 		else {
 			functions.lock = functions.lock || GM_Lock;
 			functions.unlock = functions.unlock || GM_Unlock;
-			functions.getValue = functions.getValue || GM_getValue;
+			functions.getValue = functions.getValue || GetData;
 			functions.setValue = functions.setValue || GM_setValue;
 		}
 		
@@ -1206,14 +1188,14 @@ try {
 					}), true);
 				
 				var errorList = ([]);
-				if (element["VideoObjectDictionary-Version"] !== GM_getValue("VideoObjectDictionary-Version")) {
-					errorList.push("Die Version vom VideoObjectDictionary passt nicht (Serverversion: " + element["VideoObjectDictionary-Version"] + ", lokale Version: " + GM_getValue("VideoObjectDictionary-Version") + ")");
+				if (element["VideoObjectDictionary-Version"] !== GetData("VideoObjectDictionary-Version")) {
+					errorList.push("Die Version vom VideoObjectDictionary passt nicht (Serverversion: " + element["VideoObjectDictionary-Version"] + ", lokale Version: " + GetData("VideoObjectDictionary-Version") + ")");
 				}
-				if (element["WatchedVideoArray-Version"] !== GM_getValue("WatchedVideoArray-Version")) {
-					errorList.push("Die Version vom WatchedVideoArray passt nicht (Serverversion: " + element["WatchedVideoArray-Version"] + ", lokale Version: " + GM_getValue("WatchedVideoArray-Version") + ")");
+				if (element["WatchedVideoArray-Version"] !== GetData("WatchedVideoArray-Version")) {
+					errorList.push("Die Version vom WatchedVideoArray passt nicht (Serverversion: " + element["WatchedVideoArray-Version"] + ", lokale Version: " + GetData("WatchedVideoArray-Version") + ")");
 				}
-				if (element["ScannedVideoArray-Version"] !== GM_getValue("ScannedVideoArray-Version")) {
-					errorList.push("Die Version vom ScannedVideoArray passt nicht (Serverversion: " + element["ScannedVideoArray-Version"] + ", lokale Version: " + GM_getValue("ScannedVideoArray-Version") + ")");
+				if (element["ScannedVideoArray-Version"] !== GetData("ScannedVideoArray-Version")) {
+					errorList.push("Die Version vom ScannedVideoArray passt nicht (Serverversion: " + element["ScannedVideoArray-Version"] + ", lokale Version: " + GetData("ScannedVideoArray-Version") + ")");
 				}
 				
 				var msg = "Das Importieren kann nicht durchgeführt werden, da:\r\n";
@@ -1256,9 +1238,9 @@ try {
 			}
 			
 			GM_Lock();
-			var videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
-			var watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
-			var scannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
+			var videoObjectDictionary = GetData("VideoObjectDictionary", "({})", true);
+			var watchedVideoArray = GetData("WatchedVideoArray", "([])", true);
+			var scannedVideoArray = GetData("ScannedVideoArray", "([])", true);
 			var count_vOD = 0;
 			var count_wVA = 0;
 			var count_sVA = 0;
@@ -1337,7 +1319,7 @@ try {
 		// If videoObjectDictionary is false ignore Elements from Dictionary (only check Elements from WatchedVideoArray)
 		if (videoObjectDictionary !== false) {
 			if (videoObjectDictionary === null) {
-				videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
+				videoObjectDictionary = GetData("VideoObjectDictionary", "({})", true);
 			}
 			if (videoObjectDictionary[VideoID] !== undefined) {
 				return true;
@@ -1347,7 +1329,7 @@ try {
 		// If watchedVideoArray is false ignore Elements from Array (only check Elements from VideoObjectDictionary)
 		if (watchedVideoArray !== false) {
 			if (watchedVideoArray === null || watchedVideoArray === undefined) {
-				watchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
+				watchedVideoArray = GetData("WatchedVideoArray", "([])", true);
 			}
 			if (watchedVideoArray.indexOf(VideoID) !== -1) {
 				console.info("found Video only in old Declarationtable");
@@ -1365,7 +1347,7 @@ try {
 		if (typeof(videoObject) !== "object") {throw "WrongTypeException:Only Objects can be Pushed into the Database."}
 		if (videoObjectDictionary === null) {
 			GM_Lock();
-			videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
+			videoObjectDictionary = GetData("VideoObjectDictionary", "({})", true);
 			save = true;
 		}
 		
@@ -1392,7 +1374,7 @@ try {
 	
 	function GetElementCount(videoObjectDictionary) {
 		if (videoObjectDictionary === null) {
-			videoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
+			videoObjectDictionary = GetData("VideoObjectDictionary", "({})", true);
 		}
 		var count = 0;
 		for (var i in videoObjectDictionary) {
@@ -1632,12 +1614,12 @@ try {
 				Feedback.showProgress(75, "Neue Daten auf dem Server speichern");
 				
 				var element = ({});
-				element.WatchedVideoArray = eval(GM_getValue("WatchedVideoArray") || "([])");
-				element.ScannedVideoArray = eval(GM_getValue("ScannedVideoArray") || "([])");
-				element.VideoObjectDictionary = eval(GM_getValue("VideoObjectDictionary") || "({})");
-				element["VideoObjectDictionary-Version"] = eval(GM_getValue("VideoObjectDictionary-Version") || 0);
-				element["WatchedVideoArray-Version"] = eval(GM_getValue("WatchedVideoArray-Version") || 0);
-				element["ScannedVideoArray-Version"] = eval(GM_getValue("ScannedVideoArray-Version") || 0);
+				element.WatchedVideoArray = GetData("WatchedVideoArray", "([])", true);
+				element.ScannedVideoArray = GetData("ScannedVideoArray", "([])", true);
+				element.VideoObjectDictionary = GetData("VideoObjectDictionary", "({})", true);
+				element["VideoObjectDictionary-Version"] = GetData("VideoObjectDictionary-Version", 0, true);
+				element["WatchedVideoArray-Version"] = GetData("WatchedVideoArray-Version", 0, true);
+				element["ScannedVideoArray-Version"] = GetData("ScannedVideoArray-Version", 0, true);
 				GM_xmlhttpRequest({
 					data: {Token:Token, data:element.toSource()}.toSource(),
 					method: "POST",
