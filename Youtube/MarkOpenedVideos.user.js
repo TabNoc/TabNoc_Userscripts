@@ -754,7 +754,7 @@ try {
 			}
 			
 			if (TabNoc.Settings.Debug === true) {
-				console.log("GetData(" + keyName + ", " + defaultValue + ", " + evalValue + ") -> " + data);
+				// console.log("GetData(" + keyName + ", " + defaultValue + ", " + evalValue + ") -> " + data);
 			}
 			
 			if (TabNoc.Variables.Data[keyName] == null) {
@@ -763,6 +763,10 @@ try {
 				
 				TabNoc.Variables.Data[keyName][time] = data;
 				TabNoc.Variables.Data[keyName].latest = time;
+				
+				if (TabNoc.Settings.Debug === true) {
+					console.log("Der Eintrag ([" + keyName + "][" + time + "]) in TabNoc.Variables.Data wurde initialisiert!");
+				}
 			}
 			else if (TabNoc.Variables.Data[keyName][TabNoc.Variables.Data[keyName].latest] != data) {
 				var time = (new Date).getTime();
@@ -1729,3 +1733,100 @@ catch (exc) {
 	ErrorHandler(exc, "Exception in UserScript");
 }
 
+
+	    $( "#color" ).selectmenu({
+       change: function( event, data ) {
+         circle.css( "background", data.item.value );
+       }
+     });
+	 
+	 
+	 
+	 $( ".selector" ).dialog({
+  close: function( event, ui ) {}
+});
+
+  $( function() {
+    $( "#tabs" ).tabs();
+  } );
+
+
+function CreateHistoryDialog(data) {
+	$("#HistoryDialog").remove();
+	$("<div />").attr("id", "HistoryDialog").attr("title", "Historie").appendTo("body");
+	
+	var s = "<div id=\"HistoryDialogTabs\"><ul>";
+	for (var i = 0; i < ElementArray; i++) {
+		s += "<li><a href=\"#HistoryDialogTab-" + i + "\">" + TODO_ToDate(ElementArray[i]) + "</a></li>";
+	}
+	s += "</ul>";
+	
+	for (var i = 0; i < ElementArray; i++) {
+		//TODO:Check i has to be a different Element each time
+		s += "<div id=\"HistoryDialogTab" + i + "\">"
+
+		s += "<label for=\"HistoryData-" + i + "\">Historien-Elemente</label><select name=\"HistoryData-" + i + "\" id=\"HistoryDataSelector-" + i + "\"><option value=\"" + TODO_Latest + "\" selected=\"selected\">Aktuelle Daten</option>";
+		for (var j = 0; j < ElementArray.length; i++) {
+			s += "<option value=\"" + j + "\">" + ElementArray[j] + "</option>";
+		}
+		s += "</select>";
+
+		s += "</div>";
+	}
+	s += "</div>";
+	
+	$(s).appendTo("#HistoryDialog");
+	
+	
+	$("#HistoryDialogTabs").tabs();
+}
+
+function GetData(keyName, defaultValue, evalValue) {
+	try {
+		var data = GM_getValue(keyName);
+		
+		if (data === null || data === "") {
+			data = defaultValue || null;
+		}
+		
+		if (TabNoc.Settings.Debug === true) {
+			// console.log("GetData(" + keyName + ", " + defaultValue + ", " + evalValue + ") -> " + data);
+		}
+		
+		if (TabNoc.Variables.Data[keyName] == null) {
+			TabNoc.Variables.Data[keyName] = ({});
+			var time = (new Date).getTime();
+			
+			TabNoc.Variables.Data[keyName][time] = data;
+			TabNoc.Variables.Data[keyName].latest = time;
+			
+			if (TabNoc.Settings.Debug === true) {
+				console.log("Der Eintrag ([" + keyName + "][" + time + "]) in TabNoc.Variables.Data wurde initialisiert!");
+			}
+		}
+		else if (TabNoc.Variables.Data[keyName][TabNoc.Variables.Data[keyName].latest] != data) {
+			var time = (new Date).getTime();
+			
+			TabNoc.Variables.Data[keyName][time] = data;
+			TabNoc.Variables.Data[keyName].latest = time;
+			
+			if (TabNoc.Settings.Debug === true) {
+				console.log("Es wurde ein neuer Eintrag in TabNoc.Variables.Data eingefügt ([" + keyName + "][" + time + "])");
+			}
+		}
+		
+		if (evalValue === true) {
+			try {
+				data = eval(data);
+			}
+			catch (exc) {
+				ErrorHandler(exc, "Die Daten von >" + keyName + "< aus der Datenbank konnten nicht ausgewertet werden");
+			}
+		}
+		return data;
+	}
+	catch (exc) {
+		ErrorHandler(exc);
+		throw exc;
+	}
+}
