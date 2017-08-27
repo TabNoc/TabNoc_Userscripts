@@ -301,6 +301,7 @@ try {
 	}
 
 	function startCheckElements(ToggleState, force) {
+		var start = new Date().getTime();
 		if (document.hidden === false || force === true) {
 			// ### ScannedVideoArray ###
 			scannedVideoArray = GetData("ScannedVideoArray", "([])", true);
@@ -320,13 +321,17 @@ try {
 					TabNoc.Variables.lastCheckVideoIdAmount !== scannedVideoArray.length || 
 					TabNoc.Variables.lastCheckWatchedVideoAmount !== watchedVideoArray.length ||
 					TabNoc.Variables.lastCheckVideoObjectAmount !== GetElementCount(videoObjectDictionary)) {
-				execTime(checkElements, watchedVideoArray.reverse(), scannedVideoArray.reverse(), videoObjectDictionary, elements, ToggleState);
+				checkElements(watchedVideoArray.reverse(), scannedVideoArray.reverse(), videoObjectDictionary, elements, ToggleState);
 				
 				TabNoc.Variables.lastCheckVideoIdAmount = scannedVideoArray.length;
 				TabNoc.Variables.lastCheckWatchedVideoAmount = watchedVideoArray.length;
 				TabNoc.Variables.lastCheckVideoObjectAmount = GetElementCount(videoObjectDictionary);
 				TabNoc.Variables.lastCheckItemCount = elements.length;
 			}
+		}
+		var time = new Date().getTime() - start;
+		if (time > 50) {
+			console.log('startCheckElements() Execution time: ' + time);
 		}
 	}
 
@@ -1140,6 +1145,7 @@ try {
 									count2++;
 								}
 								else if (isNaN(new Date(videoObjectDictionary[i].Watches[j].Date).getTime()) === true) {
+									console.error(videoObjectDictionary[i].Watches[j].Date);
 									throw new Error("Es wurde ein defektes Datum gefunden, hier geht es nicht weiter\r\nMich bitte Informieren");
 								}
 								count++;
@@ -1658,11 +1664,68 @@ try {
 		Feedback.showProgress(30, "Warte auf Rückmeldung vom Server");
 	}
 	
+	function CreateHistoryDialog(data) {
+		$("#HistoryDialog").remove();
+		$("<div />").attr("id", "HistoryDialog").attr("title", "Historie").appendTo("body");
+		
+		var i = 0;
+		var s = "<div id=\"HistoryDialogTabs\"><ul>";
+		for (var keyName in data) {
+			i++;
+			s += "<li><a href=\"#HistoryDialogTab-" + i + "\">" + keyName + "</a></li>";
+		}
+		s += "</ul>";
+		
+		i = 0;
+		for (var keyName in data) {
+			i++;
+			s += "<div id=\"HistoryDialogTab-" + i + "\">"
+
+			s += "<label for=\"HistoryData-" + i + "\">Historien-Elemente</label>" +
+			"<select name=\"HistoryData-" + i + "\" id=\"HistoryDataSelector-" + i + "\">" + 
+			"<option value=\"" + data[keyName].latest + "\" selected=\"selected\">Aktuelle Daten (" + new Date(data[keyName].latest).toLocaleString() + ")</option>"
+			;
+			for (var time in data[keyName]) {
+				if (time.toString() === "latest" || time.toString() === data[keyName].latest.toString()) {continue;}
+				s += "<option value=\"" + time + "\">" + new Date(parseInt(time)).toLocaleString() + "</option>";
+			}
+			s += "</select>";
+
+			s += "</div>";
+		}
+		s += "</div>";
+		
+		console.log(s);
+		$(s).appendTo("#HistoryDialog");
+		
+		$( "#HistoryDialog" ).dialog({
+		  close: function( event, ui ) {console.log("close", event, ui);$("#HistoryDialog").parentNode().remove();}
+		});
+		
+		$("#HistoryDialogTabs").tabs();
+		
+		i = 0;
+		for (var keyName in data) {
+			i++;
+			
+			$("#HistoryData-" + i).selectmenu({
+				change: function( event, data ) {
+					console.info(event);
+					console.info(data);
+				}
+			});
+		}
+	}
+
 	function Main() {
 		if (document.URL.contains("feature=youtu.be")) {
 			console.info("URL contains feature=youtu.be, skipping execution");
 			return;
 		}
+		
+		exportFunction(function () {CreateHistoryDialog(TabNoc.Variables.Data);}, unsafeWindow, {
+			defineAs: "ImaginaryCaller"
+		});
 		
 		var count = 0;
 		while (GM_Locked() == true) {
@@ -1733,100 +1796,3 @@ catch (exc) {
 	ErrorHandler(exc, "Exception in UserScript");
 }
 
-
-	    $( "#color" ).selectmenu({
-       change: function( event, data ) {
-         circle.css( "background", data.item.value );
-       }
-     });
-	 
-	 
-	 
-	 $( ".selector" ).dialog({
-  close: function( event, ui ) {}
-});
-
-  $( function() {
-    $( "#tabs" ).tabs();
-  } );
-
-
-function CreateHistoryDialog(data) {
-	$("#HistoryDialog").remove();
-	$("<div />").attr("id", "HistoryDialog").attr("title", "Historie").appendTo("body");
-	
-	var s = "<div id=\"HistoryDialogTabs\"><ul>";
-	for (var i = 0; i < ElementArray; i++) {
-		s += "<li><a href=\"#HistoryDialogTab-" + i + "\">" + TODO_ToDate(ElementArray[i]) + "</a></li>";
-	}
-	s += "</ul>";
-	
-	for (var i = 0; i < ElementArray; i++) {
-		//TODO:Check i has to be a different Element each time
-		s += "<div id=\"HistoryDialogTab" + i + "\">"
-
-		s += "<label for=\"HistoryData-" + i + "\">Historien-Elemente</label><select name=\"HistoryData-" + i + "\" id=\"HistoryDataSelector-" + i + "\"><option value=\"" + TODO_Latest + "\" selected=\"selected\">Aktuelle Daten</option>";
-		for (var j = 0; j < ElementArray.length; i++) {
-			s += "<option value=\"" + j + "\">" + ElementArray[j] + "</option>";
-		}
-		s += "</select>";
-
-		s += "</div>";
-	}
-	s += "</div>";
-	
-	$(s).appendTo("#HistoryDialog");
-	
-	
-	$("#HistoryDialogTabs").tabs();
-}
-
-function GetData(keyName, defaultValue, evalValue) {
-	try {
-		var data = GM_getValue(keyName);
-		
-		if (data === null || data === "") {
-			data = defaultValue || null;
-		}
-		
-		if (TabNoc.Settings.Debug === true) {
-			// console.log("GetData(" + keyName + ", " + defaultValue + ", " + evalValue + ") -> " + data);
-		}
-		
-		if (TabNoc.Variables.Data[keyName] == null) {
-			TabNoc.Variables.Data[keyName] = ({});
-			var time = (new Date).getTime();
-			
-			TabNoc.Variables.Data[keyName][time] = data;
-			TabNoc.Variables.Data[keyName].latest = time;
-			
-			if (TabNoc.Settings.Debug === true) {
-				console.log("Der Eintrag ([" + keyName + "][" + time + "]) in TabNoc.Variables.Data wurde initialisiert!");
-			}
-		}
-		else if (TabNoc.Variables.Data[keyName][TabNoc.Variables.Data[keyName].latest] != data) {
-			var time = (new Date).getTime();
-			
-			TabNoc.Variables.Data[keyName][time] = data;
-			TabNoc.Variables.Data[keyName].latest = time;
-			
-			if (TabNoc.Settings.Debug === true) {
-				console.log("Es wurde ein neuer Eintrag in TabNoc.Variables.Data eingefügt ([" + keyName + "][" + time + "])");
-			}
-		}
-		
-		if (evalValue === true) {
-			try {
-				data = eval(data);
-			}
-			catch (exc) {
-				ErrorHandler(exc, "Die Daten von >" + keyName + "< aus der Datenbank konnten nicht ausgewertet werden");
-			}
-		}
-		return data;
-	}
-	catch (exc) {
-		ErrorHandler(exc);
-		throw exc;
-	}
-}
