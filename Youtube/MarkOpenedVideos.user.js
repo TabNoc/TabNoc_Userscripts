@@ -2,7 +2,7 @@
 // @name        MarkOpenedVideos
 // @namespace   TabNoc
 // @include     https://www.youtube.com/feed/subscriptions*
-// @include     https://www.youtube.com/user/*/videos*
+// @include     https://www.youtube.com/user/*
 // @include     https://www.youtube.com/channel/*
 // @include     https://www.youtube.com/channel/*/videos*
 // @include     https://www.youtube.com/channel/*/featured*
@@ -10,7 +10,7 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.2.9_21082017
+// @version     2.3.0_01092017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -139,6 +139,16 @@ fixed:	- fixed StyleChanges from Youtube
 
 21.08.2017 - 2.2.9
 	added:		- width changer now supports 850px content width
+
+01.09.2017 - 2.3.0
+	added:		- compatibility with new YoutubeLayout
+	added:		- generic Database SetData/GetData
+	added:		- Incomplete HistoryDataDialog
+	added.		- UpdateDataBase now uses dynamic Functions and can be silent(currently disabled)
+	added:		- UpdateDataBase hat nun mehr User interaktion
+	added:		- UpdateDataBase Backup der alten Version ist nun mit abfragen gesichert
+	added:		- Es ist nun möglich Import-Vorgänge abzubrechen
+	
 */
 
 try {
@@ -170,7 +180,7 @@ try {
 			SavingEnabled: true,
 			TimerInterval: 5000,
 			UninterestingVideos: (["Recht für YouTuber:"]),
-			NotWantedVideos: (["Arumba Plays DOTA", "Europa Universalis IV", "Let's Play Crusader Kings 2", "Challenge WBS:", "Let's Play Civilization VI", "Let's Play Galactic Civilizations 3", "The Binding of Isaac ", "Civilization 6", "Endless Space", "Galactic Cililisations 3", "Civilization V", "Let's Play Stellaris", "SPAZ2", "EU4", "Factorio S7E"]),
+			NotWantedVideos: (["Arumba Plays DOTA", "Europa Universalis IV", "Let's Play Crusader Kings 2", "Challenge WBS", "Let's Play Civilization VI", "Let's Play Galactic Civilizations 3", "The Binding of Isaac ", "Civilization 6", "Endless Space", "Galactic Cililisations 3", "Civilization V", "Let's Play Stellaris", "SPAZ2", "EU4", "Factorio S7E"]),
 			DeleteNotWantedVideos: false,
 			HideAlreadyWatchedVideos: false,
 			ShowAlreadyWatchedDialog: true,
@@ -311,7 +321,7 @@ try {
 			videoObjectDictionary = GetData("VideoObjectDictionary", "({})", true);
 			
 			if (TabNoc.Variables.NewYoutubeLayout === true) {
-				var elements = $("ytd-grid-video-renderer,ytd-video-renderer");
+				var elements = $("ytd-grid-video-renderer,ytd-video-renderer,ytd-compact-video-renderer,.ytp-videowall-still");
 			}
 			else {
 				var elements = TabNoc.Variables.MultiRow ? $(".yt-shelf-grid-item") : $(".item-section");
@@ -370,18 +380,33 @@ try {
 		console.log(String.format("Found {0} Elements ({1} Marked Elements | {2} UnMarked Elements) [{3} Scanned Videos | {4} Watched Videos | {5} Watched Videos(old)]", elements.length, elements.length - UnScannedElements, UnScannedElements, scannedVideoArray.length, Object.keys(videoObjectDictionary).length, watchedVideoArray.length));
 	}
 
+	//TODO: die elemente der videoWall auslagern in eine eigene methode, da diese nur dann ausgeführt werden muss, wenn das Video vorbei ist (momentan wird startCheckElements geforced aufgerufen)
 	function checkElement(watchedVideoArray, scannedVideoArray, videoObjectDictionary, currentElement, ToggleState) {
 		//return true if checkedElement is already Scanned
 		if (TabNoc.Variables.NewYoutubeLayout) {
-			var VideoID = $(currentElement).find("#thumbnail")[0].getAttribute("href").replace("/watch?v=", "").split("&list")[0].split("&t=")[0];
+			if (currentElement.className.contains("ytp-videowall-still")) {
+				var VideoID = currentElement.getAttribute("href");
+				if (VideoID.contains("watch?list=")) {
+					return false;
+				}
+				var infoElement = $(currentElement);
+			}
+			else {
+				var infoElement = $(currentElement).find("#video-title");
+				
+				var VideoID = $(currentElement).find("#thumbnail").attr("href");
+				infoElement.attr("title", infoElement.attr("aria-label").replace("Minuten,", "Minuten"));
+			}
 		}
 		else {
-			var VideoID = $(currentElement).find("." + (TabNoc.Variables.MultiRow ? "yt-uix-sessionlink" : "yt-uix-tile-link"))[0].getAttribute("href").replace("/watch?v=", "").split("&list")[0].split("&t=")[0];
+			var VideoID = $(currentElement).find("." + (TabNoc.Variables.MultiRow ? "yt-uix-sessionlink" : "yt-uix-tile-link")).attr("href");
 		}
+		
+		VideoID = VideoID.replace("https://www.youtube.com", "").replace("/watch?v=", "").split("&list")[0].split("&t=")[0]
 		
 		var setColor = function(color) {
 			$(currentElement).css("background-color", color);
-			if (TabNoc.Variables.NewYoutubeLayout != true) {
+			if (TabNoc.Variables.NewYoutubeLayout == false) {
 				if (TabNoc.Variables.MultiRow) {
 					$(currentElement).find(".yt-lockup-title, .yt-uix-sessionlink, .yt-lockup-byline").css("background-color", color);//yt-lockup-byline yt-uix-sessionlink yt-lockup-title
 				}
@@ -389,12 +414,19 @@ try {
 					$(currentElement).find(".yt-uix-tile-link, .yt-lockup-description").css("background-color", color);
 				}
 			}
+			else if (currentElement.className.contains("ytp-videowall-still")) {
+				currentElement.children[0].style.backgroundImage = "linear-gradient(rgba(166, 235, 158, 0.45), rgba(166, 235, 158, 0.45)), " + currentElement.children[0].style.backgroundImage;
+			}
 		};
 		
-		currentElement.style.borderRadius = "15px";
-		currentElement.style.border = "1px solid #ddd";
-		currentElement.style.padding = "5px";
-		currentElement.style.minHeight = "187px";
+		
+		
+		if (!currentElement.className.contains("ytp-videowall-still")) {
+			currentElement.style.borderRadius = "15px";
+			currentElement.style.border = "1px solid #ddd";
+			currentElement.style.padding = "5px";
+			// currentElement.style.minHeight = "187px";
+		}
 		
 		if (ToggleState === true) {
 			if (GetVideoWatched(scannedVideoArray, false, VideoID)) {
@@ -418,7 +450,7 @@ try {
 		
 		for (var i = 0; i < TabNoc.Settings.UninterestingVideos.length; i++) {
 			if (TabNoc.Variables.NewYoutubeLayout) {
-				if ($(currentElement).find("#video-title")[0].textContent.includes(TabNoc.Settings.UninterestingVideos[i])) {
+				if (infoElement[0].textContent.includes(TabNoc.Settings.UninterestingVideos[i])) {
 					setColor("rgb(255, 175, 175)");
 				}
 			}
@@ -430,7 +462,7 @@ try {
 		}
 		for (var i = 0; i < TabNoc.Settings.NotWantedVideos.length; i++) {
 			if (TabNoc.Variables.NewYoutubeLayout) {
-				if ($(currentElement).find("#video-title")[0].textContent.includes(TabNoc.Settings.NotWantedVideos[i])) {
+				if (infoElement[0].textContent.includes(TabNoc.Settings.NotWantedVideos[i])) {
 					//disableVideo 
 					if (TabNoc.Settings.DeleteNotWantedVideos === true) {
 						$(currentElement).remove();
@@ -438,6 +470,7 @@ try {
 					else {
 						currentElement.style.display = "none";
 					}
+					break;
 				}
 			}
 			else {
@@ -449,6 +482,7 @@ try {
 					else {
 						currentElement.style.display = "none";
 					}
+					break;
 				}
 			}
 		}
@@ -490,7 +524,7 @@ try {
 				}
 			}
 
-			GM_setValueLocked("ScannedVideoArray", scannedVideoArray.toSource());
+			SetData("ScannedVideoArray", scannedVideoArray.toSource(), true);
 			GM_Unlock();
 			
 			startCheckElements(true);
@@ -527,6 +561,11 @@ try {
 			
 			document.body.onbeforeunload = function() {SaveVideoStatistics();}
 			
+			if (TabNoc.Variables.NewYoutubeLayout) {
+				TabNoc.Variables.checkElementsInterval = setInterval(returnExec(function () {
+					startCheckElements(TabNoc.Variables.MarkToggleState);
+				}), TabNoc.Settings.TimerInterval);
+			}
 			WatchingVideo();
 			
 			console.log("MarkOpenedVideos.user.js done");
@@ -567,7 +606,9 @@ try {
 			if ($("#watch-more-related-button").length > 0) {
 				$("#watch-more-related-button")[0].onclick = function() {setTimeout(MarkWatchedVideos, 1000);return false;}
 			}
-			MarkWatchedVideos();
+			if (!TabNoc.Variables.NewYoutubeLayout) {
+				MarkWatchedVideos();
+			}
 			
 			TabNoc.Variables.WatchedLength = 0;
 			TabNoc.Variables.HasSavedDataOnEnd = false;
@@ -583,6 +624,7 @@ try {
 		}
 	}
 	
+	/*OBSELETE*/
 	function MarkWatchedVideos() {
 		var start = new Date().getTime();
 		
@@ -650,7 +692,13 @@ try {
 			if (unsafeWindow.document.getElementById("movie_player").getPlayerState() == 0 && TabNoc.Variables.HasSavedDataOnEnd === false) {
 				console.info("PlayerID: " + unsafeWindow.document.getElementById("movie_player").getVideoData().video_id + "; intern ID: " + eval(TabNoc.Variables.VideoStatisticsObject).VideoID + ": finished Video, now Saving an Marking")
 				SaveVideoStatistics();
-				MarkWatchedVideos();
+				
+				if (TabNoc.Variables.NewYoutubeLayout) {
+					startCheckElements(true, true);
+				}
+				else {
+					MarkWatchedVideos();
+				}
 				TabNoc.Variables.HasSavedDataOnEnd = true;
 			}
 			if (TabNoc.Variables.WatchedLength % 15 === 1) {
@@ -661,7 +709,9 @@ try {
 			// check Fullscreen state Change
 			if ((document.mozFullScreenElement == null && TabNoc.Variables.LastFullScreenElement != null) || 
 				 (document.mozFullScreenElement != null && (document.mozFullScreenElement.getAttribute("id") != TabNoc.Variables.LastFullScreenElement))) {
-				setTimeout(MarkWatchedVideos, 1000);
+				if (!TabNoc.Variables.NewYoutubeLayout) {
+					setTimeout(MarkWatchedVideos, 1000);
+				}
 				TabNoc.Variables.LastFullScreenElement = document.mozFullScreenElement && document.mozFullScreenElement.getAttribute("id");
 			}
 			
@@ -695,6 +745,7 @@ try {
 	
 	function SaveVideoStatistics(){
 		if (TabNoc.Settings.Debug === true) {
+			console.groupCollapsed("SaveVideoStatistics");
 			console.log("SaveVideoStatistics()->" + TabNoc.Variables.VideoStatisticsObject);
 		}
 		if (TabNoc.Variables.VideoStatisticsObject == null){return false;}
@@ -703,6 +754,10 @@ try {
 			VideoStatisticsObject.Watches[VideoStatisticsObject.Watches.length - 1].WatchedLength = TabNoc.Variables.WatchedLength;
 			
 			PushVideoObject(null, eval(VideoStatisticsObject.toSource()), true);
+			
+			if (TabNoc.Settings.Debug === true) {
+				console.groupEnd();
+			}
 		} catch (exc) {
 			console.error(exc);
 			alert(exc);
@@ -712,6 +767,7 @@ try {
 
 	// ### https://www.youtube.com/feed/history ### 
 	// ### https://www.youtube.com/results?* ### 
+	/* OBSELETE */
 	function SearchResultLoader() {
 		console.log("MarkOpenedVideos.user.js loading [SearchResultLoader]");
 		try {
@@ -724,6 +780,7 @@ try {
 		}
 	}
 	
+	/* OBSELETE */
 	function MarkSearchResults() {
 		var setColor = function(checkElement, color) {
 			$(checkElement).css("background-color", color);
@@ -762,25 +819,27 @@ try {
 				// console.log("GetData(" + keyName + ", " + defaultValue + ", " + evalValue + ") -> " + data);
 			}
 			
-			if (TabNoc.Variables.Data[keyName] == null) {
-				TabNoc.Variables.Data[keyName] = ({});
-				var time = (new Date).getTime();
-				
-				TabNoc.Variables.Data[keyName][time] = data;
-				TabNoc.Variables.Data[keyName].latest = time;
-				
-				if (TabNoc.Settings.Debug === true) {
-					console.log("Der Eintrag ([" + keyName + "][" + time + "]) in TabNoc.Variables.Data wurde initialisiert!");
+			if (document.URL === "https://www.youtube.com/feed/subscriptions") {
+				if (TabNoc.Variables.Data[keyName] == null) {
+					TabNoc.Variables.Data[keyName] = ({});
+					var time = (new Date).getTime();
+					
+					TabNoc.Variables.Data[keyName][time] = data;
+					TabNoc.Variables.Data[keyName].latest = time;
+					
+					if (TabNoc.Settings.Debug === true) {
+						console.log("Der Eintrag ([" + keyName + "][" + time + "]) in TabNoc.Variables.Data wurde initialisiert!");
+					}
 				}
-			}
-			else if (TabNoc.Variables.Data[keyName][TabNoc.Variables.Data[keyName].latest] != data) {
-				var time = (new Date).getTime();
-				
-				TabNoc.Variables.Data[keyName][time] = data;
-				TabNoc.Variables.Data[keyName].latest = time;
-				
-				if (TabNoc.Settings.Debug === true) {
-					console.log("Es wurde ein neuer Eintrag in TabNoc.Variables.Data eingefügt ([" + keyName + "][" + time + "])");
+				else if (TabNoc.Variables.Data[keyName][TabNoc.Variables.Data[keyName].latest] != data) {
+					var time = (new Date).getTime();
+					
+					TabNoc.Variables.Data[keyName][time] = data;
+					TabNoc.Variables.Data[keyName].latest = time;
+					
+					if (TabNoc.Settings.Debug === true) {
+						console.log("Es wurde ein neuer Eintrag in TabNoc.Variables.Data eingefügt ([" + keyName + "][" + time + "])");
+					}
 				}
 			}
 			
@@ -793,6 +852,49 @@ try {
 				}
 			}
 			return data;
+		}
+		catch (exc) {
+			ErrorHandler(exc);
+			throw exc;
+		}
+	}
+	
+	function SetData(keyName, value, locked, disableValueHistory) {
+		try {
+			if (locked == true) {
+				GM_setValue(keyName, value);
+			}
+			else {
+				GM_setValueLocked(keyName, value);
+			}
+			
+			if (TabNoc.Settings.Debug === true) {
+				// console.log("SetData(" + keyName + ", " + defaultValue + ", " + locked + ", " + disableValueHistory + ")");
+			}
+			
+			if (disableValueHistory !== true) {
+				if (TabNoc.Variables.Data[keyName] == null) {
+					TabNoc.Variables.Data[keyName] = ({});
+					var time = (new Date).getTime();
+					
+					TabNoc.Variables.Data[keyName][time] = value;
+					TabNoc.Variables.Data[keyName].latest = time;
+					
+					if (TabNoc.Settings.Debug === true) {
+						console.log("Der Eintrag ([" + keyName + "][" + time + "]) in TabNoc.Variables.Data wurde initialisiert!");
+					}
+				}
+				else if (TabNoc.Variables.Data[keyName][TabNoc.Variables.Data[keyName].latest] != value) {
+					var time = (new Date).getTime();
+					
+					TabNoc.Variables.Data[keyName][time] = value;
+					TabNoc.Variables.Data[keyName].latest = time;
+					
+					if (TabNoc.Settings.Debug === true) {
+						console.log("Es wurde ein neuer Eintrag in TabNoc.Variables.Data eingefügt ([" + keyName + "][" + time + "])");
+					}
+				}
+			}
 		}
 		catch (exc) {
 			ErrorHandler(exc);
@@ -813,14 +915,14 @@ try {
 				lock: GM_Lock,
 				unlock: GM_Unlock,
 				getValue: GetData,
-				setValue: GM_setValue
+				setValue: SetData
 			});
 		}
 		else {
 			functions.lock = functions.lock || GM_Lock;
 			functions.unlock = functions.unlock || GM_Unlock;
 			functions.getValue = functions.getValue || GetData;
-			functions.setValue = functions.setValue || GM_setValue;
+			functions.setValue = functions.setValue || SetData;
 		}
 		
 		var CurrentVersion_WatchedVideoArray = 0;
@@ -1311,9 +1413,9 @@ try {
 			}
 			else {
 				if (confirm("Sollen die Änderungen gespeichert werden?") === true) {
-					GM_setValueLocked("VideoObjectDictionary", newObject.toSource());
-					GM_setValueLocked("WatchedVideoArray", newWatchedStructure.toSource());
-					GM_setValueLocked("ScannedVideoArray", newScannedStructure.toSource());
+					SetData("VideoObjectDictionary", newObject.toSource(), true);
+					SetData("WatchedVideoArray", newWatchedStructure.toSource(), true);
+					SetData("ScannedVideoArray", newScannedStructure.toSource(), true);
 				}
 			}
 			GM_Unlock();
@@ -1375,7 +1477,7 @@ try {
 		}
 		
 		if (save === true) {
-			GM_setValueLocked("VideoObjectDictionary", videoObjectDictionary.toSource());
+			SetData("VideoObjectDictionary", videoObjectDictionary.toSource(), true, true);
 			GM_Unlock();
 		}
 		
@@ -1671,6 +1773,7 @@ try {
 		var i = 0;
 		var s = "<div id=\"HistoryDialogTabs\"><ul>";
 		for (var keyName in data) {
+			if (keyName.contains("-Version")) continue
 			i++;
 			s += "<li><a href=\"#HistoryDialogTab-" + i + "\">" + keyName + "</a></li>";
 		}
@@ -1678,16 +1781,15 @@ try {
 		
 		i = 0;
 		for (var keyName in data) {
+			if (keyName.contains("-Version")) continue
 			i++;
 			s += "<div id=\"HistoryDialogTab-" + i + "\">"
 
-			s += "<label for=\"HistoryData-" + i + "\">Historien-Elemente</label>" +
-			"<select name=\"HistoryData-" + i + "\" id=\"HistoryDataSelector-" + i + "\">" + 
-			"<option value=\"" + data[keyName].latest + "\" selected=\"selected\">Aktuelle Daten (" + new Date(data[keyName].latest).toLocaleString() + ")</option>"
-			;
+			s += "<label for=\"HistoryData-" + i + "\">Historien-Elemente</label><select name=\"HistoryData-" + i + "\" id=\"HistoryDataSelector-" + i + "\"><option historyGroup=\"" + keyName + "\" value=\"" + data[keyName].latest + "\" selected=\"selected\">Aktuelle Daten (" + new Date(data[keyName].latest).toLocaleString() + ")</option>"+
+			"<option historyGroup=\"" + keyName + "\" value=\"" + data[keyName].latest + "\">Aktuelle Daten (" + new Date(data[keyName].latest).toLocaleString() + ")</option>";
 			for (var time in data[keyName]) {
 				if (time.toString() === "latest" || time.toString() === data[keyName].latest.toString()) {continue;}
-				s += "<option value=\"" + time + "\">" + new Date(parseInt(time)).toLocaleString() + "</option>";
+				s += "<option historyGroup=\"" + keyName + "\" value=\"" + time + "\">" + new Date(parseInt(time)).toLocaleString() + "</option>";
 			}
 			s += "</select>";
 
@@ -1702,17 +1804,22 @@ try {
 		  close: function( event, ui ) {console.log("close", event, ui);$("#HistoryDialog").parentNode().remove();}
 		});
 		
-		$("#HistoryDialogTabs").tabs();
+		console.log($("#HistoryDialogTabs").tabs());
 		
 		i = 0;
 		for (var keyName in data) {
 			i++;
 			
-			$("#HistoryData-" + i).selectmenu({
-				change: function( event, data ) {
+			$("#HistoryDataSelector-" + i).selectmenu({
+				change: returnExec(function( event, data ) {
 					console.info(event);
 					console.info(data);
-				}
+					
+					console.log(TabNoc.Variables.Data[data.item.element[0].getAttribute("historyGroup")]);
+					console.log(TabNoc.Variables.Data[parseInt(data.item.element[0].getAttribute("historyGroup"))]);
+					console.log(data.item.value);
+					alert(data.item.value + ": " + TabNoc.Variables.Data[data.item.element[0].getAttribute("historyGroup")][data.item.value].length);
+				})
 			});
 		}
 	}
@@ -1722,6 +1829,44 @@ try {
 			console.info("URL contains feature=youtu.be, skipping execution");
 			return;
 		}
+		
+		// if (.length == 0) {
+			// if (TabNoc.Variables.LayoutExecutionCount == null) {
+				// TabNoc.Variables.LayoutExecutionCount = 0;
+			// }
+			// console.log(2, TabNoc.Variables.LayoutExecutionCount);
+			// if (TabNoc.Variables.LayoutExecutionCount <= 5 || TabNoc.Variables.LayoutExecutionCount == null) {
+				// console.log(3);
+				// if (TabNoc.Variables.LayoutExecutionInterval == null) {
+					// console.log(4);
+					// TabNoc.Variables.LayoutExecutionInterval = setInterval(Main, 50);
+				// }
+				// else {
+					// if (TabNoc.Variables.LayoutExecutionCount >= 6) {
+						// console.log(45);
+						// return;
+					// }
+					// TabNoc.Variables.LayoutExecutionCount++;
+				// }
+				// console.log(5);
+				// return;
+			// }
+			// else {
+				// console.log(6);
+				// TabNoc.Variables.NewYoutubeLayout = false;
+				// console.info("OldYoutubeLayout found!");
+			// }
+			// console.log(7);
+		// }
+		// else {
+			// console.log(8);
+			// TabNoc.Variables.NewYoutubeLayout = true;
+			// console.info("NewYoutubeLayout found!");
+		// }
+		// console.log(9);
+		// TabNoc.Variables.LayoutExecutionCount++;
+		// clearInterval(TabNoc.Variables.LayoutExecutionInterval);
+		
 		
 		exportFunction(function () {CreateHistoryDialog(TabNoc.Variables.Data);}, unsafeWindow, {
 			defineAs: "ImaginaryCaller"
@@ -1743,9 +1888,12 @@ try {
 		GM_addStyle(GM_getResourceText("JqueryUI"));
 		UpdateDataBase();
 		
-		if ($("ytd-page-manager").length != 0) {
+		if ($("ytd-app,.ytp-red2").length != 0) {
 			TabNoc.Variables.NewYoutubeLayout = true;
 			console.info("NewYoutubeLayout found!");
+		} else {
+			TabNoc.Variables.NewYoutubeLayout = false;
+			console.info("OldYoutubeLayout found!");
 		}
 		
 		if (TabNoc.Variables.NewYoutubeLayout) {
@@ -1755,11 +1903,11 @@ try {
 				$(SearchResultLoader);
 			}
 			// Watching Video
-			else if ($("#placeholder-player").length == 1) {
+			else if ($("#movie_player").length == 1) {
 				$(VideoPageLoader);
 			}
 			// SubscriptionPage
-			else if ($("ytd-grid-renderer").length >= 1 || $("ytd-video-renderer").length >= 1) {
+			else if ($("ytd-grid-renderer").length >= 1 || $("ytd-video-renderer").length >= 1 || $("ytd-grid-video-renderer").length >= 1) {
 				$(SubscriptionPageLoader);
 			}
 			else {
