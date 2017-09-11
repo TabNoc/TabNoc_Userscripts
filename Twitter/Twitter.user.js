@@ -3,7 +3,7 @@
 // @namespace   TabNoc
 // @description Marking of already readed Tweets and some other nice features 		©2017 TabNoc
 // @include     http*://twitter.com/*
-// @version     1.13.4_28042017
+// @version     1.13.5_11092017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
@@ -68,6 +68,14 @@ fixed:		- Using master branch Implementation of TabNoc.js
 [Global]
 changed:	- optical Improvements (borders)
 			- using Feedback Implementation from TabNoc.js
+			
+11.09.2017 - 1.13.4
+[Global]
+fixed:		- Statistiken were not converted to GM_getValue
+added:		- HideMarkedTweets
+added:		- startCheckElements now checks if the last TweetID changes
+fixed:		- getAllElements has scanned twice
+changed:	- only visible elements were marked
 */
 
 
@@ -81,6 +89,7 @@ try {
 			Interval: null,
 			MarkToggleState: true,
 			lastCheckItemCount: 0,
+			lastCheckLastElementID: 0,
 			lastCheckScanBufferAmount: 0,
 			Active: true,
 			HiddenButtons: false,
@@ -103,6 +112,7 @@ try {
 		Settings: {
 			SavingEnabled: true,
 			MarkAfterScan: true,
+			HideMarkedTweets: false,
 
 			Personal: {
 				ScanUninterestingTweet: false,
@@ -174,7 +184,8 @@ try {
 		});
 
 		GM_registerMenuCommand("Statistiken", function () {
-			GM__getValue("Tweets", function (obj) {
+			try {
+				var obj = GM_getValue("Tweets");
 				var returnval = "";
 				var tweets = eval(obj);
 				test = tweets;
@@ -186,12 +197,15 @@ try {
 						}
 					}
 					//TODO: maybe add SettingValue to define how mutch tweets someone must have
-					if (tweets[tweets.Values[i]].length > 20) {
+					if (tweets[tweets.Values[i]].length > 0) {
 						returnval += tweets.Values[i] + " has " + tweets[tweets.Values[i]].length + " Tweets with " + ReTweets + " ReTweets.\r\n";
 					}
 				}
 				alert(returnval);
-			});
+			} catch (exc) {
+				console.error(exc);
+				alert(exc);
+			}
 		});
 
 		GM_registerMenuCommand("[DEV] TabNoc.Settings.Personal", function () {
@@ -217,65 +231,14 @@ try {
 			});
 		});
 
-		GM_registerMenuCommand("Rückgängig", Undo);
-/*
-		GM_registerMenuCommand("[DEV]", function () {
-			try {
-				var statesdemo = {
-					state0: {
-						title: 'Name',
-						html:'<label>First <input type="text" name="fname" value=""></label><br />'+
-							'<label>Last <input type="text" name="lname" value=""></label><br />',
-						buttons: { Next: 1 },
-						// focus: "input[name='fname']",
-						submit:function(e,v,m,f){ 
-							console.log(f);
-
-							e.preventDefault();
-							$.prompt.goToState('state1');
-						}
-					},
-					state1: {
-						title: 'Gender',
-						html:'<label><input type="radio" name="gender" value="Male"> Male</label><br />'+
-							'<label><input type="radio" name="gender" value="Female"> Female</label>',
-						buttons: { Back: -1, Next: 1 },
-						// focus: ":input:first",
-						submit:function(e,v,m,f){ 
-							console.log(f);
-
-							if(v==1) $.prompt.goToState('state2')
-							if(v==-1) $.prompt.goToState('state0');
-							e.preventDefault();
-						}
-					},
-					state2: {
-						title: 'Transportation',
-						html:'<label>Travels By <select name="travel" multiple>'+
-								'<option value="Car" selected>Car</option>'+
-								'<option value="Bus">Bus</option>'+
-								'<option value="Plane" selected>Plane</option>'+
-								'<option value="Train">Train</option>'+
-							'</select></label>',
-						buttons: { Back: -1, Done: 1 },
-						focus: 1,
-						submit:function(e,v,m,f){ 
-							console.log(f);
-
-							e.preventDefault();
-							if(v==1) $.prompt.close();
-							if(v==-1) $.prompt.goToState('state1');
-						}
-					},
-				};
-
-				$.prompt(statesdemo);
-			} catch (exc) {
-				console.error(exc);
-				alert(exc);
-			}
+		GM_registerMenuCommand("Angesehene Tweets ausblenden", function () {
+			TabNoc.Settings.HideMarkedTweets = true;
+			startCheckElements(TabNoc.Variables.MarkToggleState, true);
 		});
-*/
+
+		GM_registerMenuCommand("Rückgängig", Undo);
+		
+		
 		GM_addStyle(".display-none{display:none}");
 		GM_addStyle(GM_getResourceText("Impromptu"));
 		
@@ -386,20 +349,22 @@ try {
 				if (TabNoc.Variables.HiddenButtons == false && (
 					TabNoc.Variables.MarkToggleState != ToggleState ||
 					TabNoc.Variables.lastCheckItemCount !== elements.length ||
+					TabNoc.Variables.lastCheckLastElementID !== (elements.length > 0 ? elements[elements.length - 1].getAttribute("data-item-id") : 0) ||
 					TabNoc.Variables.lastCheckScanBufferAmount !== elementIdArray.length ||
 					force === true)) {
 					TabNoc.Variables.Stat_UnMarkedElements = 0;
 					TabNoc.Variables.Stat_VisibleElements = 0;
 					TabNoc.Variables.Stat_InVisibleElements = 0;
-					TabNoc.Variables.Stat_RemovedElements = 0;
+					// TabNoc.Variables.Stat_RemovedElements = 0;
 					TabNoc.Variables.Stat_AllElementsCount = 0;
 					
 					var UnScannedElements = checkElements(elementIdArray.reverse(), ToggleState, elements);
-					TabNoc.Variables.lastCheckScanBufferAmount = elementIdArray.length;
 					TabNoc.Variables.lastCheckItemCount = elements.length;
+					TabNoc.Variables.lastCheckScanBufferAmount = elementIdArray.length;
+					TabNoc.Variables.lastCheckLastElementID = elements.length > 0 ? elements[elements.length - 1].getAttribute("data-item-id") : 0;
 					
 					var time = new Date().getTime() - start;
-
+					
 					console.log((elements.length - UnScannedElements) + " Marked Elements | "
 					+ UnScannedElements + " UnMarked Elements | "
 					+ elements.length + " Elements Total (" + elementIdArray.length + " Tweets listed) | "
@@ -416,8 +381,6 @@ try {
 	function checkElements(elementIdArray, ToggleState, elements) {
 		var UnScannedElements = 0;
 		var RemovedElements = 0;
-		
-		TabNoc.Variables.fadeTime = 0;
 
 		if (ToggleState == null) {
 			ToggleState = TabNoc.Variables.MarkToggleState;
@@ -435,8 +398,11 @@ try {
 				if (element.className.includes("expanded-conversation") ?
 					element.children[0].children[0].className.includes("promoted-tweet") :
 					element.className.includes("promoted-tweet") && element.style.display != "none") {
-						element.style.display = "none";
-						console.log("promotedTweet");
+						// element.style.display = "none";
+						element.style.backgroundColor = "rgb(255, 138, 138)";
+						$(element.parentNode).remove();
+						TabNoc.Variables.Stat_RemovedElements++;
+						console.log("found promotedTweet");
 						RemovedElements++;
 						continue;
 					}
@@ -444,7 +410,7 @@ try {
 				UnScannedElements = checkElement(element, elementIdArray, ToggleState) === true ? UnScannedElements : UnScannedElements + 1;
 			} else {
 				console.warn(element);
-				TabNoc.console.add(element, true);
+				// TabNoc.console.add(element, true);
 			}
 		}
 
@@ -485,17 +451,81 @@ try {
 		checkElement.style.borderRadius = "15px"; //"10px";
 		checkElement.parentNode.style.borderRadius = "15px"; //"10px";
 		// checkElement.style.border = "1px solid #eee";
-		checkElement.parentNode.style.padding = "0.5px 1.5px";
+		checkElement.parentNode.style.padding = "1px";
 		
 		if (elementIdArray.indexOf(ElementID) != -1) {
 			if (ToggleState === true) {
 				checkElement.style.backgroundColor = "rgb(151, 255, 139)";
-				// checkElement.style.display = "none";
-				if (checkElement.style.display !== "none") {
-					// console.log(TabNoc.Variables.fadeTime);
-					// TabNoc.Variables.fadeTime += 1000;
-					// $(checkElement).fadeOut(TabNoc.Variables.fadeTime);
-					// $(checkElement).remove();
+				if (checkElement.style.display !== "none" && TabNoc.Settings.HideMarkedTweets === true) {
+					if (checkElement.nodeName.toLowerCase() === "div") {
+						if (checkElement.className.contains("conversation")) {
+							var root = checkElement.parentNode.parentNode.parentNode;
+							if (root.className === "js-stream-item stream-item stream-item js-has-navigable-stream\n") {
+								// check if all Items in this conversation are marked as readed, if yes remove conversation, else show all
+								// TODO: all Conversation ID's are listed in "data-ancestors", so: Iterate thru them and then remove it: )
+								
+								var count = 0;
+								var found = elementIdArray.indexOf(root.getAttribute("data-item-id")) != -1;
+								if (root.children[0].getAttribute("data-ancestors").contains(",")) {
+									var conversationElements = root.children[0].getAttribute("data-ancestors").split(",");
+									console.log(conversationElements );
+									if (conversationElements.length <= 1) {
+										console.info(root.children[0]);
+										console.info(checkElement);
+										throw new Error("conversationElements(method 1) are less than 2, so no conversation!");
+									}
+									for (conversationElementIndex = 0; conversationElementIndex < conversationElements.length; conversationElementIndex++) {
+										var conversationElement = conversationElements[conversationElementIndex];
+										console.log(conversationElement);
+										console.log(elementIdArray.indexOf(conversationElement));
+										if (elementIdArray.indexOf(conversationElement) === -1) {
+											found = false;
+											break;
+										}
+									}
+									count = conversationElements.length;
+								}
+								else {
+									// eigentlich wird diese Methode nicht benötigt, wenn mehr als ein (also insgesammt 2) Einträge in der Konversation sind steht es in data-ancestors
+									var conversationElements = root.children[0].children;
+									if (conversationElements.length <= 1) {
+										console.info(conversationElements);
+										console.info(checkElement);
+										throw new Error("conversationElements(method 2) are less than 2, so no conversation!");
+									}
+									for (conversationChildrenIndex = 0; conversationChildrenIndex < conversationElements.length; conversationChildrenIndex++) {
+										var conversationChildren = $(conversationElements[conversationChildrenIndex]).find(".tweet");
+										if (conversationChildren.length !== 1) {
+											found = false;
+											break;
+										}
+										if (conversationChildren[0].style.backgroundColor != "rgb(151, 255, 139)") {
+											found = false;
+											break;
+										}
+									}
+									count = conversationElements.length;
+								}
+								
+								if (found === true) {
+									TabNoc.Variables.Stat_RemovedElements += count;
+									root.remove();
+								}
+							}
+							else {
+								console.error(root);
+								console.error(checkElement);
+								throw new Error("conversation root has wrong class!");
+							}
+						}
+						else {
+							$(checkElement.parentNode).remove();
+							TabNoc.Variables.Stat_RemovedElements++;
+						}
+					}
+					else {
+						throw new Error("CheckElement has wrong NodeName")
+					}
 				}
 			}
 			else {
@@ -537,7 +567,7 @@ try {
 			}
 			else {
 				if (confirm("Elemente Markieren?") === true) {
-					if (element > getAllElements(TabNoc.Variables.ScanRangeElement)) {
+					if (element < TabNoc.Variables.ScanRangeElement) {
 						getAllElements(TabNoc.Variables.ScanRangeElement, element);
 					}
 					else {
@@ -581,7 +611,7 @@ try {
 			var tillIndex = (till == null) ? elements.length : (elements.toArray().findIndex(function (element) { return element.getAttribute("data-item-id") == till; }) + 1);
 			if (tillIndex == -1) throw "till(" + till + ") were not found";
 			tillIndex > elements.length ? elements.length : tillIndex;
-
+			
 			for (i = fromIndex; i < tillIndex; i++) {
 				var element = elements[i];
 				if ((element.className.includes("js-original-tweet") && element.className.includes("js-stream-tweet") && 
@@ -594,14 +624,14 @@ try {
 					element.children[0].children[0].children[0].className.includes("promoted-tweet") :
 					element.children[0].className.includes("promoted-tweet")) { continue; }
 
-					if (ElementIds.indexOf(currentElementId) == -1) {
+					if (ElementIds.indexOf(currentElementId) == -1 && $(element).is(":visible")) {
 						ElementIds.push(currentElementId);
 						amount++;
 					}
 					exec(AddTweetStatistics, element, Tweets);
 				} else {
 					console.warn(element);
-					TabNoc.console.add(element, true);
+					// TabNoc.console.add(element, true);
 				}
 			}
 
@@ -623,12 +653,14 @@ try {
 	}
 	
 	function AddTweetStatistics(element, Tweets) {
-		element = element.children[0];
+		if (element.className.contains("tweet ") === false) {
+			throw new Error("wrong element input in AddTweetStatistics");
+		}
 		var TweetID = element.getAttribute("data-tweet-id");
 		var BaseTweeter = element.getAttribute("data-retweeter");
 		var TweeterName = element.getAttribute("data-screen-name");
 
-		if (TweetID == null || TweeterName == null) { return; }
+		if (TweetID == null || TweeterName == null) { throw new Error("TweetID or TweeterName not set!"); }
 
 		var Tweeter = Tweets[BaseTweeter == null ? TweeterName : BaseTweeter];
 		if (Tweeter == null) {
@@ -641,7 +673,7 @@ try {
 			TweetObj["id"] = TweetID;
 			if (BaseTweeter != null) {
 				TweetObj["Tweet_from"] = TweeterName;
-				// eingebetteten tweet evtl auch noch
+				//TODO: eingebetteten tweet evtl auch noch
 			}
 			Tweeter.push(TweetObj);
 		}
@@ -804,6 +836,8 @@ try {
 			element.onclick = eval("(function() {" + element.getAttribute("onclick").replace(/TabNoc/g, "TabNoc") + "})");
 			element.setAttribute("onclick", "");
 		}
+		
+		$(".stream").css("min-height", "101vh");
 	}
 	
 	if ($(".TwitterCardsGrid").length == 0) {
