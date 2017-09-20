@@ -10,7 +10,7 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.3.0_01092017
+// @version     2.3.2_20092017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -160,7 +160,8 @@ fixed:	- fixed StyleChanges from Youtube
 	added:		- ManageTimes, remainingTimeManager and remainingTimeOutput from Youtube-Jumper
 	removed:	- removed no longer needed Functions from old CallTree
 	
-	
+20.09.2017 - 2.3.2
+	fixed:		- New Youtube Layout was not detected
 */
 
 try {
@@ -594,8 +595,6 @@ try {
 		var currentTime = movie_player.getCurrentTime();
 		var remainingTime = duration - currentTime;
 		
-		console.log(duration, currentTime, remainingTime);
-		
 		var oldRemainingTimeString = TabNoc.Variables.RemainingTimeString;
 		TabNoc.Variables.RemainingTimeString = "";
 		
@@ -606,8 +605,6 @@ try {
 			TabNoc.Variables.RemainingTimeString += Math.floor(remainingTime / 60) + ((remainingTime < 120) ? " Minute und " : " Minuten und ");
 		}
 		TabNoc.Variables.RemainingTimeString += (remainingTime % 60 < 10 ? "0" : "") + (remainingTime % 60) + " Sekunde" + (remainingTime % 60 !== 1 ? "n" : "");
-
-		console.log(TabNoc.Variables.RemainingTimeString);
 		
 		// Verwaltung der RemainTime anzeige
 		if (TabNoc.Variables.RemainingTimeString !== oldRemainingTimeString) {
@@ -642,7 +639,6 @@ try {
 	}
 	
 	function remainingTimeOutput(RemainingTimeString, BufferSize) {
-		console.log($("#TabNoc_YT_Jump"));
 		var StartTextId = "#RemainTimeStart";
 		var TimeTextId = "#RemainTimeTime";
 		var BufferId = "#RemainTimeBuffer";
@@ -1902,7 +1898,7 @@ try {
 		GM_addStyle(GM_getResourceText("JqueryUI"));
 		UpdateDataBase();
 		
-		if ($("ytd-app,.ytp-red2").length == 0) {
+		if (!($("#app-drawer").length == 1 && $("#app-drawer")[0].nodeName == "DOM-MODULE")) {
 			alert("Der Support für das alte YoutubeLayout wurde mit Version 2.3.1 (02.09.2017) entfernt, wenn dies erforderlich ist bitte zur alten Version zurückkehren");
 		}
 		
