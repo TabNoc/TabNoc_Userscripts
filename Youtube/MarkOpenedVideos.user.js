@@ -10,7 +10,7 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.3.2_20092017
+// @version     2.3.3_25092017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -162,6 +162,9 @@ fixed:	- fixed StyleChanges from Youtube
 	
 20.09.2017 - 2.3.2
 	fixed:		- New Youtube Layout was not detected
+	
+25.09.2017 - 2.3.3
+	added:		- width changer now supports 856px content width
 */
 
 try {
@@ -305,7 +308,10 @@ try {
 				if (widthElement.width() == 1284) {
 					widthElement.css("width", "1356px");
 				}
-				else if (widthElement.width() != 1356){
+				else if (widthElement.width() == 856) {
+					widthElement.css("width", "903px");
+				}
+				else if (widthElement.width() != 1356 && widthElement.width() != 903) {
 					console.log("no width change defined for " + widthElement.width());
 				}
 			}
