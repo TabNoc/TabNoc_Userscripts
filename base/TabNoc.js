@@ -1,7 +1,6 @@
 function getTabNocVersion(){
-	return "v1.2.2-16072017";
+	return {Version: "1.2.2", Date: "16.07.2017"};
 }
-
 
 try {
 	if (String.prototype.contains === undefined) {String.prototype.contains = String.prototype.includes;}
