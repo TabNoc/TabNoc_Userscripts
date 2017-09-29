@@ -1,5 +1,5 @@
 function getStatesVersion(){
-	return {Version: "1.0.1", Date: "29.09.2017"};
+	return {Version: "1.0.2", Date: "30.09.2017"};
 }
 
 /*
@@ -51,7 +51,7 @@ function AddState(oldState, newState, changes, maxAmount = 10) {
 		delete changes.data[changes.changeLog.splice(0, 1)[0]];
 		changes.removedChangeLogEntries = changes.removedChangeLogEntries + 1;
 	}
-	return ({StateTime:time + appendIndex, StateNr:changes.changeLog.length + changes.removedChangeLogEntries});
+	return ({StateTime:time + appendIndex, StateNr:changes.currentState});
 }
 
 function GetState(currentState, changes, requestedStateNr, requestAsTime) {
