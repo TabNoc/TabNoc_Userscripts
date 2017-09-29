@@ -1,3 +1,16 @@
+function getStatesVersion(){
+	return {Version: "1.0.1", Date: "29.09.2017"};
+}
+
+/*
+	changes = {
+		@changeLog : Array : containing ordered Timestamps
+		@data : Object : Indexes: Timestamps from @changeLog, Values: diff Data
+		@removedChangeLogEntries : Integer : Count of already deleted States
+		@currentState : Integer : Current State of the changesObject
+	}
+*/
+
 // @maxAmount: Anzahl an States
 function AddState(oldState, newState, changes, maxAmount = 10) {
 	if (oldState == null) {
@@ -22,7 +35,7 @@ function AddState(oldState, newState, changes, maxAmount = 10) {
 		changes.data = ({});
 	}
 	if (changes.removedChangeLogEntries == null) {
-		changes.removedChangeLogEntries =0;
+		changes.removedChangeLogEntries = 0;
 	}
 	var time = (new Date).getTime();
 	let appendIndex = "";
@@ -33,6 +46,7 @@ function AddState(oldState, newState, changes, maxAmount = 10) {
 	changes.changeLog.push(time + appendIndex);
 	changes.data[time + appendIndex] = jsondiffpatch.diff(oldState, newState);
 
+	changes.currentState = changes.changeLog.length + changes.removedChangeLogEntries;
 	while (changes.changeLog.length > maxAmount) {
 		delete changes.data[changes.changeLog.splice(0, 1)[0]];
 		changes.removedChangeLogEntries = changes.removedChangeLogEntries + 1;
@@ -54,7 +68,7 @@ function GetState(currentState, changes, requestedStateNr, requestAsTime) {
 		throw new Error("OutOfRangeException: requestedStateNr is less than 0");
 	}
 
-	var currentStateNr = changes.changeLog.length + changes.removedChangeLogEntries;
+	var currentStateNr = changes.currentState;
 
 	if (requestAsTime === true) {
 		requestedStateNr = changes.changeLog.indexOf(requestedStateNr);
@@ -86,7 +100,7 @@ function GetState(currentState, changes, requestedStateNr, requestAsTime) {
 	return workingState;
 }
 
-function test() {
+function testTabNocStates() {
 	let changes = ({});
 	let testState = ({Baum:"tree"});
 	let testCount = 30;
@@ -96,20 +110,28 @@ function test() {
 		testState["State"] = i;
 		// console.log("State", i, ":", eval(oldState), ">", currentState);
 		if (AddState(eval(oldState), testState, changes, testCount - 2).StateNr != i) {
-			new Error("returned StateNr not expected Statenr")
+			console.error("States.js.testTabNocStates(): Test 1 failed!\r\nAddState, returned StateNr not expected Statenr");
+			alert("States.js.testTabNocStates(): Test 1 failed!\r\nAddState, returned StateNr not expected Statenr");
 		}
 	}
 	try {
 		GetState(testState, changes, 0);
 		GetState(testState, changes, 1);
-		console.error("Test 1 failed!");
+		console.error("States.js.testTabNocStates(): Test 2 failed!");
+		alert("States.js.testTabNocStates(): Test 2 failed!");
 	}
 	catch (e) {}
 	for (i = 2; i <= testCount; i++) {
 		let result = GetState(testState, changes, i);
-		if (result.State != i || Object.keys(result).length != i + 2) {
+		if (result.State != i) {
 			console.warn(i, result);
-			throw new Error("Test 2 failed!");
+			console.error("States.js.testTabNocStates(): Test 3 failed!");
+			alert("States.js.testTabNocStates(): Test 3 failed!");
+		}
+		if (Object.keys(result).length != i + 2) {
+			console.warn(i, result);
+			console.error("States.js.testTabNocStates(): Test 4 failed!");
+			alert("States.js.testTabNocStates(): Test 4 failed!");
 		}
 	}
 	return testState;
