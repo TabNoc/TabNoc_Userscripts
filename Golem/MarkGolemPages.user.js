@@ -2,12 +2,12 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.2.4_29092017
+// @version     1.2.5_30092017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/TabNoc.js
 // @require     https://raw.githubusercontent.com/benjamine/jsondiffpatch/master/public/build/jsondiffpatch.js
-// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/NewYoutubeLayout/base/States.js
+// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/States.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/jquery_ui/jquery-ui.min.js
 // @require     https://gist.githubusercontent.com/TheDistantSea/8021359/raw/89d9c3250fd049deb23541b13faaa15239bd9d05/version_compare.js
 // @resource	JqueryUI https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/jquery_ui/jquery-ui.min.css
