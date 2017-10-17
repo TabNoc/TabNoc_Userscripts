@@ -1,5 +1,5 @@
 function getStatesVersion(){
-	return {Version: "1.1.0", Date: "17.10.2017"};
+	return {Version: "1.1.1", Date: "17.10.2017"};
 }
 
 /*
@@ -140,7 +140,7 @@ function testTabNocStates() {
 function SetData(keyName, value, locked, disableValueHistory) {
 	try {
 		if (disableValueHistory !== true)
-			var oldValue = GM_getValue(keyName);
+			var oldValue = GM_getValue(keyName) || "<undefined>";
 		if (locked == true) {
 			GM_setValue(keyName, value);
 		} else {
