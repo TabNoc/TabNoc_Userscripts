@@ -1,5 +1,5 @@
 function getStatesVersion(){
-	return {Version: "1.0.2", Date: "30.09.2017"};
+	return {Version: "1.1.0", Date: "17.10.2017"};
 }
 
 /*
@@ -136,3 +136,32 @@ function testTabNocStates() {
 	}
 	return testState;
 }
+
+function SetData(keyName, value, locked, disableValueHistory) {
+	try {
+		if (disableValueHistory !== true)
+			var oldValue = GM_getValue(keyName);
+		if (locked == true) {
+			GM_setValue(keyName, value);
+		} else {
+			GM_setValueLocked(keyName, value);
+		}
+		
+		if (disableValueHistory !== true) {
+			let changes = eval(GM_getValue("changes") || ({}));
+			changes[keyName] = changes[keyName] || ({});
+			const MaxAmount = 50;
+			
+			var result = AddState(eval(oldValue), eval(value), changes[keyName], MaxAmount);
+			
+			GM_setValue("changes", changes.toSource());
+		}
+		if (TabNoc.Settings.Debug === true) {
+			console.log("SetData(" + keyName + ", " + defaultValue + ", " + locked + ", " + disableValueHistory + ") -> " + result);
+		}
+	} catch (exc) {
+		console.error(exc);
+		alert(exc);
+	}
+}
+
