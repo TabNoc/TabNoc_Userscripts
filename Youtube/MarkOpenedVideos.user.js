@@ -10,7 +10,7 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.3.4_29092017
+// @version     2.3.5_02102017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -166,6 +166,9 @@ fixed:	- fixed StyleChanges from Youtube
 	
 25.09.2017 - 2.3.3
 	added:		- width changer now supports 856px content width
+	
+02.10.2017 - 2.3.5
+	fixed:		- if an Information in MergeVideoObject is missing it can not be resolved
 */
 
 try {
@@ -840,7 +843,7 @@ try {
 			console.groupCollapsed("SaveVideoStatistics");
 			console.log("SaveVideoStatistics()->" + TabNoc.Variables.VideoStatisticsObject);
 		}
-		if (TabNoc.Variables.VideoStatisticsObject == null){return false;}
+		if (TabNoc.Variables.VideoStatisticsObject == null){console.info(new Error("Eigentlich würde ich hier gerne eine Fehlermeldung schreiben, wann tritt der Zustand denn immer auf?"));return false;}
 		try {
 			VideoStatisticsObject = eval(TabNoc.Variables.VideoStatisticsObject);
 			VideoStatisticsObject.Watches[VideoStatisticsObject.Watches.length - 1].WatchedLength = Math.round(TabNoc.Variables.WatchedLength);
@@ -870,6 +873,7 @@ try {
 				// console.log("GetData(" + keyName + ", " + defaultValue + ", " + evalValue + ") -> " + data);
 			}
 			
+			/*
 			if (document.URL === "https://www.youtube.com/feed/subscriptions") {
 				if (TabNoc.Variables.Data[keyName] == null) {
 					TabNoc.Variables.Data[keyName] = ({});
@@ -893,6 +897,7 @@ try {
 					}
 				}
 			}
+			*/
 			
 			if (evalValue === true) {
 				try {
@@ -923,6 +928,7 @@ try {
 				// console.log("SetData(" + keyName + ", " + defaultValue + ", " + locked + ", " + disableValueHistory + ")");
 			}
 			
+			/*
 			if (disableValueHistory !== true) {
 				if (TabNoc.Variables.Data[keyName] == null) {
 					TabNoc.Variables.Data[keyName] = ({});
@@ -946,6 +952,7 @@ try {
 					}
 				}
 			}
+			*/
 		}
 		catch (exc) {
 			ErrorHandler(exc);
@@ -1374,8 +1381,6 @@ try {
 					throw new Error("ImportData impossible!");
 				}
 				
-				console.log(element);
-				console.log(eval(element["VideoObjectDictionary"]));
 				if (confirm("Sollen die Daten mit den Aktuellen Daten zusammengeführt werden?") !== true) {
 					throw new Error("Das Importieren der Daten wurde durch den Benutzer abgebrochen");
 				}
@@ -1531,6 +1536,11 @@ try {
 			}
 		}
 		
+		if (videoObjectDictionary[videoObject.VideoID] == null) {
+			console.log("deleted ID: >" + videoObject.VideoID + "<. The Value was " + videoObjectDictionary[videoObject.VideoID]);
+			delete videoObjectDictionary[videoObject.VideoID];
+		}
+		
 		if (save === true) {
 			SetData("VideoObjectDictionary", videoObjectDictionary.toSource(), true, true);
 			GM_Unlock();
@@ -1568,7 +1578,37 @@ try {
 		
 		for (var i in namesArray) {
 			var objectIndex = namesArray[i];
-			if (videoObject_1[objectIndex] === undefined || videoObject_2[objectIndex] === undefined) {console.error(objectIndex);alert(objectIndex);}
+			if (videoObject_1[objectIndex] === undefined || videoObject_2[objectIndex] === undefined) {
+				console.error(objectIndex, videoObject_1, videoObject_2, videoObject_1[objectIndex], videoObject_2[objectIndex]);
+				if (confirm("Beim zusammenführen zwei unterschiedlicher Versionen wurden undefinierte Einträge gefunden. Sollen diese gelöscht werden?") == true) {
+					let canContinue = false;
+					switch (objectIndex) {
+						case "VideoID":
+							if (videoObject_1[objectIndex] === undefined) {
+								videoObject_1 = null;
+							}
+							if (videoObject_2[objectIndex] === undefined) {
+								videoObject_2 = null;
+							}
+							canContinue = false;
+							break;
+							
+						default:
+							console.error("Es wurde keine Behandlung für das Fehlen dieser Information (" + objectIndex + ") definiert");
+							console.log(videoObject_1);
+							console.log(videoObject_2);
+							alert("Es wurde keine Behandlung für das Fehlen dieser Information (" + objectIndex + ") definiert!\r\nSiehe Konsole für mehr Informationen.");
+							throw new Error("NotDefinedException");
+							break;	
+					}
+					if (canContinue == false) {
+						break;
+					}
+				}
+				else {
+					throw new Error("videoObject_1[objectIndex] or videoObject_2[objectIndex] is undefined");
+				}
+			}
 			if (videoObject_1[objectIndex].toSource() !== videoObject_2[objectIndex].toSource()) {
 				switch(objectIndex) {
 					case "Watches":
@@ -1730,6 +1770,9 @@ try {
 		if (TabNoc.Settings.Debug === true) {
 			console.log(eval(videoObject_1.toSource()));
 		}
+		if (videoObject_1 == null) {
+			return null;
+		}
 		return eval(videoObject_1.toSource());
 	}
 	
@@ -1745,15 +1788,17 @@ try {
 			},
 			onabort: (function(response){console.log("onabort");console.info(response);}),
 			onerror: (function(response){console.log("onerror");console.info(response);alert("Receving Server Data Failed");Feedback.hideProgress();}),
-			onload: returnExec(function(response){console.log("onload_Output");console.info(response);
+			onload: returnExec(function(response){
 				Feedback.showProgress(40, "Servernachricht auswerten");
 				var error = false;
 				if (response.status !== 200) {
+					console.error(response);
 					alert("Statuscode:" + response.status);
 					Feedback.showProgress(100, "Abgebrochen, es konnten keine Daten empfangen werden");
 					return;
 				}
 				if (response.responseText.charAt(0) === '#') {
+					console.error(response);
 					var errorCode = response.responseText.split("\r\n")[0].substring(1);
 					if (errorCode === "2") {
 						error = true;
@@ -1767,7 +1812,7 @@ try {
 				Feedback.showProgress(50, "Empfangene Daten migrieren");
 				if (!error) {
 					var responseData = eval(response.responseText);
-					console.info(responseData);
+					console.info("Server response Data:", responseData);
 					if (responseData.VideoObjectDictionary != null && responseData.WatchedVideoArray != null) {
 						Feedback.lockProgress();
 						ImportData(responseData);
