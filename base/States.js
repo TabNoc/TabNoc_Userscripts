@@ -1,5 +1,5 @@
 function getStatesVersion(){
-	return {Version: "1.1.1", Date: "17.10.2017"};
+	return {Version: "1.1.2", Date: "29.11.2017"};
 }
 
 /*
@@ -139,21 +139,26 @@ function testTabNocStates() {
 
 function SetData(keyName, value, locked, disableValueHistory) {
 	try {
+		var oldValue;
 		if (disableValueHistory !== true)
-			var oldValue = GM_getValue(keyName) || "<undefined>";
+			oldValue = eval(GM_getValue(keyName));
+		if (oldValue == null) {
+			oldValue = "{}";
+		}
 		if (locked == true) {
 			GM_setValue(keyName, value);
 		} else {
 			GM_setValueLocked(keyName, value);
 		}
-		
+
+		var result;
 		if (disableValueHistory !== true) {
 			let changes = eval(GM_getValue("changes") || ({}));
 			changes[keyName] = changes[keyName] || ({});
 			const MaxAmount = 50;
-			
-			var result = AddState(eval(oldValue), eval(value), changes[keyName], MaxAmount);
-			
+
+			result = AddState(oldValue, eval(value), changes[keyName], MaxAmount);
+
 			GM_setValue("changes", changes.toSource());
 		}
 		if (TabNoc.Settings.Debug === true) {
