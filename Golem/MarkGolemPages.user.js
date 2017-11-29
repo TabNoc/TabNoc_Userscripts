@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.2.5_30092017
+// @version     1.3.0_27112017__beta5_
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/TabNoc.js
@@ -70,14 +70,6 @@ try {
 			lastCheckItemCount: 0,
 			lastCheckScanBufferAmount: 0,
 			Active: true,
-			OldSaveData: "",
-
-			WatchedTime: 0,
-			LoadedWatchedTime: 0,
-			SavedWatchedTime: 0,
-			TimeSaveCycle: 0,
-
-			ScanRangeElement: null,
 
 			lastCheckRNewsAmount : 0,
 			lastCheckSNewsAmount : 0
@@ -135,7 +127,7 @@ try {
 		exportFunction(getAllElements, unsafeWindow, {
 			defineAs: "getAllElements"
 		});
-
+						
 		GM_registerMenuCommand("Einlesen", returnExec(getAllElements));
 		
 		GM_registerMenuCommand("CreateHistoryDialog", function() {CreateHistoryDialog(eval(GM_getValue("changes")));});
@@ -143,6 +135,12 @@ try {
 		GM_registerMenuCommand("ManuelleSyncronisation", returnExec(Syncronisieren));
 	}
 
+	/**
+	 * [startCheckElements description]
+	 * @param  {bool} ToggleState Overwirtes ToggleState
+	 * @param  {bool} force       foreces Execution when true
+	 * @return {void}             
+	 */
 	function startCheckElements(ToggleState, force) {
 		if (document.hidden === false || force === true) {
 			// ### ReadedNewsArray ###
@@ -185,7 +183,7 @@ try {
 		TabNoc.Variables.MarkToggleState = ToggleState;
 
 		Feedback.showProgress(100, "Finished " + (elements.length - UnScannedElements) + " elements marked");
-		console.log((elements.length - UnScannedElements) + " Marked Elements | " + UnScannedElements + " UnMarked Elements | Total " + elements.length + " Elements (" + ReadedNewsArray.length + " Newspages listed)")
+		console.log((elements.length - UnScannedElements) + " Marked Elements | " + UnScannedElements + " UnMarked Elements | Total " + elements.length + " Elements (" + ReadedNewsArray.length + " Newspages listed)");
 
 		if (TabNoc.Settings.HideAlreadyWatchedNews === false) {
 			Feedback.notify(UnScannedElements + " UnMarked Elements", 10000, function(){TabNoc.Settings.HideAlreadyWatchedNews = !TabNoc.Settings.HideAlreadyWatchedNews; startCheckElements(true, true);Feedback.hideMessage();});
@@ -201,7 +199,7 @@ try {
 
 		if ($(checkElement).find(".MyScanButton").length === 0 && $(checkElement).find(".MyMarkedReadedElement").length === 0 && $(checkElement).find(".MyMarkedSeenElement").length === 0) {
 			var ScanButton = $(TabNoc.HTML.ScanButton);
-			ScanButton.click(function(){getAllElements(SearchString, SearchString)});
+			ScanButton.click(function(){getAllElements(SearchString, SearchString);});
 			$(checkElement).append(ScanButton);
 		}
 
@@ -234,7 +232,7 @@ try {
 
 		return false;
 	}
-
+	
 	function getAllElements(from, till) {
 		try {
 			var start = new Date().getTime();
@@ -244,9 +242,6 @@ try {
 			// ### SeenNewsArray ###
 			var SeenNewsArray = eval(GM_getValue("SeenNewsArray") || "([])");
 
-			TabNoc.Variables.OldSaveDataR = ReadedNewsArray.toSource();
-			TabNoc.Variables.OldSaveDataS = SeenNewsArray.toSource();
-
 			var elements = $("#index-promo, .list-articles>li");
 
 			var fromIndex = from == null ? 0 : elements.toArray().findIndex(function (element) { return $(element).children("a")[0].getAttribute("href") == from; });
@@ -254,7 +249,7 @@ try {
 
 			var tillIndex = till == null ? elements.length : (elements.toArray().findIndex(function (element) { return $(element).children("a")[0].getAttribute("href") == till; }) + 1);
 			if (tillIndex == -1) throw "till(" + till + ") were not found";
-			tillIndex > elements.length ? elements.length : tillIndex;
+			// tillIndex > elements.length ? elements.length : tillIndex;
 
 			for (i = fromIndex; i < tillIndex; i++) {
 				var element = elements[i];
@@ -304,9 +299,9 @@ try {
 		}
 	}
 
-	function ReadingNewspage(reverse){
+	function ReadingNewspage(deleteEntry){
 		try {
-			if (reverse !== true) reverse = false;
+			if (deleteEntry !== true) deleteEntry = false;
 
 			// ### ReadedNewsArray ###
 			var ReadedNewsArray = eval(GM_getValue("ReadedNewsArray") || "([])");
@@ -315,7 +310,7 @@ try {
 
 			GM_Lock();
 
-			if (SeenNewsArray.indexOf(document.URL) !== -1 && reverse === false) {
+			if (SeenNewsArray.indexOf(document.URL) !== -1 && deleteEntry === false) {
 				console.log(SeenNewsArray);
 				SeenNewsArray.splice(SeenNewsArray.indexOf(document.URL), 1);
 				SetData("SeenNewsArray", SeenNewsArray.toSource(), true);
@@ -327,7 +322,7 @@ try {
 				console.info("MarkGolemPages.user.js: Newspage added");
 			}
 			else {
-				if (reverse === true) {
+				if (deleteEntry === true) {
 					ReadedNews.splice(SeenNewsArray.indexOf(document.URL), 1);
 					SetData("ReadedNewsArray", ReadedNewsArray.toSource(), true);
 					console.info("MarkGolemPages.user.js: Newspage removed!");
@@ -463,118 +458,318 @@ try {
 		// ### SeenNewsArray ###
 	}
 
-	function Syncronisieren() {
+	function Syncronisieren(scriptName) {
+		var onAbort = (function (response) {
+			console.log("onabort");
+			console.info(response);
+		});
+
+		var onError = (function (msg) {
+			return (function (response) {
+				console.log("onerror");
+				console.info(response);
+				alert(msg);
+				Feedback.hideProgress();
+			});
+		});
+
+		var onTimeout = (function (response) {
+			console.log("ontimeout");
+			console.info(response);
+		});
+
+		var onLoadPost = returnExec(function (response) {
+			if (response.status !== 200) {
+				console.error(response);
+				alert("Statuscode:" + response.status);
+				Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
+				return;
+			}
+			if (response.responseText.charAt(0) === '#') {
+				console.error(response);
+				alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
+				Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
+				return;
+			}
+			Feedback.showProgress(100, "Senden der Daten erfolgreich abgeschlossen");
+			alert("Die Syncronisierung der Daten mit dem Server wurde erfolgreich abgeschlossen.\r\nAktueller Versionsstand: " + response.responseText);
+		});
+
+		var onLoadGet = returnExec(function (response) {
+			Feedback.showProgress(40, "Servernachricht auswerten");
+			var error = false;
+			if (response.status !== 200) {
+				console.error(response);
+				alert("Statuscode:" + response.status);
+				Feedback.showProgress(100, "Abgebrochen, es konnten keine Daten empfangen werden");
+				return;
+			}
+			if (response.responseText.charAt(0) === '#') {
+				console.error(response);
+				var errorCode = response.responseText.split("\r\n")[0].substring(1);
+				if (errorCode === "2") {
+					error = true;
+				} else {
+					alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
+					Feedback.showProgress(100, "Abgebrochen, Fehler auf dem Server");
+					return;
+				}
+			}
+			Feedback.showProgress(50, "Empfangene Daten migrieren");
+			if (!error) {
+				var responseData = eval(response.responseText);
+				console.info("Server response Data:", responseData);
+				if (responseData.ReadedNewsArray != null && responseData.SeenNewsArray != null) {
+					Feedback.lockProgress();
+					ImportData(responseData, ([{
+									Name: "ReadedNewsArray",
+									defaultVersion: 0,
+									defaultValue: "([])",
+									ImportAction: function (dataStorage, currentEntry, importElement) {
+										dataStorage[currentEntry.Name].push(importElement);
+									}
+								}, {
+									Name: "SeenNewsArray",
+									defaultVersion: 0,
+									defaultValue: "([])",
+									ImportAction: function (dataStorage, currentEntry, importElement) {
+										if (dataStorage["ReadedNewsArray"].indexOf(importElement) == -1) {
+											dataStorage[currentEntry.Name].push(importElement);
+										}
+									}
+								}
+							]));
+					Feedback.unlockProgress();
+				} else {
+					alert("Der Wert des Response des Servers war ungültig!");
+				}
+			}
+			if (confirm("Sollen die aktuellen Daten auf dem Server gespeichert werden?") === false) {
+				Feedback.showProgress(100, "Senden der Daten abgebrochen");
+				return;
+			}
+			Feedback.showProgress(75, "Neue Daten auf dem Server speichern");
+
+			var element = ({});
+			element.ReadedNewsArray = eval(GM_getValue("ReadedNewsArray") || "([])");
+			element.SeenNewsArray = eval(GM_getValue("SeenNewsArray") || "([])");
+			element["ReadedNewsArray-Version"] = GetData("ReadedNewsArray-Version", 0, true);
+			element["SeenNewsArray-Version"] = GetData("SeenNewsArray-Version", 0, true);
+			GM_xmlhttpRequest({
+				data: {
+					Token: Token,
+					data: element.toSource()
+				}
+				.toSource(),
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json"
+				},
+				onabort: onAbort,
+				onerror: onError("Sending New Data Failed"),
+				onload: onLoadPost,
+				ontimeout: onTimeout,
+				timeout: 60000,
+				url: "https://tabnoc.gear.host/MyDataFiles//Input"
+			});
+		});
+
 		Feedback.showProgress(10, "Token erfassen");
-		var Token = prompt("Bitte Token eingeben") + "Golem";
+		var Token = prompt("Bitte Token eingeben") + scriptName;
 		Feedback.showProgress(20, "Request starten");
 		GM_xmlhttpRequest({
-			data: {Token:Token}.toSource(),
+			data: {
+				Token: Token
+			}
+			.toSource(),
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json"
 			},
-			onabort: (function(response){console.log("onabort");console.info(response);}),
-			onerror: (function(response){console.log("onerror");console.info(response);alert("Receving Server Data Failed");Feedback.hideProgress();}),
-			onload: returnExec(function(response){console.log("onload_Output");console.info(response);
-				Feedback.showProgress(40, "Servernachricht auswerten");
-				var error = false;
-				if (response.status !== 200) {
-					alert("Statuscode:" + response.status);
-					Feedback.showProgress(100, "Abgebrochen, es konnten keine Daten empfangen werden");
-					return;
-				}
-				if (response.responseText.charAt(0) === '#') {
-					var errorCode = response.responseText.split("\r\n")[0].substring(1);
-					if (errorCode === "2") {
-						error = true;
-					}
-					else {
-						alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
-						Feedback.showProgress(100, "Abgebrochen");
-						return;
-					}
-				}
-				Feedback.showProgress(50, "Empfangene Daten migrieren");
-				if (!error) {
-					var responseData = eval(response.responseText);
-					console.warn(responseData);
-					if (responseData.ReadedNewsArray != null && responseData.SeenNewsArray != null) {
-						ImportData(responseData);
-					}
-					else {
-						alert("Der Wert des Response des Servers war ungültig!");
-					}
-				}
-				Feedback.showProgress(75, "Neue Daten auf dem Server speichern");
-
-				var element = ({});
-				element.ReadedNewsArray = eval(GM_getValue("ReadedNewsArray") || "([])");
-				element.SeenNewsArray = eval(GM_getValue("SeenNewsArray") || "([])");
-				GM_xmlhttpRequest({
-					data: {Token:Token, data:element.toSource()}.toSource(),
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json"
-					},
-					onabort: (function(response){console.log("onabort");console.info(response);}),
-					onerror: (function(response){console.log("onerror");console.info(response);alert("Sending New Data Failed");Feedback.hideProgress();}),
-					onload: returnExec(function(response){console.log("onload_Input");console.info(response);
-						if (response.status !== 200) {
-							alert("Statuscode:" + response.status);
-							Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
-							return;
-						}
-						if (response.responseText.charAt(0) === '#') {
-							alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
-							Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
-							return;
-						}
-						Feedback.showProgress(100, "Senden der Daten erfolgreich abgeschlossen");
-					}),
-					ontimeout: (function(response){console.log("ontimeout");console.info(response);}),
-					timeout: 60000,
-					url: "https://tabnoc.gear.host/MyDataFiles//Input"
-				});
-			}),
-			ontimeout: (function(response){console.log("ontimeout");console.info(response);}),
+			onabort: onAbort,
+			onerror: onError("Receving Server Data Failed"),
+			onload: onLoadGet,
+			ontimeout: onTimeout,
 			timeout: 60000,
 			url: "https://tabnoc.gear.host/MyDataFiles//Output"
 		});
 		Feedback.showProgress(30, "Warte auf Rückmeldung vom Server");
 	}
 
-	function ImportData(data) {
-		alert("Not Implemented");
-		throw "NotImplementedException";
-	}
-
-	function SetData(keyName, value, locked, disableValueHistory) {
+	function ImportData(allData, entriesArray) {
+		var entryID = null;
+		var entry = null;
+        var element = null;
+		if (typeof(GetData) != "function") throw new Error("GetData is not Implemented but required for ImportData!");
+		if (typeof(SetData) != "function") throw new Error("SetData is not Implemented but required for ImportData!");
+		if (typeof(GM_Lock) != "function") throw new Error("GM_Lock is not Implemented but required for ImportData!");
+		if (typeof(GM_Unlock) != "function") throw new Error("GM_Unlock is not Implemented but required for ImportData!");
+		if (typeof(UpdateDatabase) != "function") throw new Error("UpdateDatabase is not Implemented but required for ImportData!");
+		
 		try {
-			if (disableValueHistory !== true)
-				var oldValue = GM_getValue(keyName);
-			if (locked == true) {
-				GM_setValue(keyName, value);
+			if (typeof(allData) == "object") {
+				element = allData;
+				for (entryID in entriesArray) {
+					entry = entriesArray[entryID];
+					element[entry.Name + "-Version"] = element[entry.Name + "-Version"] || entry.defaultVersion;
+				}
+				
+				UpdateDataBase(({
+						lock: (function () {}),
+						unlock: (function () {}),
+						getValue: (function (key) {
+							return element[key];
+						}),
+						setValue: (function (key, value) {
+							element[key] = value;
+						})
+					}), true);
+				
+				var errorList = ([]);
+				
+				for (entryID in entriesArray) {
+					entry = entriesArray[entryID];
+					if (element[entry.Name + "-Version"] !== GetData(entry.Name + "-Version")) {
+						errorList.push("Die Version der Datenbanktabelle " + entry.Name + " passt nicht (importierte Version: " + element[entry.Name + "-Version"] + ", lokale Version: " + GetData(entry.Name + "-Version") + ")");
+					}
+				}
+				
+				if (errorList.length !== 0) {
+					var msg = "Das Importieren kann nicht durchgeführt werden, da:\r\n";
+					for (var i in errorList) {
+						msg = msg + "\r\n\t- " + errorList[i];
+					}
+					alert(msg);
+					throw new Error("ImportData impossible!");
+				}
+				
+				if (confirm("Sollen die Daten mit den Aktuellen Daten zusammengeführt werden?") !== true) {
+					throw new Error("Das Importieren der Daten wurde durch den Benutzer abgebrochen");
+				}
+				
+				for (entryID in entriesArray) {
+					entry = entriesArray[entryID];
+					element[entry.Name] = eval(element[entry.Name]);
+				}
+			} else if (allData === true) {
+				element = eval(prompt("Bitte die exportierten Daten eintragen"));
 			} else {
-				GM_setValueLocked(keyName, value);
+				element = ({});
+				for (entryID in entriesArray) {
+					entry = entriesArray[entryID];
+					element[entry.Name] = eval(prompt("Please insert new " + entry.Name + " Data"));
+				}
 			}
 			
-			if (disableValueHistory !== true) {
-				let changes = eval(GM_getValue("changes") || ({}));
-				changes[keyName] = changes[keyName] || ({});
-				const MaxAmount = 50;
-				
-				var result = AddState(eval(oldValue), eval(value), changes[keyName], MaxAmount);
-				
-				GM_setValue("changes", changes.toSource());
+			GM_Lock();
+			for (entryID in entriesArray) {
+				entry = entriesArray[entryID];
+				if (typeof(element[entry.Name]) != "object") {
+					throw new Error("element." + element[entry.Name] + " is not an Object, Import impossible!");
+				}
 			}
-			if (TabNoc.Settings.Debug === true) {
-				console.log("SetData(" + keyName + ", " + defaultValue + ", " + locked + ", " + disableValueHistory + ") -> " + result);
+			
+			element.currentData = ({});
+			element.count = ({});
+			
+			for (entryID in entriesArray) {
+				entry = entriesArray[entryID];
+				element.currentData[entry.Name] = GetData(entry.Name, entry.defaultValue, true);
+				element.currentData[entry.Name + "Count"] = 0;
+			}
+			
+			var newDataStorage = ({});
+			
+			for (entryID in entriesArray) {
+				entry = entriesArray[entryID];
+				element.currentData[entry.Name] = GetData(entry.Name, entry.defaultValue, true);
+				element.count[entry.Name] = 0;
+				newDataStorage[entry.Name] = eval(entry.defaultValue);
+			}
+			
+			for (entryID in entriesArray) {
+				entry = entriesArray[entryID];
+				if (TabNoc.Settings.Debug) {
+					console.info("Importing stored " + entry.Name);
+				}
+				for (var i in element.currentData[entry.Name]) {
+					entry.ImportAction(newDataStorage, entry, element.currentData[entry.Name][i]);
+					element.count[entry.Name]++;
+				}
+				if (TabNoc.Settings.Debug) {
+					console.info("Importing new " + entry.Name);
+					console.info(element[entry.Name]);
+				}
+				for (var i in element[entry.Name]) {
+					entry.ImportAction(newDataStorage, entry, element[entry.Name][i]);
+					element.count[entry.Name]++;
+				}
+			}
+			// till here ported to new implementation
+			var changes = false;
+			var msg = "Das Importieren wurde erfolgreich abgeschlossen!\r\n";
+			for (entryID in entriesArray) {
+				entry = entriesArray[entryID];
+				msg += entry.Name + ":\r\n";
+				msg += "\tEs wurden " + element.count[entry.Name] + " Elemente aktualisiert (";
+				msg += "gespeicherte Datenmenge: " + element.currentData[entry.Name].toSource().length + "B (" + Object.keys(element.currentData[entry.Name]).length + ") |";
+				msg += "importierte Datenmenge: " + element[entry.Name].toSource().length + "B (" + Object.keys(element[entry.Name]).length + ") |";
+				msg += "neue Datenmenge: " + newDataStorage[entry.Name].toSource().length + "B) (" + Object.keys(newDataStorage[entry.Name]).length + ")\r\n";
+				msg += "Delta:\r\n";
+				if (newDataStorage[entry.Name].toSource() != element[entry.Name].toSource()) {
+					changes = true;
+				}
+			}
+			
+			alert(msg);
+			
+			if (changes == false) {
+				alert("Es wurde keine Änderung der Daten durch das Importieren durchgeführt\r\n\t\tSpeichern nicht erforderlich");
+			} else {
+				if (confirm("Sollen die Änderungen gespeichert werden?") === true) {
+					for (entryID in entriesArray) {
+						entry = entriesArray[entryID];
+						SetData(entry.Name, newDataStorage[entry.Name].toSource());
+					}
+				}
 			}
 		} catch (exc) {
 			console.error(exc);
-			alert(exc);
+			alert("Das Importieren ist fehlgeschlagen!\r\n" + exc);
+			throw (exc);
+		}
+		finally {
+			GM_Unlock();
 		}
 	}
+	
+    function GetData(keyName, defaultValue, evalValue) {
+        try {
+            var data = GM_getValue(keyName);
+
+            if (data === null || data === "") {
+                data = defaultValue || null;
+            }
+
+            if (TabNoc.Settings.Debug === true) {
+                console.log("GetData(" + keyName + ", " + defaultValue + ", " + evalValue + ") -> " + data);
+            }
+
+            if (evalValue === true) {
+                try {
+                    data = eval(data);
+                }
+                catch (exc) {
+                    ErrorHandler(exc, "Die Daten von >" + keyName + "< aus der Datenbank konnten nicht ausgewertet werden");
+                }
+            }
+            return data;
+        }
+        catch (exc) {
+            ErrorHandler(exc);
+            throw exc;
+        }
+    }
 
 	function CreateHistoryDialog(data) {
 		try {
@@ -592,11 +787,12 @@ try {
 			s += "</ul>";
 			
 			i = 0;
-			for (var keyName in data) {
+			var keyname;
+			for (keyName in data) {
 				if (keyName.contains("-Version"))
 					continue;
 				i++;
-				s += "<div id=\"HistoryDialogTab-" + i + "\">"
+				s += "<div id=\"HistoryDialogTab-" + i + "\">";
 				
 				s += "<label for=\"HistoryData-" + i + "\">Historien-Elemente</label><select name=\"HistoryData-" + i + "\" id=\"HistoryDataSelector-" + i + "\"><option historyGroup=\"" + keyName + "\" value=\"" + data[keyName].currentState + "\" selected=\"selected\">Aktuelle Daten</option>";
 				for (var timeIndex in data[keyName].changeLog.reverse()) {
@@ -623,7 +819,7 @@ try {
 			console.log($("#HistoryDialogTabs").tabs());
 			
 			i = 0;
-			for (var keyName in data) {
+			for (keyName in data) {
 				i++;
 				
 				$("#HistoryDataSelector-" + i).selectmenu({
@@ -645,12 +841,26 @@ try {
 	}
 	
 	function Main() {
-		let versionCompare_States = versionCompare(getStatesVersion().Version, "1.0.2");
+		let versionCompare_States = versionCompare(getStatesVersion().Version, "1.1.0");
 		if (versionCompare_States != 0) console.info((versionCompare_States < 0 ? "Older" : "Newer") + " States.js file detected!");
 
-		let versionCompare_TabNoc = versionCompare(getTabNocVersion().Version, "1.2.2");
-		if (versionCompare_TabNoc != 0) console.info((versionCompare_TabNoc < 0 ? "Older" : "Newer") + " TabNoc.js file detected!");
+		let versionCompare_TabNoc_Config = versionCompare(getTabNocVersion().Version, "1.2.2");
+		if (versionCompare_TabNoc_Config != 0) console.info((versionCompare_TabNoc_Config < 0 ? "Older" : "Newer") + " TabNoc.js file detected!");
 
+		let versionCompare_TabNoc_GM = versionCompare(getTabNoc_GMVersion().Version, "2.0.0");
+		if (versionCompare_TabNoc_GM != 0) console.info((versionCompare_TabNoc_GM < 0 ? "Older" : "Newer") + " GM__.js file detected!");
+
+		var count = 0;
+		while (GM_Locked() == true) {
+			count = count + 1;
+			alert("Der Aktuelle Sperrzustand der Datenbank ist positiv, dies wird durch Fehlermeldungen während der Ausführung ausgelöst oder ist nur eine kurzweilige erscheinung. \r\n\r\n Bitte Meldung bestätigen!");
+			if (count >= 2) {
+				if(confirm("Soll der Sperrzustand der Datenbank aufgehoben werden [empfohlen]?") === true ) {
+					GM_Unlock(true);
+				}
+			}
+		}
+		
 		GM_addStyle(GM_getResourceText("JqueryUI"));
 		UpdateDataBase();
 
