@@ -10,7 +10,7 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.3.5_02102017
+// @version     2.3.6_29112017__beta1_
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -166,10 +166,10 @@ fixed:	- fixed StyleChanges from Youtube
 	
 25.09.2017 - 2.3.3
 	added:		- width changer now supports 856px content width
-	
+
 02.10.2017 - 2.3.5
 	fixed:		- if an Information in MergeVideoObject is missing it can not be resolved
-*/
+ */
 
 try {
 	setTabNoc({
@@ -183,11 +183,11 @@ try {
 			
 			VideoStatisticsObject: null,
 			
-			checkElementsInterval : null,
-			lastCheckItemCount:0,
-			lastCheckVideoIdAmount:0,
-			lastCheckWatchedVideoAmount:0,
-			lastCheckVideoObjectAmount:0,
+			checkElementsInterval: null,
+			lastCheckItemCount: 0,
+			lastCheckVideoIdAmount: 0,
+			lastCheckWatchedVideoAmount: 0,
+			lastCheckVideoObjectAmount: 0,
 			
 			LastFullScreenElement: null,
 			
@@ -210,11 +210,9 @@ try {
 			Debug: false
 		},
 
-		HTML: {
-		}
+		HTML: {}
 	});
 
-	
 	// ### https://www.youtube.com/ ###
 	function SubscriptionPageLoader() {
 		console.log("MarkOpenedVideos.user.js loading [SubscriptionPageLoader]");
@@ -582,10 +580,10 @@ try {
 			}
 		}
 		if (Author === "Arumba") {
-			movie_player.setPlaybackRate(2);//(1.25);
+			movie_player.setPlaybackRate(2); //(1.25);
 		}
 		if (Author === "ExcelIsFun") {
-			movie_player.setPlaybackRate(2);//(1.5);
+			movie_player.setPlaybackRate(2); //(1.5);
 		}
 		if (Author === "Nilaus") {
 			movie_player.setPlaybackRate(2);
@@ -594,7 +592,7 @@ try {
 			movie_player.setPlaybackRate(1.25);
 		}
 		
-		if (TabNoc.Variables.SkipTime > 0 && movie_player.getCurrentTime() < TabNoc.Variables.SkipTime ) {
+		if (TabNoc.Variables.SkipTime > 0 && movie_player.getCurrentTime() < TabNoc.Variables.SkipTime) {
 			movie_player.seekTo(TabNoc.Variables.SkipTime);
 		}
 	}
@@ -694,7 +692,11 @@ try {
 				VideoID: unsafeWindow.document.getElementById("movie_player").getVideoData().video_id,
 				VideoTitle: unsafeWindow.document.getElementById("movie_player").getVideoData().title,
 				VideoAuthor: unsafeWindow.document.getElementById("movie_player").getVideoData().author,
-				Watches: [{WatchedLength: -99, Date: new Date().toString()}],
+				Watches: [{
+						WatchedLength: -99,
+						Date: new Date().toString()
+					}
+				],
 				VideoLength: Math.floor(unsafeWindow.document.getElementById("movie_player").getDuration())
 			}.toSource();
 			
@@ -702,9 +704,12 @@ try {
 				console.log("WatchingVideo()->new: " + TabNoc.Variables.VideoStatisticsObject);
 			}
 			
-			if (TabNoc.Settings.ShowAlreadyWatchedDialog === true ) {
+			if (TabNoc.Settings.ShowAlreadyWatchedDialog === true) {
 				if (GetVideoWatched(null, null, eval(TabNoc.Variables.VideoStatisticsObject).VideoID) === true) {
-					setTimeout(function(){alert("watched");Feedback.showMessage("Watched!", "error", 60000);}, 10);
+					setTimeout(function () {
+						alert("watched");
+						Feedback.showMessage("Watched!", "error", 60000);
+					}, 10);
 					console.log("Video already watched!");
 				}
 			}
@@ -801,7 +806,6 @@ try {
 			
 			VideoID = VideoID.replace("https://www.youtube.com", "").replace("/watch?v=", "").split("&list")[0].split("&t=")[0];
 			
-			
 			if (GetVideoWatched(scannedVideoArray, false, VideoID)) {
 				currentElement.children[0].style.backgroundImage = "linear-gradient(rgba(151, 255, 139, 0.45), rgba(151, 255, 139, 0.45)), " + currentElement.children[0].style.backgroundImage;
 				if (TabNoc.Settings.HideAlreadyWatchedVideos === true) {
@@ -838,12 +842,15 @@ try {
 		}
 	}
 	
-	function SaveVideoStatistics(){
+	function SaveVideoStatistics() {
 		if (TabNoc.Settings.Debug === true) {
 			console.groupCollapsed("SaveVideoStatistics");
 			console.log("SaveVideoStatistics()->" + TabNoc.Variables.VideoStatisticsObject);
 		}
-		if (TabNoc.Variables.VideoStatisticsObject == null){console.info(new Error("Eigentlich würde ich hier gerne eine Fehlermeldung schreiben, wann tritt der Zustand denn immer auf?"));return false;}
+		if (TabNoc.Variables.VideoStatisticsObject == null) {
+			console.info(new Error("Eigentlich würde ich hier gerne eine Fehlermeldung schreiben, wann tritt der Zustand denn immer auf?"));
+			return false;
+		}
 		try {
 			VideoStatisticsObject = eval(TabNoc.Variables.VideoStatisticsObject);
 			VideoStatisticsObject.Watches[VideoStatisticsObject.Watches.length - 1].WatchedLength = Math.round(TabNoc.Variables.WatchedLength);
@@ -873,32 +880,6 @@ try {
 				// console.log("GetData(" + keyName + ", " + defaultValue + ", " + evalValue + ") -> " + data);
 			}
 			
-			/*
-			if (document.URL === "https://www.youtube.com/feed/subscriptions") {
-				if (TabNoc.Variables.Data[keyName] == null) {
-					TabNoc.Variables.Data[keyName] = ({});
-					var time = (new Date).getTime();
-					
-					TabNoc.Variables.Data[keyName][time] = data;
-					TabNoc.Variables.Data[keyName].latest = time;
-					
-					if (TabNoc.Settings.Debug === true) {
-						console.log("Der Eintrag ([" + keyName + "][" + time + "]) in TabNoc.Variables.Data wurde initialisiert!");
-					}
-				}
-				else if (TabNoc.Variables.Data[keyName][TabNoc.Variables.Data[keyName].latest] != data) {
-					var time = (new Date).getTime();
-					
-					TabNoc.Variables.Data[keyName][time] = data;
-					TabNoc.Variables.Data[keyName].latest = time;
-					
-					if (TabNoc.Settings.Debug === true) {
-						console.log("Es wurde ein neuer Eintrag in TabNoc.Variables.Data eingefügt ([" + keyName + "][" + time + "])");
-					}
-				}
-			}
-			*/
-			
 			if (evalValue === true) {
 				try {
 					data = eval(data);
@@ -927,32 +908,6 @@ try {
 			if (TabNoc.Settings.Debug === true) {
 				// console.log("SetData(" + keyName + ", " + defaultValue + ", " + locked + ", " + disableValueHistory + ")");
 			}
-			
-			/*
-			if (disableValueHistory !== true) {
-				if (TabNoc.Variables.Data[keyName] == null) {
-					TabNoc.Variables.Data[keyName] = ({});
-					var time = (new Date).getTime();
-					
-					TabNoc.Variables.Data[keyName][time] = value;
-					TabNoc.Variables.Data[keyName].latest = time;
-					
-					if (TabNoc.Settings.Debug === true) {
-						console.log("Der Eintrag ([" + keyName + "][" + time + "]) in TabNoc.Variables.Data wurde initialisiert!");
-					}
-				}
-				else if (TabNoc.Variables.Data[keyName][TabNoc.Variables.Data[keyName].latest] != value) {
-					var time = (new Date).getTime();
-					
-					TabNoc.Variables.Data[keyName][time] = value;
-					TabNoc.Variables.Data[keyName].latest = time;
-					
-					if (TabNoc.Settings.Debug === true) {
-						console.log("Es wurde ein neuer Eintrag in TabNoc.Variables.Data eingefügt ([" + keyName + "][" + time + "])");
-					}
-				}
-			}
-			*/
 		}
 		catch (exc) {
 			ErrorHandler(exc);
@@ -965,7 +920,9 @@ try {
 		//TODO: write Message, error and Timestamp to Database
 		GM_Unlock();
 		
-		if (msg != null && msg != "") {alert(msg);}
+		if (msg != null && msg != "") {
+			alert(msg);
+		}
 		console.error(exc);
 		alert(exc);
 	}
@@ -1051,7 +1008,7 @@ try {
 				
 				switch (Version_WatchedVideoArray) {
 					default:
-						throw("No Update Implemeneted!");
+					throw ("No Update Implemeneted!");
 						break;
 				}
 			}
@@ -1111,7 +1068,7 @@ try {
 				
 				switch (Version_ScannedVideoArray) {
 					default:
-						throw("No Update Implemeneted!");
+					throw ("No Update Implemeneted!");
 						break;
 				}
 			}
@@ -1133,7 +1090,9 @@ try {
 				
 				if (VideoStatistics != null) {
 					functions.setValue("VideoObjectDictionary-Version-(-1)", VideoStatistics.toSource());
-					var newStructure = ({"unknown": ([])});
+					var newStructure = ({
+						"unknown": ([])
+					});
 					var removed = 0;
 					
 					if (GM_listValues().indexOf("VideoStatistics") !== -1) {
@@ -1171,9 +1130,14 @@ try {
 						for (var i in videoObjectDictionary) {
 							for (var j in videoObjectDictionary[i]) {
 								var newObject = videoObjectDictionary[i][j];
-								if (newObject.Watches !== undefined) {throw "Was ist das ?"}
+							if (newObject.Watches !== undefined) {
+								throw "Was ist das ?"
+							}
 								newObject.Watches = ([]);
-								newObject.Watches.push(({WatchedLength: newObject.WatchedLength, Date: i}));
+							newObject.Watches.push(({
+									WatchedLength: newObject.WatchedLength,
+									Date: i
+								}));
 								delete newObject.WatchedLength;
 								newObject.VideoLength = Math.floor(newObject.VideoLength);
 								
@@ -1184,7 +1148,8 @@ try {
 						
 						console.log("Die Version der Tabelle VideoObjectDictionary ist " + functions.getValue("VideoObjectDictionary-Version"));
 						console.info("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B)");
-						if (silent !== true) alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B)");
+					if (silent !== true)
+						alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B)");
 						if (silent || confirm("Sollen die Änderungen gespeichert werden?") === true) {
 							functions.setValue("VideoObjectDictionary-Version", 2);
 							console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + functions.getValue("VideoObjectDictionary-Version") + " geändert");
@@ -1262,7 +1227,8 @@ try {
 						
 						console.log("Die Version der Tabelle VideoObjectDictionary ist " + functions.getValue("VideoObjectDictionary-Version"));
 						console.info("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
-						if (silent !== true) alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
+					if (silent !== true)
+						alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
 						if (silent || confirm("Sollen die Änderungen gespeichert werden?") === true) {
 							functions.setValue("VideoObjectDictionary-Version", 3);
 							console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + functions.getValue("VideoObjectDictionary-Version") + " geändert");
@@ -1318,7 +1284,8 @@ try {
 						
 						console.log("Die Version der Tabelle VideoObjectDictionary ist " + functions.getValue("VideoObjectDictionary-Version"));
 						console.info("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
-						if (silent !== true) alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
+					if (silent !== true)
+						alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
 						if (silent || confirm("Sollen die Änderungen gespeichert werden?") === true) {
 							functions.setValue("VideoObjectDictionary-Version", 4);
 							console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + functions.getValue("VideoObjectDictionary-Version") + " geändert");
@@ -1330,7 +1297,7 @@ try {
 						break;
 						
 					default:
-						throw("No Update Implemeneted!");
+					throw ("No Update Implemeneted!");
 						break;
 				}
 			}
@@ -1355,10 +1322,14 @@ try {
 				element["ScannedVideoArray-Version"] = element["ScannedVideoArray-Version"] || 0;
 				
 				UpdateDataBase(({
-						lock: (function(){}),
-						unlock: (function(){}),
-						getValue: (function(key){return element[key];}),
-						setValue: (function(key, value){element[key] = value;})
+						lock: (function () {}),
+						unlock: (function () {}),
+						getValue: (function (key) {
+							return element[key];
+						}),
+						setValue: (function (key, value) {
+							element[key] = value;
+						})
 					}), true);
 				
 				var errorList = ([]);
@@ -1419,11 +1390,15 @@ try {
 			
 			var newObject = ({});
 			
-			if (TabNoc.Settings.Debug) console.info("Importing stored videoObjectDictionary");
+			if (TabNoc.Settings.Debug)
+				console.info("Importing stored videoObjectDictionary");
 			for (var i in videoObjectDictionary) {
 				PushVideoObject(newObject, videoObjectDictionary[i], false);
 			}
-			if (TabNoc.Settings.Debug) {console.info("Importing new videoObjectDictionary");console.info(element.VideoObjectDictionary);}
+			if (TabNoc.Settings.Debug) {
+				console.info("Importing new videoObjectDictionary");
+				console.info(element.VideoObjectDictionary);
+			}
 			for (var i in element.VideoObjectDictionary) {
 				PushVideoObject(newObject, element.VideoObjectDictionary[i], false);
 				count_vOD++;
@@ -1432,13 +1407,15 @@ try {
 			var newWatchedStructure = ([]);
 			var newScannedStructure = ([]);
 			
-			if (TabNoc.Settings.Debug) console.info("Importing stored watchedVideoArray");
+			if (TabNoc.Settings.Debug)
+				console.info("Importing stored watchedVideoArray");
 			for (var i in watchedVideoArray) {
 				if (GetVideoWatched(newWatchedStructure, newObject, watchedVideoArray[i]) === false) {
 					newWatchedStructure.push(watchedVideoArray[i]);
 				}
 			}
-			if (TabNoc.Settings.Debug) console.info("Importing new watchedVideoArray");
+			if (TabNoc.Settings.Debug)
+				console.info("Importing new watchedVideoArray");
 			for (var i in element.WatchedVideoArray) {
 				if (GetVideoWatched(newWatchedStructure, newObject, element.WatchedVideoArray[i]) === false) {
 					newWatchedStructure.push(element.WatchedVideoArray[i]);
@@ -1446,13 +1423,15 @@ try {
 				}
 			}
 			
-			if (TabNoc.Settings.Debug) console.info("Importing stored scannedVideoArray");
+			if (TabNoc.Settings.Debug)
+				console.info("Importing stored scannedVideoArray");
 			for (var i in scannedVideoArray) {
 				if (GetVideoWatched(newScannedStructure, newObject, scannedVideoArray[i]) === false && GetVideoWatched(newWatchedStructure, false, scannedVideoArray[i]) === false) {
 					newScannedStructure.push(scannedVideoArray[i]);
 				}
 			}
-			if (TabNoc.Settings.Debug) console.info("Importing new scannedVideoArray");
+			if (TabNoc.Settings.Debug)
+				console.info("Importing new scannedVideoArray");
 			for (var i in element.ScannedVideoArray) {
 				if (GetVideoWatched(newScannedStructure, newObject, element.ScannedVideoArray[i]) === false && GetVideoWatched(newWatchedStructure, false, element.ScannedVideoArray[i]) === false) {
 					newScannedStructure.push(element.ScannedVideoArray[i]);
@@ -1483,7 +1462,7 @@ try {
 		catch (exc) {
 			console.error(exc);
 			alert("Das Importieren ist fehlgeschlagen!\r\n" + exc);
-			throw(exc)
+			throw (exc);
 		}
 	}
 	
@@ -1516,7 +1495,9 @@ try {
 			console.log("Pushing ...");
 			console.log(eval(videoObject.toSource()));
 		}
-		if (typeof(videoObject) !== "object") {throw "WrongTypeException:Only Objects can be Pushed into the Database."}
+		if (typeof(videoObject) !== "object") {
+			throw "WrongTypeException:Only Objects can be Pushed into the Database."
+		}
 		if (videoObjectDictionary === null) {
 			GM_Lock();
 			videoObjectDictionary = GetData("VideoObjectDictionary", "({})", true);
@@ -1610,7 +1591,7 @@ try {
 				}
 			}
 			if (videoObject_1[objectIndex].toSource() !== videoObject_2[objectIndex].toSource()) {
-				switch(objectIndex) {
+				switch (objectIndex) {
 					case "Watches":
 						newArray = ([]);
 						for (var index1_i in videoObject_1[objectIndex]) {
@@ -1671,7 +1652,7 @@ try {
 								newArray.push(eval(videoObject_1[objectIndex][index1_i].toSource()));
 							}
 						}
-						if (videoObject_2[objectIndex].length !== 0){
+					if (videoObject_2[objectIndex].length !== 0) {
 							// ich füge diese Elemente jetzt erstmal dazu, weiß nicht so genau ob ich noch einen Fehler haben könnte
 							for (var j in videoObject_2[objectIndex]) {
 								newArray.push(eval(videoObject_2[objectIndex][j].toSource()));
@@ -1683,7 +1664,9 @@ try {
 							// Ab hier ist das Array fertig gemerged, jetzt wird aufgeräumt
 							for (var index1 in newArray) {
 								for (var index2 in newArray) {
-									if (index1 == index2) {continue;}
+								if (index1 == index2) {
+									continue;
+								}
 									// Wenn die beiden Zeitstempel weniger als 120 sekunden auseinander liegen
 									if (Math.abs(Math.floor(new Date(newArray[index1].Date).getTime() - (new Date(newArray[index2].Date).getTime())) / 1000) < 120) {
 										// Dann nutze den früheren Zeitstempel
@@ -1702,7 +1685,9 @@ try {
 										break;
 									}
 								}
-								if (changed == true) {break;}
+							if (changed == true) {
+								break;
+							}
 							}
 						} while (changed === true)
 						
@@ -1822,7 +1807,10 @@ try {
 						alert("Der Wert des Response des Servers war ungültig!");
 					}
 				}
-				if (confirm("Daten auf dem Server speichern?") === false) { Feedback.showProgress(100, "Senden der Daten abgebrochen"); return;}
+				if (confirm("Daten auf dem Server speichern?") === false) {
+					Feedback.showProgress(100, "Senden der Daten abgebrochen");
+					return;
+				}
 				Feedback.showProgress(75, "Neue Daten auf dem Server speichern");
 				
 				var element = ({});
@@ -1873,7 +1861,8 @@ try {
 		var i = 0;
 		var s = "<div id=\"HistoryDialogTabs\"><ul>";
 		for (var keyName in data) {
-			if (keyName.contains("-Version")) continue
+			if (keyName.contains("-Version"))
+				continue
 			i++;
 			s += "<li><a href=\"#HistoryDialogTab-" + i + "\">" + keyName + "</a></li>";
 		}
@@ -1881,14 +1870,17 @@ try {
 		
 		i = 0;
 		for (var keyName in data) {
-			if (keyName.contains("-Version")) continue
+			if (keyName.contains("-Version"))
+				continue
 			i++;
 			s += "<div id=\"HistoryDialogTab-" + i + "\">"
 
-			s += "<label for=\"HistoryData-" + i + "\">Historien-Elemente</label><select name=\"HistoryData-" + i + "\" id=\"HistoryDataSelector-" + i + "\"><option historyGroup=\"" + keyName + "\" value=\"" + data[keyName].latest + "\" selected=\"selected\">Aktuelle Daten (" + new Date(data[keyName].latest).toLocaleString() + ")</option>"+
+			s += "<label for=\"HistoryData-" + i + "\">Historien-Elemente</label><select name=\"HistoryData-" + i + "\" id=\"HistoryDataSelector-" + i + "\"><option historyGroup=\"" + keyName + "\" value=\"" + data[keyName].latest + "\" selected=\"selected\">Aktuelle Daten (" + new Date(data[keyName].latest).toLocaleString() + ")</option>" +
 			"<option historyGroup=\"" + keyName + "\" value=\"" + data[keyName].latest + "\">Aktuelle Daten (" + new Date(data[keyName].latest).toLocaleString() + ")</option>";
 			for (var time in data[keyName]) {
-				if (time.toString() === "latest" || time.toString() === data[keyName].latest.toString()) {continue;}
+				if (time.toString() === "latest" || time.toString() === data[keyName].latest.toString()) {
+					continue;
+				}
 				s += "<option historyGroup=\"" + keyName + "\" value=\"" + time + "\">" + new Date(parseInt(time)).toLocaleString() + "</option>";
 			}
 			s += "</select>";
@@ -1900,8 +1892,11 @@ try {
 		console.log(s);
 		$(s).appendTo("#HistoryDialog");
 		
-		$( "#HistoryDialog" ).dialog({
-		  close: function( event, ui ) {console.log("close", event, ui);$("#HistoryDialog").parentNode().remove();}
+		$("#HistoryDialog").dialog({
+			close: function (event, ui) {
+				console.log("close", event, ui);
+				$("#HistoryDialog").parentNode().remove();
+			}
 		});
 		
 		console.log($("#HistoryDialogTabs").tabs());
@@ -1911,7 +1906,7 @@ try {
 			i++;
 			
 			$("#HistoryDataSelector-" + i).selectmenu({
-				change: returnExec(function( event, data ) {
+				change: returnExec(function (event, data) {
 					console.info(event);
 					console.info(data);
 					
@@ -1930,17 +1925,23 @@ try {
 			return;
 		}
 		
-		exportFunction(function () {CreateHistoryDialog(TabNoc.Variables.Data);}, unsafeWindow, {
+		exportFunction(function () {
+			CreateHistoryDialog(TabNoc.Variables.Data);
+		}, unsafeWindow, {
 			defineAs: "ImaginaryCaller"
 		});
 		
 		var count = 0;
 		while (GM_Locked() == true) {
-			setTimeout(function() {if (document.getElementById("movie_player") != null) {document.getElementById("movie_player").pauseVideo();}}, 0);
+			setTimeout(function () {
+				if (document.getElementById("movie_player") != null) {
+					document.getElementById("movie_player").pauseVideo();
+				}
+			}, 0);
 			count = count + 1;
 			alert("Der Aktuelle Sperrzustand der Datenbank ist positiv, dies wird durch Fehlermeldungen während der Ausführung ausgelöst oder ist nur eine kurzweilige erscheinung. \r\n\r\n Bitte Meldung bestätigen!");
 			if (count >= 2) {
-				if(confirm("Soll der Sperrzustand der Datenbank aufgehoben werden [empfohlen]?") === true ) {
+				if (confirm("Soll der Sperrzustand der Datenbank aufgehoben werden [empfohlen]?") === true) {
 					GM_Unlock(true);
 				}
 			}
@@ -1955,9 +1956,11 @@ try {
 		}
 		
 		//TODO: use addEventListener
-		document.body.onbeforeunload = function() {SaveVideoStatistics();}
+		document.body.onbeforeunload = function () {
+			SaveVideoStatistics();
+		}
 		// SubscriptionPage
-		if ($("ytd-grid-renderer").length >= 1 || $("ytd-video-renderer").length >= 1 || $("ytd-grid-video-renderer").length >= 1||true) {
+		if ($("ytd-grid-renderer").length >= 1 || $("ytd-video-renderer").length >= 1 || $("ytd-grid-video-renderer").length >= 1 || true) {
 			$(SubscriptionPageLoader);
 		}
 		else {
