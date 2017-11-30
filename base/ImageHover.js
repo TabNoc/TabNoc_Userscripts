@@ -1,5 +1,5 @@
 function getImageHoverVersion(){
-	return "v1.1.0-14102016";
+	return {Version: "1.1.1", Date: "30.11.2017"};
 }
 
 try {
@@ -109,7 +109,7 @@ try {
 					TabNoc_ImageHover.Settings.Config.HoverEventElements[index].element.onmouseover = function (element) {
 						try {
 							var target = element.target;
-							if (target && target.nodeName == "IMG" && !TabNoc.Variables.FullSizeImage) {
+							if (target && target.nodeName == "IMG" && !TabNoc_ImageHover.Variables.FullSizeImage) {
 								if (TabNoc_ImageHover.Variables.isShiftDown) {
 									TabNoc_ImageHover.Variables.FullSizeImage = true;
 								}
@@ -306,7 +306,7 @@ try {
 			alert("ImageHover.js->AddImageHover()\r\n" + exc);
 		}
 	}
-	console.log("Readed ImageHover " + getImageHoverVersion() + " by TabNoc")
+	console.log("ImageHover.js: Readed ImageHover " + getImageHoverVersion().Version + " by TabNoc (namespace: " + GM_info.script.name + ") | last change: " + getImageHoverVersion().Date);
 } catch (exc) {
 	console.error(exc);
 	alert("ImageHover.js\r\n" + exc);
