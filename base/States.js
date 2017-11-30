@@ -1,5 +1,5 @@
 function getStatesVersion(){
-	return {Version: "1.1.2", Date: "29.11.2017"};
+	return {Version: "1.2.0", Date: "30.11.2017"};
 }
 
 /*
@@ -16,11 +16,20 @@ function AddState(oldState, newState, changes, maxAmount = 10) {
 	if (oldState == null) {
 		throw new Error("NullPointerExeption: oldState not provided");
 	}
+	if (typeof(oldState) != "object") {
+		throw new Error("InvalidTypeException: oldState is not an object, instead: " + typeof(oldState));
+	}
 	if (newState == null) {
 		throw new Error("NullPointerExeption: newState not provided");
 	}
+	if (typeof(newState) != "object") {
+		throw new Error("InvalidTypeException: newState is not an object, instead: " + typeof(newState));
+	}
 	if (changes == null) {
 		throw new Error("NullPointerExeption: changes not provided");
+	}
+	if (typeof(changes) != "object") {
+		throw new Error("InvalidTypeException: changes is not an object, instead: " + typeof(changes));
 	}
 	if (maxAmount == null) {
 		maxAmount = 10;
@@ -100,6 +109,22 @@ function GetState(currentState, changes, requestedStateNr, requestAsTime) {
 	return workingState;
 }
 
+function GetVisualDiff(currentState, changes, requestedStateNr, requestAsTime, outputElement) {
+	if (currentState == null) {
+		throw new Error("NullPointerExeption: currentState not provided");
+	}
+	if (changes == null) {
+		throw new Error("NullPointerExeption: changes not provided");
+	}
+	if (requestedStateNr == null) {
+		throw new Error("NullPointerExeption: requestedStateNr not provided");
+	}
+	if (requestedStateNr < 0) {
+		throw new Error("OutOfRangeException: requestedStateNr is less than 0");
+	}
+
+	outputElement.innerHTML = jsondiffpatch.formatters.html.format(jsondiffpatch.diff(currentState, GetState(currentState, changes, requestedStateNr, requestAsTime)), currentState);
+}
 function testTabNocStates() {
 	let changes = ({});
 	let testState = ({Baum:"tree"});
