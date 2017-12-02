@@ -1,5 +1,5 @@
 function getStatesVersion(){
-	return {Version: "1.2.5", Date: "02.12.2017"};
+	return {Version: "1.2.6", Date: "02.12.2017"};
 }
 
 /*
@@ -120,7 +120,7 @@ function CreateHistoryDialog(data, callBack) {
 		$("<div />").attr("id", "HistoryDialog").attr("title", "Historie").css("backgroundColor", "#F9F9F9 !important;").appendTo("body");
 		
 		var i = 0;
-		var s = "<div id=\"HistoryDialogTabs\" style=\"margin-bottom: 10px;\"><ul>";
+		var s = "<div id=\"HistoryDialogTabs\" style=\"margin-bottom: 10px\"><ul>";
 		for (var keyName in data) {
 			if (keyName.contains("-Version"))
 				continue;
@@ -159,7 +159,8 @@ function CreateHistoryDialog(data, callBack) {
 				$("#HistoryDialog").parentNode().remove();
 			},
 			width: 1400,
-			height: 950
+			height: 850,
+			top: 65 // nur nötig, da zIndex nicht funktioniert (für den Youtube Header)
 		});
 		$("#HistoryDialogTabs").tabs();
 		// $("#HistoryDialog").dialog("option", "classes.ui-dialog-content", "MyDialogBackgroundColor" );
