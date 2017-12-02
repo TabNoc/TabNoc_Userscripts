@@ -1,5 +1,5 @@
 function getStatesVersion(){
-	return {Version: "1.2.3", Date: "02.12.2017"};
+	return {Version: "1.2.5", Date: "02.12.2017"};
 }
 
 /*
@@ -46,7 +46,7 @@ function AddState(oldState, newState, changes, maxAmount = 10) {
 	if (changes.removedChangeLogEntries == null) {
 		changes.removedChangeLogEntries = 0;
 	}
-	var time = (new Date).getTime();
+	var time = (new Date()).getTime();
 	let appendIndex = "";
 
 	while (changes.changeLog.indexOf(time + appendIndex) != -1) {
@@ -102,7 +102,7 @@ function GetState(currentState, changes, requestedStateNr, requestAsTime) {
 	for (workingStateNr = currentStateNr - 1; workingStateNr >= requestedStateNr; workingStateNr--) {
 		let diffData = changes.data[changes.changeLog[workingStateNr - changes.removedChangeLogEntries]];
 		if (diffData == null) {
-			throw new Error("NullPointerExeption: diffData is null [workingStateNr:" + workingStateNr + "]")
+			throw new Error("NullPointerExeption: diffData is null [workingStateNr:" + workingStateNr + "]");
 		}
 		workingState = jsondiffpatch.unpatch(workingState, changes.data[changes.changeLog[workingStateNr - changes.removedChangeLogEntries]]);
 	}
@@ -111,6 +111,89 @@ function GetState(currentState, changes, requestedStateNr, requestAsTime) {
 
 function GetVisualDiff(currentState, changes, requestedStateNr, requestAsTime) {
 	return jsondiffpatch.formatters.html.format(jsondiffpatch.diff(currentState, GetState(currentState, changes, requestedStateNr, requestAsTime)), currentState);
+}
+
+// optional callBack (StorageName, newValue)
+function CreateHistoryDialog(data, callBack) {
+	try {
+		$("#HistoryDialog").remove();
+		$("<div />").attr("id", "HistoryDialog").attr("title", "Historie").css("backgroundColor", "#F9F9F9 !important;").appendTo("body");
+		
+		var i = 0;
+		var s = "<div id=\"HistoryDialogTabs\" style=\"margin-bottom: 10px;\"><ul>";
+		for (var keyName in data) {
+			if (keyName.contains("-Version"))
+				continue;
+			i++;
+			s += "<li><a href=\"#HistoryDialogTab-" + i + "\">" + keyName + "</a></li>";
+		}
+		s += "</ul>";
+		
+		i = 0;
+		var keyname;
+		for (keyName in data) {
+			if (keyName.contains("-Version"))
+				continue;
+			i++;
+			s += "<div id=\"HistoryDialogTab-" + i + "\" style=\"padding-bottom:7px\">";
+			
+			s += "<label for=\"HistoryData-" + i + "\">Historien-Elemente</label>";
+			s += "<select name=\"HistoryData-" + i + "\" id=\"HistoryDataSelector-" + i + "\"><option historyGroup=\"" + keyName + "\" value=\"" + data[keyName].currentState + "\" selected=\"selected\">Aktuelle Daten</option>";
+			for (var timeIndex in data[keyName].changeLog.reverse()) {
+				let time = data[keyName].changeLog[timeIndex];
+				s += "<option historyGroup=\"" + keyName + "\" value=\"" + time + "\">" + new Date(parseInt(time)).toLocaleString() + "</option>";
+			}
+			s += "</select>";
+			
+			s += "<div id=\"HistoryDialogTabResultPanel-" + keyName + "\" style=\"margin: 10px 0px 10px 0px;border: 1px solid #D3D3D3;border-radius: 5px;padding: 8px 0px 8px 0px;\"></div>";
+			
+			s += "<button id=\"HistoryDataButton-" + keyName + "\" historyGroup=\"" + keyName + "\" >Daten Übernehmen</button>";
+			s += "</div>";
+		}
+		s += "</div>";
+		
+		$(s).appendTo("#HistoryDialog");
+		
+		$("#HistoryDialog").dialog({
+			close: function (event, ui) {
+				$("#HistoryDialog").parentNode().remove();
+			},
+			width: 1400,
+			height: 950
+		});
+		$("#HistoryDialogTabs").tabs();
+		// $("#HistoryDialog").dialog("option", "classes.ui-dialog-content", "MyDialogBackgroundColor" );
+		
+		i = 0;
+		for (keyName in data) {
+			i++;
+			
+			$("#HistoryDataSelector-" + i).selectmenu({
+				change: returnExec(function (event, data) {
+					let group = data.item.element[0].getAttribute("historyGroup");
+					document.getElementById("HistoryDialogTabResultPanel-" + group).innerHTML = GetVisualDiff(eval(GetData(group)), eval(GetData("changes"))[group], data.item.value, true);
+					$("#HistoryDataButton-" + group).attr("selectedValue", data.item.value);
+					console.error($("#HistoryDataButton-" + group));
+				})
+			});
+			
+			$("#HistoryDataButton-" + keyName).button().click(function (event, data) {
+				console.error(event);
+				let group = $(event.target).attr("historyGroup");
+				let newValue = GetState(eval(GetData(group)), eval(GetData("changes"))[group], $(event.target).attr("selectedValue"), true);
+				if (callBack == null) {
+					if (confirm("Sollen die aktuellen Daten mit den ausgewählten alten Daten aus der Historie überschrieben werden?") === true) {
+						SetData(group, newValue, true, false);
+					}
+				} else {
+					callBack(group, newValue);
+				}
+			});
+		}
+	} catch (exc) {
+		console.error(exc);
+		alert(exc);
+	}
 }
 
 function testTabNocStates() {
@@ -154,12 +237,12 @@ function SetData(keyName, value, locked, disableValueHistory) {
 	try {
 		var oldValue;
 		if (disableValueHistory !== true)
-			oldValue = GM_getValue(keyName);
+			oldValue = eval(GM_getValue(keyName));
 		if (oldValue == null) {
-			oldValue = "{}";
+			oldValue = ({});
 		}
 
-		if (oldValue != value) {
+		if (oldValue.toSource() != value) {
 			if (locked == true) {
 				GM_setValue(keyName, value);
 			} else {
@@ -172,7 +255,7 @@ function SetData(keyName, value, locked, disableValueHistory) {
 				changes[keyName] = changes[keyName] || ({});
 				const MaxAmount = 50;
 
-				result = AddState(eval(oldValue), eval(value), changes[keyName], MaxAmount);
+				result = AddState(oldValue, eval(value), changes[keyName], MaxAmount);
 
 				GM_setValue("changes", changes.toSource());
 			}
@@ -201,8 +284,7 @@ function GetData(keyName, defaultValue, evalValue) {
 		if (evalValue === true) {
 			try {
 				data = eval(data);
-			}
-			catch (exc) {
+			} catch (exc) {
 				ErrorHandler(exc, "Die Daten von >" + keyName + "< aus der Datenbank konnten nicht ausgewertet werden");
 			}
 		}
