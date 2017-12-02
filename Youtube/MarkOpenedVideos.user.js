@@ -10,7 +10,7 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.3.6_29112017__beta2_
+// @version     2.3.6_29112017__beta3_
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -19,8 +19,15 @@
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/jquery_ui/jquery-ui.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/VideoGreyDetector.js
 // @resource	JqueryUI https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/jquery_ui/jquery-ui.min.css
-// @require     https://github.com/trentrichardson/jQuery-Impromptu/raw/master/dist/jquery-impromptu.min.js
-// @resource	Impromptu https://github.com/trentrichardson/jQuery-Impromptu/raw/master/dist/jquery-impromptu.min.css
+
+// @require     https://raw.githubusercontent.com/benjamine/jsondiffpatch/master/public/build/jsondiffpatch.js
+// @require     https://raw.githubusercontent.com/benjamine/jsondiffpatch/master/public/build/jsondiffpatch-formatters.js
+// @resource    JDiffHtml https://raw.githubusercontent.com/benjamine/jsondiffpatch/master/public/formatters-styles/html.css
+// @resource    JDiffAnno https://raw.githubusercontent.com/benjamine/jsondiffpatch/master/public/formatters-styles/annotated.css
+// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/States.js
+// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/ImportAll.js
+// @require     https://gist.githubusercontent.com/TheDistantSea/8021359/raw/89d9c3250fd049deb23541b13faaa15239bd9d05/version_compare.js
+
 // @updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Youtube/MarkOpenedVideos.user.js
 // @grant       GM_setValue
 // @grant       GM_getValue
@@ -237,6 +244,8 @@ try {
 			TabNoc.Settings.HideAlreadyWatchedVideos = true;
 			startCheckElements(true, true);
 		});
+		
+		GM_registerMenuCommand("CreateHistoryDialog", function() {CreateHistoryDialog(eval(GM_getValue("changes")));});
 
 		GM_registerMenuCommand("ManuelleSyncronisation", function () {
 			Syncronisieren();
@@ -654,7 +663,6 @@ try {
 	}
 
 
-
 	function WatchingVideo() {
 		if (TabNoc.Settings.Debug === true) {
 			console.groupCollapsed("WatchingVideo");
@@ -844,52 +852,6 @@ try {
 		}
 	}
 	// ### https://www.youtube.com/watch?v=* ###
-
-	function GetData(keyName, defaultValue, evalValue) {
-		try {
-			var data = GM_getValue(keyName);
-
-			if (data == null || data === "") {
-				data = defaultValue || null;
-			}
-
-			if (TabNoc.Settings.Debug === true) {
-				console.log("GetData(" + keyName + ", " + defaultValue + ", " + evalValue + ") -> " + data);
-			}
-
-			if (evalValue === true) {
-				try {
-					data = eval(data);
-				} catch (exc) {
-					ErrorHandler(exc, "Die Daten von >" + keyName + "< aus der Datenbank konnten nicht ausgewertet werden");
-				}
-			}
-			return data;
-		}
-		catch (exc) {
-			ErrorHandler(exc);
-			throw exc;
-		}
-	}
-
-	function SetData(keyName, value, locked, disableValueHistory) {
-		try {
-			if (locked == true) {
-				GM_setValue(keyName, value);
-			}
-			else {
-				GM_setValueLocked(keyName, value);
-			}
-
-			if (TabNoc.Settings.Debug === true) {
-				// console.log("SetData(" + keyName + ", " + defaultValue + ", " + locked + ", " + disableValueHistory + ")");
-			}
-		}
-		catch (exc) {
-			ErrorHandler(exc);
-			throw exc;
-		}
-	}
 
 	function ErrorHandler (exc, msg) {
 		GM_Lock();
@@ -1289,6 +1251,8 @@ try {
 		functions.unlock();
 	}
 
+	//TODO: removeThis
+/*
 	function ImportData(allData) {
 		try {
 			if (typeof(allData) == "object") {
@@ -1441,7 +1405,7 @@ try {
 			throw (exc);
 		}
 	}
-
+*/
 	function GetVideoWatched(watchedVideoArray, videoObjectDictionary, VideoID) {
 		// If videoObjectDictionary is false ignore Elements from Dictionary (only check Elements from WatchedVideoArray)
 		if (videoObjectDictionary !== false) {
@@ -1830,82 +1794,39 @@ try {
 		Feedback.showProgress(30, "Warte auf Rückmeldung vom Server");
 	}
 
-	function CreateHistoryDialog(data) {
-		$("#HistoryDialog").remove();
-		$("<div />").attr("id", "HistoryDialog").attr("title", "Historie").appendTo("body");
-
-		var i = 0;
-		var s = "<div id=\"HistoryDialogTabs\"><ul>";
-		for (var keyName in data) {
-			if (keyName.contains("-Version"))
-				continue;
-			i++;
-			s += "<li><a href=\"#HistoryDialogTab-" + i + "\">" + keyName + "</a></li>";
+	function ModuleImport(moduleName, moduleFunction, expectedVersion) {
+		let currentVersion = moduleFunction().Version;
+		let versionCompareResult = versionCompare(currentVersion, expectedVersion);
+		var versionData = GetData("ImportVersion", "({show: true})", true);
+		versionData[moduleName] = versionData[moduleName] || ({});
+		if (versionData["show"] == true && versionData[moduleName].Version != currentVersion && versionData[moduleName].Version != undefined) {
+			alert ("Das Modul " + moduleName + " wurde von Version " + versionData[moduleName].Version + " auf Version " + currentVersion + " aktualisiert (Die erwartete Version ist " + expectedVersion + ")");
 		}
-		s += "</ul>";
 
-		i = 0;
-		for (var keyName in data) {
-			if (keyName.contains("-Version"))
-				continue;
-			i++;
-			s += "<div id=\"HistoryDialogTab-" + i + "\">";
-
-			s += "<label for=\"HistoryData-" + i + "\">Historien-Elemente</label><select name=\"HistoryData-" + i + "\" id=\"HistoryDataSelector-" + i + "\"><option historyGroup=\"" + keyName + "\" value=\"" + data[keyName].latest + "\" selected=\"selected\">Aktuelle Daten (" + new Date(data[keyName].latest).toLocaleString() + ")</option>" +
-			"<option historyGroup=\"" + keyName + "\" value=\"" + data[keyName].latest + "\">Aktuelle Daten (" + new Date(data[keyName].latest).toLocaleString() + ")</option>";
-			for (var time in data[keyName]) {
-				if (time.toString() === "latest" || time.toString() === data[keyName].latest.toString()) {
-					continue;
-				}
-				s += "<option historyGroup=\"" + keyName + "\" value=\"" + time + "\">" + new Date(parseInt(time)).toLocaleString() + "</option>";
+		if (versionCompareResult != 0) {
+			var msg = "Das geladene " + moduleName + " Modul ist " + (versionCompareResult < 0 ? "älter" : "neuer") + " als die konfigurierte Version";
+			msg += "\r\nDie erwartete Version ist: " + expectedVersion + " gegeben ist: " + currentVersion;
+			if (versionData[moduleName].skipNotification !== currentVersion && !confirm(msg + "\r\n\r\nSoll diese Meldung für diese Version des Moduls weiterhin angezeigt werden?")) {
+				versionData[moduleName].skipNotification = currentVersion;
 			}
-			s += "</select>";
-
-			s += "</div>";
+			console.info(msg);
 		}
-		s += "</div>";
-
-		console.log(s);
-		$(s).appendTo("#HistoryDialog");
-
-		$("#HistoryDialog").dialog({
-			close: function (event, ui) {
-				console.log("close", event, ui);
-				$("#HistoryDialog").parentNode().remove();
-			}
-		});
-
-		console.log($("#HistoryDialogTabs").tabs());
-
-		i = 0;
-		for (var keyName in data) {
-			i++;
-
-			$("#HistoryDataSelector-" + i).selectmenu({
-				change: returnExec(function (event, data) {
-					console.info(event);
-					console.info(data);
-
-					console.log(TabNoc.Variables.Data[data.item.element[0].getAttribute("historyGroup")]);
-					console.log(TabNoc.Variables.Data[parseInt(data.item.element[0].getAttribute("historyGroup"))]);
-					console.log(data.item.value);
-					alert(data.item.value + ": " + TabNoc.Variables.Data[data.item.element[0].getAttribute("historyGroup")][data.item.value].length);
-				})
-			});
-		}
+		versionData[moduleName].Version = currentVersion;
+		SetData("ImportVersion", versionData.toSource(), true);
 	}
 
 	function Main() {
+		ModuleImport("States", getStatesVersion, "1.2.6");
+		ModuleImport("TabNoc_GM", getTabNoc_GMVersion, "2.0.2");
+		ModuleImport("TabNoc", getTabNocVersion, "1.2.2");
+		ModuleImport("ImportAll", getImportAllVersion, "1.0.0");
+		
+		// ModuleImport("VideoGreyDetector", getImportAllVersion, "1.0.0");
+		
 		if (document.URL.contains("feature=youtu.be")) {
 			console.info("URL contains feature=youtu.be, skipping execution");
 			return;
 		}
-
-		exportFunction(function () {
-			CreateHistoryDialog(TabNoc.Variables.Data);
-		}, unsafeWindow, {
-			defineAs: "ImaginaryCaller"
-		});
 
 		var count = 0;
 		while (GM_Locked() == true) {
@@ -1923,9 +1844,11 @@ try {
 			}
 		}
 
-		GM_addStyle(GM_getResourceText("Impromptu"));
 		GM_addStyle(GM_getResourceText("JqueryUI"));
 		UpdateDataBase();
+		
+		GM_addStyle(GM_getResourceText("JDiffAnno"));
+		GM_addStyle(GM_getResourceText("JDiffHtml"));
 
 		if (!($("#app-drawer").length == 1 && $("#app-drawer")[0].nodeName == "DOM-MODULE")) {
 			alert("Der Support für das alte YoutubeLayout wurde mit Version 2.3.1 (02.09.2017) entfernt, wenn dies erforderlich ist bitte zur alten Version zurückkehren");
