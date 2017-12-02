@@ -1,5 +1,5 @@
 function getStatesVersion(){
-	return {Version: "1.2.0", Date: "30.11.2017"};
+	return {Version: "1.2.3", Date: "02.12.2017"};
 }
 
 /*
@@ -80,7 +80,7 @@ function GetState(currentState, changes, requestedStateNr, requestAsTime) {
 	var currentStateNr = changes.currentState;
 
 	if (requestAsTime === true) {
-		requestedStateNr = changes.changeLog.indexOf(requestedStateNr);
+		requestedStateNr = changes.changeLog.indexOf(requestedStateNr) + changes.removedChangeLogEntries;
 		if (requestedStateNr == -1) {
 			throw new Error("OutOfRangeException: The provided Timestamp requestedStateNr does not exists in changeLog");
 		}
@@ -94,7 +94,7 @@ function GetState(currentState, changes, requestedStateNr, requestAsTime) {
 		throw new Error("OutOfRangeException: requestedStateNr is in the future");
 	}
 
-	if (requestedStateNr <  changes.removedChangeLogEntries) {
+	if (requestedStateNr < changes.removedChangeLogEntries) {
 		throw new Error("OutOfRangeException: requestedStateNr was already deleted");
 	}
 
@@ -109,22 +109,10 @@ function GetState(currentState, changes, requestedStateNr, requestAsTime) {
 	return workingState;
 }
 
-function GetVisualDiff(currentState, changes, requestedStateNr, requestAsTime, outputElement) {
-	if (currentState == null) {
-		throw new Error("NullPointerExeption: currentState not provided");
-	}
-	if (changes == null) {
-		throw new Error("NullPointerExeption: changes not provided");
-	}
-	if (requestedStateNr == null) {
-		throw new Error("NullPointerExeption: requestedStateNr not provided");
-	}
-	if (requestedStateNr < 0) {
-		throw new Error("OutOfRangeException: requestedStateNr is less than 0");
-	}
-
-	outputElement.innerHTML = jsondiffpatch.formatters.html.format(jsondiffpatch.diff(currentState, GetState(currentState, changes, requestedStateNr, requestAsTime)), currentState);
+function GetVisualDiff(currentState, changes, requestedStateNr, requestAsTime) {
+	return jsondiffpatch.formatters.html.format(jsondiffpatch.diff(currentState, GetState(currentState, changes, requestedStateNr, requestAsTime)), currentState);
 }
+
 function testTabNocStates() {
 	let changes = ({});
 	let testState = ({Baum:"tree"});
@@ -166,28 +154,31 @@ function SetData(keyName, value, locked, disableValueHistory) {
 	try {
 		var oldValue;
 		if (disableValueHistory !== true)
-			oldValue = eval(GM_getValue(keyName));
+			oldValue = GM_getValue(keyName);
 		if (oldValue == null) {
 			oldValue = "{}";
 		}
-		if (locked == true) {
-			GM_setValue(keyName, value);
-		} else {
-			GM_setValueLocked(keyName, value);
-		}
 
-		var result;
-		if (disableValueHistory !== true) {
-			let changes = eval(GM_getValue("changes") || ({}));
-			changes[keyName] = changes[keyName] || ({});
-			const MaxAmount = 50;
+		if (oldValue != value) {
+			if (locked == true) {
+				GM_setValue(keyName, value);
+			} else {
+				GM_setValueLocked(keyName, value);
+			}
 
-			result = AddState(oldValue, eval(value), changes[keyName], MaxAmount);
+			var result;
+			if (disableValueHistory !== true) {
+				let changes = eval(GM_getValue("changes") || ({}));
+				changes[keyName] = changes[keyName] || ({});
+				const MaxAmount = 50;
 
-			GM_setValue("changes", changes.toSource());
-		}
-		if (TabNoc.Settings.Debug === true) {
-			console.log("SetData(" + keyName + ", " + defaultValue + ", " + locked + ", " + disableValueHistory + ") -> " + result);
+				result = AddState(eval(oldValue), eval(value), changes[keyName], MaxAmount);
+
+				GM_setValue("changes", changes.toSource());
+			}
+			if (TabNoc.Settings.Debug === true) {
+				console.log("SetData(" + keyName + ", " + defaultValue + ", " + locked + ", " + disableValueHistory + ") -> " + result);
+			}
 		}
 	} catch (exc) {
 		console.error(exc);
@@ -195,3 +186,30 @@ function SetData(keyName, value, locked, disableValueHistory) {
 	}
 }
 
+function GetData(keyName, defaultValue, evalValue) {
+	try {
+		var data = GM_getValue(keyName);
+
+		if (data == null || data === "") {
+			data = defaultValue || null;
+		}
+
+		if (TabNoc.Settings.Debug === true) {
+			console.log("GetData(" + keyName + ", " + defaultValue + ", " + evalValue + ") -> " + data);
+		}
+
+		if (evalValue === true) {
+			try {
+				data = eval(data);
+			}
+			catch (exc) {
+				ErrorHandler(exc, "Die Daten von >" + keyName + "< aus der Datenbank konnten nicht ausgewertet werden");
+			}
+		}
+		return data;
+	}
+	catch (exc) {
+		ErrorHandler(exc);
+		throw exc;
+	}
+}
