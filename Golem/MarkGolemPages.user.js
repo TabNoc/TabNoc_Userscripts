@@ -2,16 +2,20 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.3.0_27112017__beta5_
+// @version     1.3.0_02122017__beta11_
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
-// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
-// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/TabNoc.js
+// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
+// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/TabNoc.js
 // @require     https://raw.githubusercontent.com/benjamine/jsondiffpatch/master/public/build/jsondiffpatch.js
-// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/States.js
-// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/jquery_ui/jquery-ui.min.js
+// @require     https://raw.githubusercontent.com/benjamine/jsondiffpatch/master/public/build/jsondiffpatch-formatters.js
+// @resource    JDiffHtml https://raw.githubusercontent.com/benjamine/jsondiffpatch/master/public/formatters-styles/html.css
+// @resource    JDiffAnno https://raw.githubusercontent.com/benjamine/jsondiffpatch/master/public/formatters-styles/annotated.css
+// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/States.js
+// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/ImportAll.js
+// @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/jquery_ui/jquery-ui.min.js
 // @require     https://gist.githubusercontent.com/TheDistantSea/8021359/raw/89d9c3250fd049deb23541b13faaa15239bd9d05/version_compare.js
-// @resource	JqueryUI https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/jquery_ui/jquery-ui.min.css
-// @resource	MyCss https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/Golem/MarkGolemPages.css
+// @resource	JqueryUI https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/jquery_ui/jquery-ui.min.css
+// @resource	MyCss https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/Golem/MarkGolemPages.css
 // updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Golem/MarkGolemPages.user.js
 // @grant       GM_setValue
 // @grant       GM_getValue
@@ -21,6 +25,7 @@
 // @grant       GM_addStyle
 // @grant       GM_getResourceText
 // @grant       GM_xmlhttpRequest
+// @connect     tabnoc.gear.host
 // @noframes
 // ==/UserScript==
 
@@ -52,15 +57,13 @@ Start Writing Script
 	- added: jsondiffpatch
 	- added: SetData
 	- changed: SetData now uses Diff to provide multiple States
-	
+
 30.09.2017 - 1.2.4
 	- added: CreateHistoryDialog
 	- added: Version checking from Imports
 */
 
 try {
-	if (String.prototype.contains == null) {String.prototype.contains = String.prototype.includes;}
-
 	setTabNoc({
 		Variables: {
 			startTime: new Date(),
@@ -127,9 +130,9 @@ try {
 		exportFunction(getAllElements, unsafeWindow, {
 			defineAs: "getAllElements"
 		});
-						
+
 		GM_registerMenuCommand("Einlesen", returnExec(getAllElements));
-		
+
 		GM_registerMenuCommand("CreateHistoryDialog", function() {CreateHistoryDialog(eval(GM_getValue("changes")));});
 
 		GM_registerMenuCommand("ManuelleSyncronisation", returnExec(Syncronisieren));
@@ -139,7 +142,7 @@ try {
 	 * [startCheckElements description]
 	 * @param  {bool} ToggleState Overwirtes ToggleState
 	 * @param  {bool} force       foreces Execution when true
-	 * @return {void}             
+	 * @return {void}
 	 */
 	function startCheckElements(ToggleState, force) {
 		if (document.hidden === false || force === true) {
@@ -232,7 +235,7 @@ try {
 
 		return false;
 	}
-	
+
 	function getAllElements(from, till) {
 		try {
 			var start = new Date().getTime();
@@ -596,275 +599,52 @@ try {
 		Feedback.showProgress(30, "Warte auf Rückmeldung vom Server");
 	}
 
-	function ImportData(allData, entriesArray) {
-		var entryID = null;
-		var entry = null;
-        var element = null;
-		if (typeof(GetData) != "function") throw new Error("GetData is not Implemented but required for ImportData!");
-		if (typeof(SetData) != "function") throw new Error("SetData is not Implemented but required for ImportData!");
-		if (typeof(GM_Lock) != "function") throw new Error("GM_Lock is not Implemented but required for ImportData!");
-		if (typeof(GM_Unlock) != "function") throw new Error("GM_Unlock is not Implemented but required for ImportData!");
-		if (typeof(UpdateDatabase) != "function") throw new Error("UpdateDatabase is not Implemented but required for ImportData!");
-		
-		try {
-			if (typeof(allData) == "object") {
-				element = allData;
-				for (entryID in entriesArray) {
-					entry = entriesArray[entryID];
-					element[entry.Name + "-Version"] = element[entry.Name + "-Version"] || entry.defaultVersion;
-				}
-				
-				UpdateDataBase(({
-						lock: (function () {}),
-						unlock: (function () {}),
-						getValue: (function (key) {
-							return element[key];
-						}),
-						setValue: (function (key, value) {
-							element[key] = value;
-						})
-					}), true);
-				
-				var errorList = ([]);
-				
-				for (entryID in entriesArray) {
-					entry = entriesArray[entryID];
-					if (element[entry.Name + "-Version"] !== GetData(entry.Name + "-Version")) {
-						errorList.push("Die Version der Datenbanktabelle " + entry.Name + " passt nicht (importierte Version: " + element[entry.Name + "-Version"] + ", lokale Version: " + GetData(entry.Name + "-Version") + ")");
-					}
-				}
-				
-				if (errorList.length !== 0) {
-					var msg = "Das Importieren kann nicht durchgeführt werden, da:\r\n";
-					for (var i in errorList) {
-						msg = msg + "\r\n\t- " + errorList[i];
-					}
-					alert(msg);
-					throw new Error("ImportData impossible!");
-				}
-				
-				if (confirm("Sollen die Daten mit den Aktuellen Daten zusammengeführt werden?") !== true) {
-					throw new Error("Das Importieren der Daten wurde durch den Benutzer abgebrochen");
-				}
-				
-				for (entryID in entriesArray) {
-					entry = entriesArray[entryID];
-					element[entry.Name] = eval(element[entry.Name]);
-				}
-			} else if (allData === true) {
-				element = eval(prompt("Bitte die exportierten Daten eintragen"));
-			} else {
-				element = ({});
-				for (entryID in entriesArray) {
-					entry = entriesArray[entryID];
-					element[entry.Name] = eval(prompt("Please insert new " + entry.Name + " Data"));
-				}
-			}
-			
-			GM_Lock();
-			for (entryID in entriesArray) {
-				entry = entriesArray[entryID];
-				if (typeof(element[entry.Name]) != "object") {
-					throw new Error("element." + element[entry.Name] + " is not an Object, Import impossible!");
-				}
-			}
-			
-			element.currentData = ({});
-			element.count = ({});
-			
-			for (entryID in entriesArray) {
-				entry = entriesArray[entryID];
-				element.currentData[entry.Name] = GetData(entry.Name, entry.defaultValue, true);
-				element.currentData[entry.Name + "Count"] = 0;
-			}
-			
-			var newDataStorage = ({});
-			
-			for (entryID in entriesArray) {
-				entry = entriesArray[entryID];
-				element.currentData[entry.Name] = GetData(entry.Name, entry.defaultValue, true);
-				element.count[entry.Name] = 0;
-				newDataStorage[entry.Name] = eval(entry.defaultValue);
-			}
-			
-			for (entryID in entriesArray) {
-				entry = entriesArray[entryID];
-				if (TabNoc.Settings.Debug) {
-					console.info("Importing stored " + entry.Name);
-				}
-				for (var i in element.currentData[entry.Name]) {
-					entry.ImportAction(newDataStorage, entry, element.currentData[entry.Name][i]);
-					element.count[entry.Name]++;
-				}
-				if (TabNoc.Settings.Debug) {
-					console.info("Importing new " + entry.Name);
-					console.info(element[entry.Name]);
-				}
-				for (var i in element[entry.Name]) {
-					entry.ImportAction(newDataStorage, entry, element[entry.Name][i]);
-					element.count[entry.Name]++;
-				}
-			}
-			// till here ported to new implementation
-			var changes = false;
-			var msg = "Das Importieren wurde erfolgreich abgeschlossen!\r\n";
-			for (entryID in entriesArray) {
-				entry = entriesArray[entryID];
-				msg += entry.Name + ":\r\n";
-				msg += "\tEs wurden " + element.count[entry.Name] + " Elemente aktualisiert (";
-				msg += "gespeicherte Datenmenge: " + element.currentData[entry.Name].toSource().length + "B (" + Object.keys(element.currentData[entry.Name]).length + ") |";
-				msg += "importierte Datenmenge: " + element[entry.Name].toSource().length + "B (" + Object.keys(element[entry.Name]).length + ") |";
-				msg += "neue Datenmenge: " + newDataStorage[entry.Name].toSource().length + "B) (" + Object.keys(newDataStorage[entry.Name]).length + ")\r\n";
-				msg += "Delta:\r\n";
-				if (newDataStorage[entry.Name].toSource() != element[entry.Name].toSource()) {
-					changes = true;
-				}
-			}
-			
-			alert(msg);
-			
-			if (changes == false) {
-				alert("Es wurde keine Änderung der Daten durch das Importieren durchgeführt\r\n\t\tSpeichern nicht erforderlich");
-			} else {
-				if (confirm("Sollen die Änderungen gespeichert werden?") === true) {
-					for (entryID in entriesArray) {
-						entry = entriesArray[entryID];
-						SetData(entry.Name, newDataStorage[entry.Name].toSource());
-					}
-				}
-			}
-		} catch (exc) {
-			console.error(exc);
-			alert("Das Importieren ist fehlgeschlagen!\r\n" + exc);
-			throw (exc);
+	// SetData(keyName, value, locked, disableValueHistory)
+
+	function ModuleImport(moduleName, moduleFunction, expectedVersion) {
+		let currentVersion = moduleFunction().Version;
+		let versionCompareResult = versionCompare(currentVersion, expectedVersion);
+		var versionData = GetData("ImportVersion", "({show: true})", true);
+		versionData[moduleName] = versionData[moduleName] || ({});
+		if (versionData["show"] == true && versionData[moduleName].Version != currentVersion && versionData[moduleName].Version != undefined) {
+			alert ("Das Modul " + moduleName + " wurde von Version " + versionData[moduleName].Version + " auf Version " + currentVersion + " aktualisiert (Die erwartete Version ist " + expectedVersion + ")");
 		}
-		finally {
-			GM_Unlock();
+
+		if (versionCompareResult != 0) {
+			var msg = "Das geladene " + moduleName + " Modul ist " + (versionCompareResult < 0 ? "älter" : "neuer") + " als die konfigurierte Version";
+			msg += "\r\nDie erwartete Version ist: " + expectedVersion + " gegeben ist: " + currentVersion;
+			if (versionData[moduleName].skipNotification !== currentVersion && !confirm(msg + "\r\n\r\nSoll diese Meldung für diese Version des Moduls weiterhin angezeigt werden?")) {
+				versionData[moduleName].skipNotification = currentVersion;
+			}
+			console.info(msg);
 		}
+		versionData[moduleName].Version = currentVersion;
+		SetData("ImportVersion", versionData.toSource(), true);
 	}
-	
-    function GetData(keyName, defaultValue, evalValue) {
-        try {
-            var data = GM_getValue(keyName);
 
-            if (data === null || data === "") {
-                data = defaultValue || null;
-            }
-
-            if (TabNoc.Settings.Debug === true) {
-                console.log("GetData(" + keyName + ", " + defaultValue + ", " + evalValue + ") -> " + data);
-            }
-
-            if (evalValue === true) {
-                try {
-                    data = eval(data);
-                }
-                catch (exc) {
-                    ErrorHandler(exc, "Die Daten von >" + keyName + "< aus der Datenbank konnten nicht ausgewertet werden");
-                }
-            }
-            return data;
-        }
-        catch (exc) {
-            ErrorHandler(exc);
-            throw exc;
-        }
-    }
-
-	function CreateHistoryDialog(data) {
-		try {
-			$("#HistoryDialog").remove();
-			$("<div />").attr("id", "HistoryDialog").attr("title", "Historie").appendTo("body");
-			
-			var i = 0;
-			var s = "<div id=\"HistoryDialogTabs\"><ul>";
-			for (var keyName in data) {
-				if (keyName.contains("-Version"))
-					continue;
-				i++;
-				s += "<li><a href=\"#HistoryDialogTab-" + i + "\">" + keyName + "</a></li>";
-			}
-			s += "</ul>";
-			
-			i = 0;
-			var keyname;
-			for (keyName in data) {
-				if (keyName.contains("-Version"))
-					continue;
-				i++;
-				s += "<div id=\"HistoryDialogTab-" + i + "\">";
-				
-				s += "<label for=\"HistoryData-" + i + "\">Historien-Elemente</label><select name=\"HistoryData-" + i + "\" id=\"HistoryDataSelector-" + i + "\"><option historyGroup=\"" + keyName + "\" value=\"" + data[keyName].currentState + "\" selected=\"selected\">Aktuelle Daten</option>";
-				for (var timeIndex in data[keyName].changeLog.reverse()) {
-					let time = data[keyName].changeLog[timeIndex];
-					console.log(time, "Dieser wert sollte ein Timestamp sein, ist er das auch?");
-					s += "<option historyGroup=\"" + keyName + "\" value=\"" + time + "\">" + new Date(parseInt(time)).toLocaleString() + "</option>";
-				}
-				s += "</select>";
-				
-				s += "</div>";
-			}
-			s += "</div>";
-			
-			console.log(s);
-			$(s).appendTo("#HistoryDialog");
-			
-			$("#HistoryDialog").dialog({
-				close: function (event, ui) {
-					console.log("close", event, ui);
-					$("#HistoryDialog").parentNode().remove();
-				}
-			});
-			
-			console.log($("#HistoryDialogTabs").tabs());
-			
-			i = 0;
-			for (keyName in data) {
-				i++;
-				
-				$("#HistoryDataSelector-" + i).selectmenu({
-					change: returnExec(function (event, data) {
-						console.info(event);
-						console.info(data);
-						
-						console.log(data.item.value);
-						let group = data.item.element[0].getAttribute("historyGroup");
-						let newData = GetState(eval(GM_getValue(group)), eval(GM_getValue("changes"))[group], data.item.value, true);
-						console.log(newData);
-					})
-				});
-			}
-		} catch (exc) {
-			console.error(exc);
-			alert(exc);
-		}
-	}
-	
 	function Main() {
-		let versionCompare_States = versionCompare(getStatesVersion().Version, "1.1.0");
-		if (versionCompare_States != 0) console.info((versionCompare_States < 0 ? "Older" : "Newer") + " States.js file detected!");
-
-		let versionCompare_TabNoc_Config = versionCompare(getTabNocVersion().Version, "1.2.2");
-		if (versionCompare_TabNoc_Config != 0) console.info((versionCompare_TabNoc_Config < 0 ? "Older" : "Newer") + " TabNoc.js file detected!");
-
-		let versionCompare_TabNoc_GM = versionCompare(getTabNoc_GMVersion().Version, "2.0.0");
-		if (versionCompare_TabNoc_GM != 0) console.info((versionCompare_TabNoc_GM < 0 ? "Older" : "Newer") + " GM__.js file detected!");
+		ModuleImport("States", getStatesVersion, "1.2.6");
+		ModuleImport("TabNoc_GM", getTabNoc_GMVersion, "2.0.2");
+		ModuleImport("TabNoc", getTabNocVersion, "1.2.2");
+		ModuleImport("ImportAll", getImportAllVersion, "1.0.0");
 
 		var count = 0;
 		while (GM_Locked() == true) {
 			count = count + 1;
 			alert("Der Aktuelle Sperrzustand der Datenbank ist positiv, dies wird durch Fehlermeldungen während der Ausführung ausgelöst oder ist nur eine kurzweilige erscheinung. \r\n\r\n Bitte Meldung bestätigen!");
 			if (count >= 2) {
-				if(confirm("Soll der Sperrzustand der Datenbank aufgehoben werden [empfohlen]?") === true ) {
+				if (confirm("Soll der Sperrzustand der Datenbank aufgehoben werden [empfohlen]?") === true ) {
 					GM_Unlock(true);
 				}
 			}
 		}
-		
+
 		GM_addStyle(GM_getResourceText("JqueryUI"));
 		UpdateDataBase();
 
 		GM_addStyle(GM_getResourceText("MyCss"));
+		GM_addStyle(GM_getResourceText("JDiffAnno"));
+		GM_addStyle(GM_getResourceText("JDiffHtml"));
 
 		// Startseite
 		if (document.URL.includes("news") == false) {
