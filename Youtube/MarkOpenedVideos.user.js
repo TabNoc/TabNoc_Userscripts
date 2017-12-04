@@ -10,7 +10,7 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.3.5_02102017
+// @version     2.3.6_04122017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -169,6 +169,9 @@ fixed:	- fixed StyleChanges from Youtube
 	
 02.10.2017 - 2.3.5
 	fixed:		- if an Information in MergeVideoObject is missing it can not be resolved
+	
+04.12.2017 - 2.3.6
+	fixed:		- GetData checked for null but not for undefined to apply default value
 */
 
 try {
@@ -865,7 +868,7 @@ try {
 		try {
 			var data = GM_getValue(keyName);
 			
-			if (data === null || data === "") {
+			if (data == null || data === "") {
 				data = defaultValue || null;
 			}
 			
