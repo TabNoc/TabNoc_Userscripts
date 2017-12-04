@@ -1,5 +1,5 @@
 function getTabNocVersion(){
-	return {Version: "1.2.2", Date: "16.07.2017"};
+	return {Version: "1.2.3", Date: "04.12.2017"};
 }
 
 try {
@@ -43,34 +43,10 @@ try {
 		unsafeWindow.TabNoc_[ScriptName] = cloneInto(obj, unsafeWindow.TabNoc_, {
 			wrapReflectors: true, cloneFunctions: true
 		});
+        TabNoc = unsafeWindow.TabNoc_[GM_info.script.name];
 	}
 
-	TabNoc = {
-		get Const(){
-			return unsafeWindow.TabNoc_[GM_info.script.name].Const;
-		},
-		set Const(obj){},
-		
-		get console(){
-			return unsafeWindow.TabNoc_[GM_info.script.name].console;
-		},
-		set console(obj){},
-		
-		get Variables(){
-			return unsafeWindow.TabNoc_[GM_info.script.name].Variables;
-		},
-		set Variables(obj){},
-		
-		get Settings(){
-			return unsafeWindow.TabNoc_[GM_info.script.name].Settings;
-		},
-		set Settings(obj){},
-		
-		get HTML(){
-			return unsafeWindow.TabNoc_[GM_info.script.name].HTML;
-		},
-		set HTML(obj){},
-	}
+	TabNoc = null;
 	
 	var Feedback = null;
 	if (jQuery != undefined) {
