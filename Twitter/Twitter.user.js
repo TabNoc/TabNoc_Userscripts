@@ -1,9 +1,9 @@
-﻿// ==UserScript==
+// ==UserScript==
 // @name        Twitter
 // @namespace   TabNoc
 // @description Marking of already readed Tweets and some other nice features 		©2017 TabNoc
 // @include     http*://twitter.com/*
-// @version     1.13.5_11092017
+// @version     1.13.6_04122017
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
@@ -69,13 +69,17 @@ fixed:		- Using master branch Implementation of TabNoc.js
 changed:	- optical Improvements (borders)
 			- using Feedback Implementation from TabNoc.js
 			
-11.09.2017 - 1.13.4
+11.09.2017 - 1.13.5
 [Global]
 fixed:		- Statistiken were not converted to GM_getValue
 added:		- HideMarkedTweets
 added:		- startCheckElements now checks if the last TweetID changes
 fixed:		- getAllElements has scanned twice
 changed:	- only visible elements were marked
+
+04.12.2017 - 1.13.6
+fixed:		- elementIdArray was not properly initialised
+changed:	- polished some Formatting
 */
 
 
@@ -317,14 +321,14 @@ try {
 			alert(exc);
 		}
 	}
-	
+
 	function startCheckElements(ToggleState, force) {
 		try {
 			ManageActiveTime();
-			if (document.hidden === false && TabNoc.Variables.Active === true && document.hasFocus()) {
+			if ((document.hidden === false && TabNoc.Variables.Active === true && document.hasFocus()) || force === true) {
 				var start = new Date().getTime();
 
-				var elementIdArray = eval(GM_getValue("Twitter"));
+				var elementIdArray = eval(GM_getValue("Twitter")) || ([]);
 				var PermaLinkTweet = $(".permalink-container").length == 1;
 				var elements = $(".js-stream-tweet");
 
@@ -337,13 +341,13 @@ try {
 					$("#floatingButtons")[0].setAttribute("class", "");
 					TabNoc.Variables.HiddenButtons = false;
 				}
-				
+
 				var MinTopValue = $(".ProfileCanopy-inner").length == 1 ? 127 : $(".global-nav-inner")[0].getClientRects()[0].bottom;
 				var MaxTopValue = document.documentElement.clientHeight;
 				if (TabNoc.Settings.Personal.HideUninterestingTweets == true) {
 					var currentTopValue = document.getElementsByClassName("stream-footer")[0].getClientRects()[0].top;
 					if (currentTopValue < MaxTopValue && currentTopValue > MinTopValue) {
-						document.getElementsByClassName("try-again-after-whale")[0].click()
+						document.getElementsByClassName("try-again-after-whale")[0].click();
 					}
 				}
 				if (TabNoc.Variables.HiddenButtons == false && (
@@ -357,18 +361,18 @@ try {
 					TabNoc.Variables.Stat_InVisibleElements = 0;
 					// TabNoc.Variables.Stat_RemovedElements = 0;
 					TabNoc.Variables.Stat_AllElementsCount = 0;
-					
+
 					var UnScannedElements = checkElements(elementIdArray.reverse(), ToggleState, elements);
 					TabNoc.Variables.lastCheckItemCount = elements.length;
 					TabNoc.Variables.lastCheckScanBufferAmount = elementIdArray.length;
 					TabNoc.Variables.lastCheckLastElementID = elements.length > 0 ? elements[elements.length - 1].getAttribute("data-item-id") : 0;
-					
+
 					var time = new Date().getTime() - start;
-					
-					console.log((elements.length - UnScannedElements) + " Marked Elements | "
-					+ UnScannedElements + " UnMarked Elements | "
-					+ elements.length + " Elements Total (" + elementIdArray.length + " Tweets listed) | "
-					+ 'Execution time: ' + time);
+
+					console.log((elements.length - UnScannedElements) + " Marked Elements | " +
+                                UnScannedElements + " UnMarked Elements | " +
+                                elements.length + " Elements Total (" + elementIdArray.length + " Tweets listed) | " +
+                                'Execution time: ' + time);
 				}
 			}
 		}
@@ -377,7 +381,7 @@ try {
 			alert(exc);
 		}
 	}
-	
+
 	function checkElements(elementIdArray, ToggleState, elements) {
 		var UnScannedElements = 0;
 		var RemovedElements = 0;
@@ -391,8 +395,8 @@ try {
 
 			if (element.className == "undefined") continue;
 
-			if ((element.className.includes("js-original-tweet") && element.className.includes("js-stream-tweet") && 
-				element.className.includes("js-actionable-tweet") && element.className.includes("js-profile-popup-actionable")) || 
+			if ((element.className.includes("js-original-tweet") && element.className.includes("js-stream-tweet") &&
+				element.className.includes("js-actionable-tweet") && element.className.includes("js-profile-popup-actionable")) ||
 				element.className.includes("conversation")) {
 				//check if Adware
 				if (element.className.includes("expanded-conversation") ?
@@ -423,15 +427,15 @@ try {
 		if (RemovedElements > 0) {
 			Feedback.showMessage(RemovedElements + " Elemente entfernt (Werbung)!!!", "error", 20000);
 		}
-		
+
 		return UnScannedElements;
 	}
-	
+
 	function checkElement(checkElement, elementIdArray, ToggleState) {
 		//return true if checkedElement is already Scanned
 
 		var ElementID = checkElement.getAttribute("data-item-id");
-		
+
 		// this consumes huge amounts of time  |  first time call: (100 elements ~ 35 ms)  |  later call: (100 elements ~ 0 ms)
 		if (checkElement.getAttribute("TabNoc_DropDownButtons") != "true") {
 			$(checkElement).find(".dropdown-menu")[0].children[1].innerHTML += TabNoc.HTML.TweetsDropDownButtons.replaceAll("{element}", ElementID);
