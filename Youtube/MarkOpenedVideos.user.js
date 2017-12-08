@@ -10,7 +10,7 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.3.6_29112017__beta3_
+// @version     2.3.6_29112017__beta4_
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -244,15 +244,17 @@ try {
 			TabNoc.Settings.HideAlreadyWatchedVideos = true;
 			startCheckElements(true, true);
 		});
-		
-		GM_registerMenuCommand("CreateHistoryDialog", function() {CreateHistoryDialog(eval(GM_getValue("changes")));});
+
+		GM_registerMenuCommand("CreateHistoryDialog", function () {
+			CreateHistoryDialog(GetData("changes", "([])", true));
+		});
 
 		GM_registerMenuCommand("ManuelleSyncronisation", function () {
 			Syncronisieren();
 		});
 
 		GM_registerMenuCommand("ImportData", function () {
-			ImportData();
+			ImportData(null, TabNoc.Variables.ImportDataProperties);
 		});
 
 		GM_registerMenuCommand("ExportData", function () {
@@ -271,12 +273,40 @@ try {
 		});
 
 		GM_registerMenuCommand("ImportAllData", function () {
-			ImportData(true);
+			ImportData(true, TabNoc.Variables.ImportDataProperties);
 		});
 
 		GM_registerMenuCommand("Markieren", function () {
 			startCheckElements(!TabNoc.Variables.MarkToggleState);
 		});
+		
+		TabNoc.Variables.ImportDataProperties = ([{
+				Name: "VideoObjectDictionary",
+				defaultVersion: 2,
+				defaultValue: "({})",
+				ImportAction: function (dataStorage, currentEntry, importElement) {
+					PushVideoObject(dataStorage[currentEntry.Name], importElement, false);
+				}
+			}, {
+				Name: "WatchedVideoArray",
+				defaultVersion: 0,
+				defaultValue: "([])",
+				ImportAction: function (dataStorage, currentEntry, importElement) {
+					if (GetVideoWatched(dataStorage[currentEntry.Name], dataStorage["VideoObjectDictionary"], importElement) === false) {
+						dataStorage[currentEntry.Name].push(importElement);
+					}
+				}
+			}, {
+				Name: "ScannedVideoArray",
+				defaultVersion: 0,
+				defaultValue: "([])",
+				ImportAction: function (dataStorage, currentEntry, importElement) {					
+					if (GetVideoWatched(dataStorage[currentEntry.Name], dataStorage["VideoObjectDictionary"], importElement) === false && GetVideoWatched(dataStorage["WatchedVideoArray"], false, importElement) === false) {
+						newScannedStructure.push(scannedVideoArray[i]);
+					}
+				}
+			}
+		]);
 	}
 
 	function startCheckElements(ToggleState, force) {
@@ -1110,7 +1140,7 @@ try {
 								}
 								else {
 									if (confirm("Soll der Vorgang ohne Backup fortgesetzt werden?") !== true) {
-										throw new Error("Der Eintrag 'VideoObjectDictionary-Version-2' ist bereits mit anderen Daten gesetzt, der Benutzer hat ein überschreiben und ein Fortsetzten abgelehnt"); 
+										throw new Error("Der Eintrag 'VideoObjectDictionary-Version-2' ist bereits mit anderen Daten gesetzt, der Benutzer hat ein überschreiben und ein Fortsetzten abgelehnt");
 									}
 								}
 							}
@@ -1189,7 +1219,7 @@ try {
 								}
 								else {
 									if (confirm("Soll der Vorgang ohne Backup fortgesetzt werden?") !== true) {
-										throw new Error("Der Eintrag 'VideoObjectDictionary-Version-3' ist bereits mit anderen Daten gesetzt, der Benutzer hat ein überschreiben und ein Fortsetzten abgelehnt"); 
+										throw new Error("Der Eintrag 'VideoObjectDictionary-Version-3' ist bereits mit anderen Daten gesetzt, der Benutzer hat ein überschreiben und ein Fortsetzten abgelehnt");
 									}
 								}
 							}
@@ -1250,162 +1280,7 @@ try {
 
 		functions.unlock();
 	}
-
-	//TODO: removeThis
-/*
-	function ImportData(allData) {
-		try {
-			if (typeof(allData) == "object") {
-				var element = allData;
-				element["VideoObjectDictionary-Version"] = element["VideoObjectDictionary-Version"] || 2;
-				element["WatchedVideoArray-Version"] = element["WatchedVideoArray-Version"] || 0;
-				element["ScannedVideoArray-Version"] = element["ScannedVideoArray-Version"] || 0;
-
-				UpdateDataBase(({
-						lock: (function () {}),
-						unlock: (function () {}),
-						getValue: (function (key) {
-							return element[key];
-						}),
-						setValue: (function (key, value) {
-							element[key] = value;
-						})
-					}), true);
-
-				var errorList = ([]);
-				if (element["VideoObjectDictionary-Version"] !== GetData("VideoObjectDictionary-Version")) {
-					errorList.push("Die Version vom VideoObjectDictionary passt nicht (Serverversion: " + element["VideoObjectDictionary-Version"] + ", lokale Version: " + GetData("VideoObjectDictionary-Version") + ")");
-				}
-				if (element["WatchedVideoArray-Version"] !== GetData("WatchedVideoArray-Version")) {
-					errorList.push("Die Version vom WatchedVideoArray passt nicht (Serverversion: " + element["WatchedVideoArray-Version"] + ", lokale Version: " + GetData("WatchedVideoArray-Version") + ")");
-				}
-				if (element["ScannedVideoArray-Version"] !== GetData("ScannedVideoArray-Version")) {
-					errorList.push("Die Version vom ScannedVideoArray passt nicht (Serverversion: " + element["ScannedVideoArray-Version"] + ", lokale Version: " + GetData("ScannedVideoArray-Version") + ")");
-				}
-
-				var msg = "Das Importieren kann nicht durchgeführt werden, da:\r\n";
-				for (var i in errorList) {
-					msg = msg + "\r\n\t- " + errorList[i];
-				}
-				if (errorList.length !== 0) {
-					alert(msg);
-					throw new Error("ImportData impossible!");
-				}
-
-				if (confirm("Sollen die Daten mit den Aktuellen Daten zusammengeführt werden?") !== true) {
-					throw new Error("Das Importieren der Daten wurde durch den Benutzer abgebrochen");
-				}
-
-				element["VideoObjectDictionary"] = eval(element["VideoObjectDictionary"]);
-				element["WatchedVideoArray"] = eval(element["WatchedVideoArray"]);
-				element["ScannedVideoArray"] = eval(element["ScannedVideoArray"]);
-			}
-			else if (allData === true) {
-				var element = eval(prompt("Bitte die exportierten Daten eintragen"));
-			}
-			else {
-				var element = ({});
-				element.VideoObjectDictionary = eval(prompt("Please insert new VideoObjectDictionary Data"));
-				element.WatchedVideoArray = eval(prompt("Please insert new WatchedVideoArray Data"));
-				element.ScannedVideoArray = eval(prompt("Please insert new ScannedVideoArray Data"));
-			}
-
-			if (typeof(element.VideoObjectDictionary) != "object") {
-				throw new Error("element.VideoObjectDictionary is not an Object, Import impossible!");
-			}
-			if (typeof(element.WatchedVideoArray) != "object") {
-				throw new Error("element.WatchedVideoArray is not an Object(Array), Import impossible!");
-			}
-			if (typeof(element.ScannedVideoArray) != "object") {
-				throw new Error("element.ScannedVideoArray is not an Object(Array), Import impossible!");
-			}
-
-			GM_Lock();
-			var videoObjectDictionary = GetData("VideoObjectDictionary", "({})", true);
-			var watchedVideoArray = GetData("WatchedVideoArray", "([])", true);
-			var scannedVideoArray = GetData("ScannedVideoArray", "([])", true);
-			var count_vOD = 0;
-			var count_wVA = 0;
-			var count_sVA = 0;
-
-			var newObject = ({});
-
-			if (TabNoc.Settings.Debug)
-				console.info("Importing stored videoObjectDictionary");
-			for (var i in videoObjectDictionary) {
-				PushVideoObject(newObject, videoObjectDictionary[i], false);
-			}
-			if (TabNoc.Settings.Debug) {
-				console.info("Importing new videoObjectDictionary");
-				console.info(element.VideoObjectDictionary);
-			}
-			for (var i in element.VideoObjectDictionary) {
-				PushVideoObject(newObject, element.VideoObjectDictionary[i], false);
-				count_vOD++;
-			}
-
-			var newWatchedStructure = ([]);
-			var newScannedStructure = ([]);
-
-			if (TabNoc.Settings.Debug)
-				console.info("Importing stored watchedVideoArray");
-			for (var i in watchedVideoArray) {
-				if (GetVideoWatched(newWatchedStructure, newObject, watchedVideoArray[i]) === false) {
-					newWatchedStructure.push(watchedVideoArray[i]);
-				}
-			}
-			if (TabNoc.Settings.Debug)
-				console.info("Importing new watchedVideoArray");
-			for (var i in element.WatchedVideoArray) {
-				if (GetVideoWatched(newWatchedStructure, newObject, element.WatchedVideoArray[i]) === false) {
-					newWatchedStructure.push(element.WatchedVideoArray[i]);
-					count_wVA++;
-				}
-			}
-
-			if (TabNoc.Settings.Debug)
-				console.info("Importing stored scannedVideoArray");
-			for (var i in scannedVideoArray) {
-				if (GetVideoWatched(newScannedStructure, newObject, scannedVideoArray[i]) === false && GetVideoWatched(newWatchedStructure, false, scannedVideoArray[i]) === false) {
-					newScannedStructure.push(scannedVideoArray[i]);
-				}
-			}
-			if (TabNoc.Settings.Debug)
-				console.info("Importing new scannedVideoArray");
-			for (var i in element.ScannedVideoArray) {
-				if (GetVideoWatched(newScannedStructure, newObject, element.ScannedVideoArray[i]) === false && GetVideoWatched(newWatchedStructure, false, element.ScannedVideoArray[i]) === false) {
-					newScannedStructure.push(element.ScannedVideoArray[i]);
-					count_sVA++;
-				}
-			}
-
-			alert("Das Importieren wurde erfolgreich abgeschlossen!\r\n" +
-				"VideoObjectDictionary:\r\n" +
-				"\tEs wurden " + count_vOD + " Elemente aktualisiert (gespeicherte Datenmenge: " + videoObjectDictionary.toSource().length + "B (" + Object.keys(videoObjectDictionary).length + ") | importierte Datenmenge: " + element.VideoObjectDictionary.toSource().length + "B (" + Object.keys(element.VideoObjectDictionary).length + ") | neue Datenmenge: " + newObject.toSource().length + "B) (" + Object.keys(newObject).length + ")\r\n" +
-				"WatchedVideoArray:\r\n" +
-				"\tEs wurden " + count_wVA + " Elemente aktualisiert (gespeicherte Datenmenge: " + watchedVideoArray.toSource().length + "B (" + watchedVideoArray.length + ") | importierte Datenmenge: " + element.WatchedVideoArray.toSource().length + "B (" + element.WatchedVideoArray.length + ") | neue Datenmenge: " + newWatchedStructure.toSource().length + "B) (" + newWatchedStructure.length + ")\r\n" +
-				"ScannedVideoArray:\r\n" +
-				"\tEs wurden " + count_sVA + " Elemente aktualisiert (gespeicherte Datenmenge: " + scannedVideoArray.toSource().length + "B (" + scannedVideoArray.length + ") | importierte Datenmenge: " + element.ScannedVideoArray.toSource().length + "B (" + element.ScannedVideoArray.length + ") | neue Datenmenge: " + newScannedStructure.toSource().length + "B) (" + newScannedStructure.length + ")");
-
-			if (videoObjectDictionary.toSource() == newObject.toSource() && watchedVideoArray.toSource() == newWatchedStructure.toSource() && scannedVideoArray.toSource() == newScannedStructure.toSource()) {
-				alert("Es wurde keine Änderung der Daten durch das Importieren durchgeführt\r\n\t\tSpeichern nicht erforderlich");
-			}
-			else {
-				if (confirm("Sollen die Änderungen gespeichert werden?") === true) {
-					SetData("VideoObjectDictionary", newObject.toSource(), true);
-					SetData("WatchedVideoArray", newWatchedStructure.toSource(), true);
-					SetData("ScannedVideoArray", newScannedStructure.toSource(), true);
-				}
-			}
-			GM_Unlock();
-		}
-		catch (exc) {
-			console.error(exc);
-			alert("Das Importieren ist fehlgeschlagen!\r\n" + exc);
-			throw (exc);
-		}
-	}
-*/
+	
 	function GetVideoWatched(watchedVideoArray, videoObjectDictionary, VideoID) {
 		// If videoObjectDictionary is false ignore Elements from Dictionary (only check Elements from WatchedVideoArray)
 		if (videoObjectDictionary !== false) {
@@ -1740,7 +1615,7 @@ try {
 					console.info("Server response Data:", responseData);
 					if (responseData.VideoObjectDictionary != null && responseData.WatchedVideoArray != null) {
 						Feedback.lockProgress();
-						ImportData(responseData);
+						ImportData(responseData, TabNoc.Variables.ImportDataProperties);
 						Feedback.unlockProgress();
 					}
 					else {
@@ -1820,9 +1695,9 @@ try {
 		ModuleImport("TabNoc_GM", getTabNoc_GMVersion, "2.0.2");
 		ModuleImport("TabNoc", getTabNocVersion, "1.2.2");
 		ModuleImport("ImportAll", getImportAllVersion, "1.0.0");
-		
+
 		// ModuleImport("VideoGreyDetector", getImportAllVersion, "1.0.0");
-		
+
 		if (document.URL.contains("feature=youtu.be")) {
 			console.info("URL contains feature=youtu.be, skipping execution");
 			return;
@@ -1846,7 +1721,7 @@ try {
 
 		GM_addStyle(GM_getResourceText("JqueryUI"));
 		UpdateDataBase();
-		
+
 		GM_addStyle(GM_getResourceText("JDiffAnno"));
 		GM_addStyle(GM_getResourceText("JDiffHtml"));
 
