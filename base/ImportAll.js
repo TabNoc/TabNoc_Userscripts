@@ -1,5 +1,5 @@
 function getImportAllVersion(){
-	return {Version: "1.0.0", Date: "29.11.2017"};
+	return {Version: "1.0.1", Date: "08.12.2017"};
 }
 
 /*
@@ -34,9 +34,9 @@ function ImportData(allData, entriesArray) {
 		throw new Error("GM_Lock is not Implemented but required for ImportData!");
 	if (typeof(GM_Unlock) != "function")
 		throw new Error("GM_Unlock is not Implemented but required for ImportData!");
-	if (typeof(UpdateDatabase) != "function")
-		throw new Error("UpdateDatabase is not Implemented but required for ImportData!");
-	
+	if (typeof(UpdateDataBase) != "function")
+		throw new Error("UpdateDataBase is not Implemented but required for ImportData!");
+
 	try {
 		if (typeof(allData) == "object") {
 			element = allData;
@@ -44,7 +44,7 @@ function ImportData(allData, entriesArray) {
 				entry = entriesArray[entryID];
 				element[entry.Name + "-Version"] = element[entry.Name + "-Version"] || entry.defaultVersion;
 			}
-			
+
 			UpdateDataBase(({
 					lock: (function () {}),
 					unlock: (function () {}),
@@ -55,29 +55,29 @@ function ImportData(allData, entriesArray) {
 						element[key] = value;
 					})
 				}), true);
-			
+
 			var errorList = ([]);
-			
+
 			for (entryID in entriesArray) {
 				entry = entriesArray[entryID];
 				if (element[entry.Name + "-Version"] !== GetData(entry.Name + "-Version")) {
 					errorList.push("Die Version der Datenbanktabelle " + entry.Name + " passt nicht (importierte Version: " + element[entry.Name + "-Version"] + ", lokale Version: " + GetData(entry.Name + "-Version") + ")");
 				}
 			}
-			
+
 			if (errorList.length !== 0) {
-				var msg = "Das Importieren kann nicht durchgeführt werden, da:\r\n";
+				var msg = "Das Importieren kann nicht durchgefÃ¼hrt werden, da:\r\n";
 				for (var i in errorList) {
 					msg = msg + "\r\n\t- " + errorList[i];
 				}
 				alert(msg);
 				throw new Error("ImportData impossible!");
 			}
-			
-			if (confirm("Sollen die Daten mit den Aktuellen Daten zusammengeführt werden?") !== true) {
+
+			if (confirm("Sollen die Daten mit den Aktuellen Daten zusammengefÃ¼hrt werden?") !== true) {
 				throw new Error("Das Importieren der Daten wurde durch den Benutzer abgebrochen");
 			}
-			
+
 			for (entryID in entriesArray) {
 				entry = entriesArray[entryID];
 				element[entry.Name] = eval(element[entry.Name]);
@@ -91,7 +91,7 @@ function ImportData(allData, entriesArray) {
 				element[entry.Name] = eval(prompt("Please insert new " + entry.Name + " Data"));
 			}
 		}
-		
+
 		GM_Lock();
 		for (entryID in entriesArray) {
 			entry = entriesArray[entryID];
@@ -99,25 +99,25 @@ function ImportData(allData, entriesArray) {
 				throw new Error("element." + element[entry.Name] + " is not an Object, Import impossible!");
 			}
 		}
-		
+
 		element.currentData = ({});
 		element.count = ({});
-		
+
 		for (entryID in entriesArray) {
 			entry = entriesArray[entryID];
 			element.currentData[entry.Name] = GetData(entry.Name, entry.defaultValue, true);
 			element.currentData[entry.Name + "Count"] = 0;
 		}
-		
+
 		var newDataStorage = ({});
-		
+
 		for (entryID in entriesArray) {
 			entry = entriesArray[entryID];
 			element.currentData[entry.Name] = GetData(entry.Name, entry.defaultValue, true);
 			element.count[entry.Name] = 0;
 			newDataStorage[entry.Name] = eval(entry.defaultValue);
 		}
-		
+
 		for (entryID in entriesArray) {
 			entry = entriesArray[entryID];
 			if (TabNoc.Settings.Debug) {
@@ -151,13 +151,13 @@ function ImportData(allData, entriesArray) {
 				changes = true;
 			}
 		}
-		
+
 		alert(msg);
-		
+
 		if (changes == false) {
-			alert("Es wurde keine Änderung der Daten durch das Importieren durchgeführt\r\n\t\tSpeichern nicht erforderlich");
+			alert("Es wurde keine Ã„nderung der Daten durch das Importieren durchgefÃ¼hrt\r\n\t\tSpeichern nicht erforderlich");
 		} else {
-			if (confirm("Sollen die Änderungen gespeichert werden?") === true) {
+			if (confirm("Sollen die Ã„nderungen gespeichert werden?") === true) {
 				for (entryID in entriesArray) {
 					entry = entriesArray[entryID];
 					SetData(entry.Name, newDataStorage[entry.Name].toSource());
