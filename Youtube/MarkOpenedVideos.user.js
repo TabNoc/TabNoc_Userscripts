@@ -10,7 +10,7 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.3.6_29112017__beta4_
+// @version     2.3.6_10122017__beta5_
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -176,6 +176,12 @@ fixed:	- fixed StyleChanges from Youtube
 
 02.10.2017 - 2.3.5
 	fixed:		- if an Information in MergeVideoObject is missing it can not be resolved
+	
+	
+10.12.2017 - 2.3.6Beta5
+	changed:	- Syncronisieren optimiert
+	changed:	- Die aufrufe nach SetData nutzen nun die Historie
+	changed:	- onbeforeunload wird nur noch mit aktivem Video gesetzt
  */
 
 try {
@@ -335,8 +341,6 @@ try {
 
 			var elements = $("ytd-grid-video-renderer,ytd-video-renderer,ytd-compact-video-renderer");
 
-			console.error("watchedVideoArray:", watchedVideoArray);
-
 			if (force === true || TabNoc.Variables.lastCheckItemCount !== elements.length ||
 					TabNoc.Variables.lastCheckVideoIdAmount !== scannedVideoArray.length ||
 					TabNoc.Variables.lastCheckWatchedVideoAmount !== watchedVideoArray.length ||
@@ -468,7 +472,7 @@ try {
 				}
 			}
 
-			SetData("ScannedVideoArray", scannedVideoArray.toSource(), true);
+			SetData("ScannedVideoArray", scannedVideoArray.toSource(), true, false);
 			GM_Unlock();
 
 			startCheckElements(true);
@@ -516,7 +520,7 @@ try {
 		}
 		// if (TabNoc.Settings.Debug === true) {
 			var time = (new Date().getTime() - start);
-			if (time > 5) {
+			if (time > 10) {
 				console.log('CheckWatchingVideo execution time: ' + time);
 			}
 		// }
@@ -703,6 +707,11 @@ try {
 			throw new Error("TabNoc.Variables.VideoStatisticsObject ist nicht null");
 		}
 		try {
+			// TODO: use addEventListener
+			document.body.onbeforeunload = function () {
+				SaveVideoStatistics();
+			};
+		
 			// prepare Current VideoStatisticsObject
 			TabNoc.Variables.VideoStatisticsObject = {
 				VideoID: unsafeWindow.document.getElementById("movie_player").getVideoData().video_id,
@@ -864,7 +873,7 @@ try {
 			console.log("SaveVideoStatistics()->" + TabNoc.Variables.VideoStatisticsObject);
 		}
 		if (TabNoc.Variables.VideoStatisticsObject == null) {
-			console.info(new Error("Eigentlich würde ich hier gerne eine Fehlermeldung schreiben, wann tritt der Zustand denn immer auf?"));
+			alert(new Error("Eigentlich würde ich hier gerne eine Fehlermeldung schreiben, wann tritt der Zustand denn immer auf?"));
 			return false;
 		}
 		try {
@@ -1338,7 +1347,7 @@ try {
 		}
 
 		if (save === true) {
-			SetData("VideoObjectDictionary", videoObjectDictionary.toSource(), true, true);
+			SetData("VideoObjectDictionary", videoObjectDictionary.toSource(), true, false);
 			GM_Unlock();
 		}
 
@@ -1379,190 +1388,181 @@ try {
 				if (confirm("Beim zusammenführen zwei unterschiedlicher Versionen wurden undefinierte Einträge gefunden. Sollen diese gelöscht werden?") == true) {
 					let canContinue = false;
 					switch (objectIndex) {
-						case "VideoID":
-							if (videoObject_1[objectIndex] === undefined) {
-								videoObject_1 = null;
-							}
-							if (videoObject_2[objectIndex] === undefined) {
-								videoObject_2 = null;
-							}
-							canContinue = false;
-							break;
+					case "VideoID":
+						if (videoObject_1[objectIndex] === undefined) {
+							videoObject_1 = null;
+						}
+						if (videoObject_2[objectIndex] === undefined) {
+							videoObject_2 = null;
+						}
+						canContinue = false;
+						break;
 
-						default:
-							console.error("Es wurde keine Behandlung für das Fehlen dieser Information (" + objectIndex + ") definiert");
-							console.log(videoObject_1);
-							console.log(videoObject_2);
-							alert("Es wurde keine Behandlung für das Fehlen dieser Information (" + objectIndex + ") definiert!\r\nSiehe Konsole für mehr Informationen.");
-							throw new Error("NotDefinedException");
-							break;
+					default:
+						console.error("Es wurde keine Behandlung für das Fehlen dieser Information (" + objectIndex + ") definiert");
+						console.log(videoObject_1);
+						console.log(videoObject_2);
+						alert("Es wurde keine Behandlung für das Fehlen dieser Information (" + objectIndex + ") definiert!\r\nSiehe Konsole für mehr Informationen.");
+						throw new Error("NotDefinedException");
+						break;
 					}
 					if (canContinue == false) {
 						break;
 					}
-				}
-				else {
+				} else {
 					throw new Error("videoObject_1[objectIndex] or videoObject_2[objectIndex] is undefined");
 				}
 			}
 			if (videoObject_1[objectIndex].toSource() !== videoObject_2[objectIndex].toSource()) {
 				switch (objectIndex) {
-					case "Watches":
-						newArray = ([]);
-						for (var index1_i in videoObject_1[objectIndex]) {
-							// if (videoObject_1[objectIndex][index1_i].WatchedLength === -99) {alert("Object1: " + videoObject_1[objectIndex][index1_i].toSource() + "\r\nObject2: " + videoObject_2[objectIndex].toSource());   continue;}
+				case "Watches":
+					newArray = ([]);
+					for (var index1_i in videoObject_1[objectIndex]) {
+						// if (videoObject_1[objectIndex][index1_i].WatchedLength === -99) {alert("Object1: " + videoObject_1[objectIndex][index1_i].toSource() + "\r\nObject2: " + videoObject_2[objectIndex].toSource());   continue;}
 
-							var found = false;
-							for (var index2_i in videoObject_2[objectIndex]) {
-								if (videoObject_1[objectIndex][index1_i].Date == "unknown" && videoObject_1[objectIndex][index1_i].WatchedLength == -99) {
+						var found = false;
+						for (var index2_i in videoObject_2[objectIndex]) {
+							if (videoObject_1[objectIndex][index1_i].Date == "unknown" && videoObject_1[objectIndex][index1_i].WatchedLength == -99) {
+								found = true;
+								break;
+							}
+
+							// beide identisch
+							if (videoObject_1[objectIndex][index1_i].toSource() === videoObject_2[objectIndex][index2_i].toSource()) {
+								newArray.push(eval(videoObject_1[objectIndex][index1_i].toSource()));
+								delete videoObject_2[objectIndex][index2_i];
+								found = true;
+								continue;
+							}
+
+							// check if the Dates are valid
+							if (isNaN(new Date(videoObject_1[objectIndex][index1_i].Date).getTime()) === true) {
+								if (videoObject_1[objectIndex][index1_i].WatchedLength < 0) {
+									// das Element wird NICHT in das neue Object eingefügt (der Wert wird gelöscht)
 									found = true;
 									break;
 								}
-
-								// beide identisch
-								if (videoObject_1[objectIndex][index1_i].toSource() === videoObject_2[objectIndex][index2_i].toSource()) {
-									newArray.push(eval(videoObject_1[objectIndex][index1_i].toSource()));
-									delete videoObject_2[objectIndex][index2_i];
-									found = true;
-									continue;
+								if (videoObject_1[objectIndex][index1_i].Date != "unknown") {
+									console.info("Wrong index1_i: " + index1_i);
+									console.error(videoObject_1[objectIndex]);
+									alert(videoObject_1[objectIndex][index1_i].Date);
+									throw new Error("The converted Date is not a Date Object");
 								}
-
-								// check if the Dates are valid
-								if (isNaN(new Date(videoObject_1[objectIndex][index1_i].Date).getTime()) === true)
-								{
-									if (videoObject_1[objectIndex][index1_i].WatchedLength < 0) {
-										// das Element wird NICHT in das neue Object eingefügt (der Wert wird gelöscht)
-										found = true;
-										break;
-									}
-									if (videoObject_1[objectIndex][index1_i].Date != "unknown") {
-										console.info("Wrong index1_i: " + index1_i);
-										console.error(videoObject_1[objectIndex]);
-										alert(videoObject_1[objectIndex][index1_i].Date);
-										throw new Error("The converted Date is not a Date Object");
-									}
-								}
-								if (isNaN(new Date(videoObject_2[objectIndex][index2_i].Date).getTime()) === true)
-								{
-									if (videoObject_2[objectIndex][index2_i].Date != "unknown") {
-										console.info("Wrong index2_i: " + index2_i);
-										console.error(videoObject_2[objectIndex]);
-										alert(videoObject_2[objectIndex][index2_i].Date);
-										throw new Error("The converted Date is not a Date Object");
-									}
-								}
-
-								if (new Date(videoObject_1[objectIndex][index1_i].Date).getTime() === new Date(videoObject_2[objectIndex][index2_i].Date).getTime() ||
-									(isNaN(new Date(videoObject_1[objectIndex][index1_i].Date).getTime()) === true && isNaN(new Date(videoObject_2[objectIndex][index2_i].Date).getTime()))) {
-									// Same Date and Time from Website Call or both are NaN, thats the same, choose the highest WatchedLength
-									videoObject_1[objectIndex][index1_i].WatchedLength = Math.max(videoObject_1[objectIndex][index1_i].WatchedLength, videoObject_2[objectIndex][index2_i].WatchedLength);
-									newArray.push(eval(videoObject_1[objectIndex][index1_i].toSource()));
-									delete videoObject_2[objectIndex][index2_i];
-									found = true;
+							}
+							if (isNaN(new Date(videoObject_2[objectIndex][index2_i].Date).getTime()) === true) {
+								if (videoObject_2[objectIndex][index2_i].Date != "unknown") {
+									console.info("Wrong index2_i: " + index2_i);
+									console.error(videoObject_2[objectIndex]);
+									alert(videoObject_2[objectIndex][index2_i].Date);
+									throw new Error("The converted Date is not a Date Object");
 								}
 							}
 
-							if (found === false) {
-								// Der Eintrag ist nur im ersten Element vorhanden -> hinzufügen
+							if (new Date(videoObject_1[objectIndex][index1_i].Date).getTime() === new Date(videoObject_2[objectIndex][index2_i].Date).getTime() ||
+								(isNaN(new Date(videoObject_1[objectIndex][index1_i].Date).getTime()) === true && isNaN(new Date(videoObject_2[objectIndex][index2_i].Date).getTime()))) {
+								// Same Date and Time from Website Call or both are NaN, thats the same, choose the highest WatchedLength
+								videoObject_1[objectIndex][index1_i].WatchedLength = Math.max(videoObject_1[objectIndex][index1_i].WatchedLength, videoObject_2[objectIndex][index2_i].WatchedLength);
 								newArray.push(eval(videoObject_1[objectIndex][index1_i].toSource()));
-							}
-						}
-					if (videoObject_2[objectIndex].length !== 0) {
-							// ich füge diese Elemente jetzt erstmal dazu, weiß nicht so genau ob ich noch einen Fehler haben könnte
-							for (var j in videoObject_2[objectIndex]) {
-								newArray.push(eval(videoObject_2[objectIndex][j].toSource()));
+								delete videoObject_2[objectIndex][index2_i];
+								found = true;
 							}
 						}
 
-						do {
-							var changed = false;
-							// Ab hier ist das Array fertig gemerged, jetzt wird aufgeräumt
-							for (var index1 in newArray) {
-								for (var index2 in newArray) {
+						if (found === false) {
+							// Der Eintrag ist nur im ersten Element vorhanden -> hinzufügen
+							newArray.push(eval(videoObject_1[objectIndex][index1_i].toSource()));
+						}
+					}
+					if (videoObject_2[objectIndex].length !== 0) {
+						// ich füge diese Elemente jetzt erstmal dazu, weiß nicht so genau ob ich noch einen Fehler haben könnte
+						for (var j in videoObject_2[objectIndex]) {
+							newArray.push(eval(videoObject_2[objectIndex][j].toSource()));
+						}
+					}
+
+					do {
+						var changed = false;
+						// Ab hier ist das Array fertig gemerged, jetzt wird aufgeräumt
+						for (var index1 in newArray) {
+							for (var index2 in newArray) {
 								if (index1 == index2) {
 									continue;
 								}
-									// Wenn die beiden Zeitstempel weniger als 120 sekunden auseinander liegen
-									if (Math.abs(Math.floor(new Date(newArray[index1].Date).getTime() - (new Date(newArray[index2].Date).getTime())) / 1000) < 120) {
-										// Dann nutze den früheren Zeitstempel
+								// Wenn die beiden Zeitstempel weniger als 120 sekunden auseinander liegen
+								if (Math.abs(Math.floor(new Date(newArray[index1].Date).getTime() - (new Date(newArray[index2].Date).getTime())) / 1000) < 120) {
+									// Dann nutze den früheren Zeitstempel
 
-										newArray[index1].Date = new Date(Math.min(new Date(newArray[index1].Date).getTime(), new Date(newArray[index2].Date).getTime())).toString();
-										newArray[index1].WatchedLength = Math.max(newArray[index1].WatchedLength, newArray[index2].WatchedLength);
+									newArray[index1].Date = new Date(Math.min(new Date(newArray[index1].Date).getTime(), new Date(newArray[index2].Date).getTime())).toString();
+									newArray[index1].WatchedLength = Math.max(newArray[index1].WatchedLength, newArray[index2].WatchedLength);
 
-										if (isNaN(new Date(newArray[index1].Date).getTime()) === true) {
-											alert(newArray[index1]);
-											throw new Error("The converted Date is not a Date Object");
-										}
-
-										newArray.splice(index2, 1);
-
-										changed = true;
-										break;
+									if (isNaN(new Date(newArray[index1].Date).getTime()) === true) {
+										alert(newArray[index1]);
+										throw new Error("The converted Date is not a Date Object");
 									}
+
+									newArray.splice(index2, 1);
+
+									changed = true;
+									break;
 								}
+							}
 							if (changed == true) {
 								break;
 							}
-							}
-						} while (changed === true)
+						}
+					} while (changed === true)
 
-						// gleichstellen, damit vergleich funktioniert
-						videoObject_1.Watches = eval(newArray.toSource());
-						videoObject_2.Watches = eval(newArray.toSource());
-						break;
+					// gleichstellen, damit vergleich funktioniert
+					videoObject_1.Watches = eval(newArray.toSource());
+					videoObject_2.Watches = eval(newArray.toSource());
+					break;
 
-					case "VideoLength":
-						var VideoLength = Math.max(videoObject_1.VideoLength, videoObject_2.VideoLength);
-						videoObject_1.VideoLength = eval(VideoLength);
-						videoObject_2.VideoLength = eval(VideoLength);
-						break;
+				case "VideoLength":
+					var VideoLength = Math.max(videoObject_1.VideoLength, videoObject_2.VideoLength);
+					videoObject_1.VideoLength = eval(VideoLength);
+					videoObject_2.VideoLength = eval(VideoLength);
+					break;
 
-					case "VideoTitle":
-						if (videoObject_1.VideoTitle === "") {
+				case "VideoTitle":
+					if (videoObject_1.VideoTitle === "") {
+						videoObject_2.VideoTitle = videoObject_1.VideoTitle;
+					} else if (videoObject_2.VideoTitle === "") {
+						videoObject_1.VideoTitle = videoObject_2.VideoTitle;
+					} else {
+						if (confirm(String.format("Beim Zusammenführen von 2 unterschiedlichen Informationen über das Video \"{0}\" wurden unterschiede festgestellt die nicht Automatisch behoben werden konnten.\r\n\r\n\tEintrag 1:\r\nVideoTitel: {1}\r\n\r\n\tEintrag 2 :\r\nVideoTitel: {2}\r\n(Der erste Eintrag ist meist der ältere)\r\n\r\nSoll der 1. Eintrag verwendet werden?", videoObject_1.VideoID, videoObject_1.VideoTitle, videoObject_2.VideoTitle)) === true) {
+							videoObject_1.VideoTitle = videoObject_2.VideoTitle;
+						} else {
 							videoObject_2.VideoTitle = videoObject_1.VideoTitle;
 						}
-						else if (videoObject_2.VideoTitle === "") {
-							videoObject_1.VideoTitle = videoObject_2.VideoTitle;
-						}
-						else {
-							if (confirm(String.format("Beim Zusammenführen von 2 unterschiedlichen Informationen über das Video \"{0}\" wurden unterschiede festgestellt die nicht Automatisch behoben werden konnten.\r\n\r\n\tEintrag 1:\r\nVideoTitel: {1}\r\n\r\n\tEintrag 2 :\r\nVideoTitel: {2}\r\n(Der erste Eintrag ist meist der ältere)\r\n\r\nSoll der 1. Eintrag verwendet werden?", videoObject_1.VideoID, videoObject_1.VideoTitle, videoObject_2.VideoTitle)) === true) {
-								videoObject_1.VideoTitle = videoObject_2.VideoTitle;
-							}
-							else {
-								videoObject_2.VideoTitle = videoObject_1.VideoTitle;
-							}
-						}
-						break;
+					}
+					break;
 
-					case "VideoAuthor":
-						if (videoObject_1.VideoAuthor === "") {
+				case "VideoAuthor":
+					if (videoObject_1.VideoAuthor === "") {
+						videoObject_2.VideoAuthor = videoObject_1.VideoAuthor;
+					} else if (videoObject_2.VideoAuthor === "") {
+						videoObject_1.VideoAuthor = videoObject_2.VideoAuthor;
+					} else {
+						if (confirm(String.format("Beim Zusammenführen von 2 unterschiedlichen Informationen über das Video \"{0}\" wurden unterschiede festgestellt die nicht Automatisch behoben werden konnten.\r\n\r\n\tEintrag 1:\r\nYoutube-Kanal: {1}\r\n\r\n\tEintrag 2 :\r\nYoutube-Kanal: {2}\r\n(Der erste Eintrag ist meist der ältere)\r\n\r\nSoll der 1. Eintrag verwendet werden?", videoObject_1.VideoID, videoObject_1.VideoAuthor, videoObject_2.VideoAuthor)) === true) {
+							videoObject_1.VideoAuthor = videoObject_2.VideoAuthor;
+						} else {
 							videoObject_2.VideoAuthor = videoObject_1.VideoAuthor;
 						}
-						else if (videoObject_2.VideoAuthor === "") {
-							videoObject_1.VideoAuthor = videoObject_2.VideoAuthor;
-						}
-						else {
-							if (confirm(String.format("Beim Zusammenführen von 2 unterschiedlichen Informationen über das Video \"{0}\" wurden unterschiede festgestellt die nicht Automatisch behoben werden konnten.\r\n\r\n\tEintrag 1:\r\nYoutube-Kanal: {1}\r\n\r\n\tEintrag 2 :\r\nYoutube-Kanal: {2}\r\n(Der erste Eintrag ist meist der ältere)\r\n\r\nSoll der 1. Eintrag verwendet werden?", videoObject_1.VideoID, videoObject_1.VideoAuthor, videoObject_2.VideoAuthor)) === true) {
-								videoObject_1.VideoAuthor = videoObject_2.VideoAuthor;
-							}
-							else {
-								videoObject_2.VideoAuthor = videoObject_1.VideoAuthor;
-							}
-						}
-						break;
+					}
+					break;
 
-					default:
-						// console.error("Für diesen Spezialfall des Objekts \"" + objectIndex + "\" wurde kein automatisches Zusammenführen definiert!");
-						// console.log(videoObject_1);
-						// console.log(videoObject_2);
-						// alert("Für diesen Spezialfall des Objekts \"" + objectIndex + "\" wurde kein automatisches Zusammenführen definiert!\r\nSiehe Konsole für mehr Informationen.");
-						// throw "NotDefinedException"
-						console.error("Für diesen Unterschied wurde kein automatisches Zusammenführen definiert![" + objectIndex + "]");
-						console.log(videoObject_1);
-						console.log(videoObject_2);
-						alert("Für diesen Unterschied wurde kein automatisches Zusammenführen definiert!\r\nSiehe Konsole für mehr Informationen.");
-						throw new Error("NotDefinedException");
-						break;
+				default:
+					// console.error("Für diesen Spezialfall des Objekts \"" + objectIndex + "\" wurde kein automatisches Zusammenführen definiert!");
+					// console.log(videoObject_1);
+					// console.log(videoObject_2);
+					// alert("Für diesen Spezialfall des Objekts \"" + objectIndex + "\" wurde kein automatisches Zusammenführen definiert!\r\nSiehe Konsole für mehr Informationen.");
+					// throw "NotDefinedException"
+					console.error("Für diesen Unterschied wurde kein automatisches Zusammenführen definiert![" + objectIndex + "]");
+					console.log(videoObject_1);
+					console.log(videoObject_2);
+					alert("Für diesen Unterschied wurde kein automatisches Zusammenführen definiert!\r\nSiehe Konsole für mehr Informationen.");
+					throw new Error("NotDefinedException");
+					break;
 				}
 			}
 		}
@@ -1576,19 +1576,42 @@ try {
 		return eval(videoObject_1.toSource());
 	}
 
-	function Syncronisieren() {
-		Feedback.showProgress(10, "Token erfassen");
-		var Token = prompt("Bitte Token eingeben");
-		Feedback.showProgress(20, "Request starten");
-		GM_xmlhttpRequest({
-			data: {Token:Token}.toSource(),
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json"
-			},
-			onabort: (function(response){console.log("onabort");console.info(response);}),
-			onerror: (function(response){console.log("onerror");console.info(response);alert("Receving Server Data Failed");Feedback.hideProgress();}),
-			onload: returnExec(function(response){
+	function Syncronisieren(scriptName) {
+		var onAbort = (function (response) {
+			console.log("onabort");
+			console.info(response);
+		});
+
+		var onError = (function (msg) {
+			return (function (response) {
+				console.log("onerror");
+				console.info(response);
+				alert(msg);
+				Feedback.hideProgress();
+			});
+		});
+
+		var onTimeout = (function (response) {
+			console.log("ontimeout");
+			console.info(response);
+		});
+
+		var onLoadPost = returnExec(function (response) {
+				if (response.status !== 200) {
+					alert("Statuscode:" + response.status);
+					Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
+					return;
+				}
+				if (response.responseText.charAt(0) === '#') {
+					alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
+					Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
+					return;
+				}
+				Feedback.showProgress(100, "Senden der Daten erfolgreich abgeschlossen");
+				alert("Die Syncronisierung der Daten mit dem Server wurde erfolgreich abgeschlossen.\r\nAktueller Versionsstand: " + response.responseText);
+			})
+
+			var onLoadGet = returnExec(function (response) {
 				Feedback.showProgress(40, "Servernachricht auswerten");
 				var error = false;
 				if (response.status !== 200) {
@@ -1602,8 +1625,7 @@ try {
 					var errorCode = response.responseText.split("\r\n")[0].substring(1);
 					if (errorCode === "2") {
 						error = true;
-					}
-					else {
+					} else {
 						alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
 						Feedback.showProgress(100, "Abgebrochen, Fehler auf dem Server");
 						return;
@@ -1617,12 +1639,11 @@ try {
 						Feedback.lockProgress();
 						ImportData(responseData, TabNoc.Variables.ImportDataProperties);
 						Feedback.unlockProgress();
-					}
-					else {
+					} else {
 						alert("Der Wert des Response des Servers war ungültig!");
 					}
 				}
-				if (confirm("Daten auf dem Server speichern?") === false) {
+				if (confirm("Sollen die aktuellen Daten auf dem Server gespeichert werden?") === false) {
 					Feedback.showProgress(100, "Senden der Daten abgebrochen");
 					return;
 				}
@@ -1636,33 +1657,40 @@ try {
 				element["WatchedVideoArray-Version"] = GetData("WatchedVideoArray-Version", 0, true);
 				element["ScannedVideoArray-Version"] = GetData("ScannedVideoArray-Version", 0, true);
 				GM_xmlhttpRequest({
-					data: {Token:Token, data:element.toSource()}.toSource(),
+					data: {
+						Token: Token,
+						data: element.toSource()
+					}
+					.toSource(),
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json"
 					},
-					onabort: (function(response){console.log("onabort");console.info(response);}),
-					onerror: (function(response){console.log("onerror");console.info(response);alert("Sending New Data Failed");Feedback.hideProgress();}),
-					onload: returnExec(function(response){console.log("onload_Input");console.info(response);
-						if (response.status !== 200) {
-							alert("Statuscode:" + response.status);
-							Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
-							return;
-						}
-						if (response.responseText.charAt(0) === '#') {
-							alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
-							Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
-							return;
-						}
-						Feedback.showProgress(100, "Senden der Daten erfolgreich abgeschlossen");
-						alert("Die Syncronisierung der Daten mit dem Server wurde erfolgreich abgeschlossen.\r\nAktueller Versionsstand: " + response.responseText);
-					}),
-					ontimeout: (function(response){console.log("ontimeout");console.info(response);}),
+					onabort: onAbort,
+					onerror: onError("Sending New Data Failed"),
+					onload: onLoadPost,
+					ontimeout: onTimeout,
 					timeout: 60000,
 					url: "https://tabnoc.gear.host/MyDataFiles//Input"
 				});
-			}),
-			ontimeout: (function(response){console.log("ontimeout");console.info(response);}),
+			});
+
+		Feedback.showProgress(10, "Token erfassen");
+		var Token = prompt("Bitte Token eingeben") + scriptName;
+		Feedback.showProgress(20, "Request starten");
+		GM_xmlhttpRequest({
+			data: {
+				Token: Token
+			}
+			.toSource(),
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json"
+			},
+			onabort: onAbort,
+			onerror: onError("Receving Server Data Failed"),
+			onload: onLoadGet,
+			ontimeout: onTimeout,
 			timeout: 60000,
 			url: "https://tabnoc.gear.host/MyDataFiles//Output"
 		});
@@ -1675,7 +1703,7 @@ try {
 		var versionData = GetData("ImportVersion", "({show: true})", true);
 		versionData[moduleName] = versionData[moduleName] || ({});
 		if (versionData["show"] == true && versionData[moduleName].Version != currentVersion && versionData[moduleName].Version != undefined) {
-			alert ("Das Modul " + moduleName + " wurde von Version " + versionData[moduleName].Version + " auf Version " + currentVersion + " aktualisiert (Die erwartete Version ist " + expectedVersion + ")");
+			alert("Das Modul " + moduleName + " wurde von Version " + versionData[moduleName].Version + " auf Version " + currentVersion + " aktualisiert (Die erwartete Version ist " + expectedVersion + ")");
 		}
 
 		if (versionCompareResult != 0) {
@@ -1687,14 +1715,14 @@ try {
 			console.info(msg);
 		}
 		versionData[moduleName].Version = currentVersion;
-		SetData("ImportVersion", versionData.toSource(), true);
+		SetData("ImportVersion", versionData.toSource(), true, false);
 	}
 
 	function Main() {
 		ModuleImport("States", getStatesVersion, "1.2.6");
 		ModuleImport("TabNoc_GM", getTabNoc_GMVersion, "2.0.2");
-		ModuleImport("TabNoc", getTabNocVersion, "1.2.2");
-		ModuleImport("ImportAll", getImportAllVersion, "1.0.0");
+		ModuleImport("TabNoc", getTabNocVersion, "1.2.3");
+		ModuleImport("ImportAll", getImportAllVersion, "1.0.2");
 
 		// ModuleImport("VideoGreyDetector", getImportAllVersion, "1.0.0");
 
@@ -1728,11 +1756,7 @@ try {
 		if (!($("#app-drawer").length == 1 && $("#app-drawer")[0].nodeName == "DOM-MODULE")) {
 			alert("Der Support für das alte YoutubeLayout wurde mit Version 2.3.1 (02.09.2017) entfernt, wenn dies erforderlich ist bitte zur alten Version zurückkehren");
 		}
-
-		//TODO: use addEventListener
-		document.body.onbeforeunload = function () {
-			SaveVideoStatistics();
-		};
+		
 		// SubscriptionPage
 		if ($("ytd-grid-renderer").length >= 1 || $("ytd-video-renderer").length >= 1 || $("ytd-grid-video-renderer").length >= 1 || true) {
 			$(SubscriptionPageLoader);
