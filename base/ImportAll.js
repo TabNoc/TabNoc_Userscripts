@@ -1,26 +1,30 @@
 function getImportAllVersion(){
-	return {Version: "1.0.1", Date: "08.12.2017"};
+	return {Version: "1.0.2", Date: "10.12.2017"};
 }
 
 /*
-ImportData(responseData, ([{
-				Name: "ReadedNewsArray",
-				defaultVersion: 0,
-				defaultValue: "([])",
-				ImportAction: function (dataStorage, currentEntry, importElement) {
-					dataStorage[currentEntry.Name].push(importElement);
-				}
-			}, {
-				Name: "SeenNewsArray",
-				defaultVersion: 0,
-				defaultValue: "([])",
-				ImportAction: function (dataStorage, currentEntry, importElement) {
-					if (dataStorage["ReadedNewsArray"].indexOf(importElement) == -1) {
-						dataStorage[currentEntry.Name].push(importElement);
+	ImportData(responseData, ([{
+					Name: "ReadedNewsArray",
+					defaultVersion: 0,
+					defaultValue: "([])",
+					ImportAction: function (dataStorage, currentEntry, importElement) {
+						if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
+							dataStorage[currentEntry.Name].push(importElement);
+						}
+					}
+				}, {
+					Name: "SeenNewsArray",
+					defaultVersion: 0,
+					defaultValue: "([])",
+					ImportAction: function (dataStorage, currentEntry, importElement) {
+						if (dataStorage["ReadedNewsArray"].indexOf(importElement) == -1) {
+							if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
+								dataStorage[currentEntry.Name].push(importElement);
+							}
+						}
 					}
 				}
-			}
-		]));
+			]));
 */
 function ImportData(allData, entriesArray) {
 	var entryID = null;
@@ -136,18 +140,18 @@ function ImportData(allData, entriesArray) {
 				element.count[entry.Name]++;
 			}
 		}
-		// till here ported to new implementation
+
 		var changes = false;
 		var msg = "Das Importieren wurde erfolgreich abgeschlossen!\r\n";
 		for (entryID in entriesArray) {
 			entry = entriesArray[entryID];
 			msg += entry.Name + ":\r\n";
 			msg += "\tEs wurden " + element.count[entry.Name] + " Elemente aktualisiert (";
-			msg += "gespeicherte Datenmenge: " + element.currentData[entry.Name].toSource().length + "B (" + Object.keys(element.currentData[entry.Name]).length + ") |";
-			msg += "importierte Datenmenge: " + element[entry.Name].toSource().length + "B (" + Object.keys(element[entry.Name]).length + ") |";
+			msg += "gespeicherte Datenmenge: " + element.currentData[entry.Name].toSource().length + "B (" + Object.keys(element.currentData[entry.Name]).length + ") | ";
+			msg += "importierte Datenmenge: " + element[entry.Name].toSource().length + "B (" + Object.keys(element[entry.Name]).length + ") | ";
 			msg += "neue Datenmenge: " + newDataStorage[entry.Name].toSource().length + "B) (" + Object.keys(newDataStorage[entry.Name]).length + ")\r\n";
 			msg += "Delta:\r\n";
-			if (newDataStorage[entry.Name].toSource() != element[entry.Name].toSource()) {
+			if (newDataStorage[entry.Name].toSource() != element.currentData[entry.Name].toSource()) {
 				changes = true;
 			}
 		}
