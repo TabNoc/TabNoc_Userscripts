@@ -256,7 +256,7 @@ try {
 		});
 
 		GM_registerMenuCommand("ManuelleSyncronisation", function () {
-			Syncronisieren();
+			Syncronisieren("");
 		});
 
 		GM_registerMenuCommand("ImportData", function () {
@@ -308,7 +308,7 @@ try {
 				defaultValue: "([])",
 				ImportAction: function (dataStorage, currentEntry, importElement) {					
 					if (GetVideoWatched(dataStorage[currentEntry.Name], dataStorage["VideoObjectDictionary"], importElement) === false && GetVideoWatched(dataStorage["WatchedVideoArray"], false, importElement) === false) {
-						newScannedStructure.push(scannedVideoArray[i]);
+						dataStorage[currentEntry.Name].push(importElement);
 					}
 				}
 			}
@@ -892,16 +892,18 @@ try {
 	}
 	// ### https://www.youtube.com/watch?v=* ###
 
-	function ErrorHandler (exc, msg) {
+	function ErrorHandler(exc, msg) {
 		GM_Lock();
 		//TODO: write Message, error and Timestamp to Database
 		GM_Unlock();
 
 		if (msg != null && msg != "") {
-			alert(msg);
+			console.error(msg + ":\r\n\r\n" + exc);
+			alert(msg + ":\r\n\r\n" + exc);
+		} else {
+			console.error(exc);
+			alert(exc);
 		}
-		console.error(exc);
-		alert(exc);
 	}
 
 	function UpdateDataBase(functions, silent) {
@@ -913,8 +915,7 @@ try {
 				getValue: GetData,
 				setValue: SetData
 			});
-		}
-		else {
+		} else {
 			functions.lock = functions.lock || GM_Lock;
 			functions.unlock = functions.unlock || GM_Unlock;
 			functions.getValue = functions.getValue || GetData;
@@ -972,21 +973,19 @@ try {
 					functions.setValue("WatchedVideoArray-Version", 0);
 					console.log("Die Version der Tabelle WatchedVideoArray wurde auf " + functions.getValue("WatchedVideoArray-Version") + " geändert");
 					alert("DataBase:'WatchedVideoArray' die alten Daten wurden erfolgreich importiert!\r\nDie Datenbank wurde von alten Daten bereinigt.");
-				}
-				else {
+				} else {
 					functions.setValue("WatchedVideoArray-Version", 0);
 					console.log("Die Version der Tabelle WatchedVideoArray wurde auf " + functions.getValue("WatchedVideoArray-Version") + " geändert");
 					alert("DataBase:'WatchedVideoArray' sucessfully initialised!");
 				}
-			}
-			else {
+			} else {
 				// ### WatchedVideoArray ###
 				WatchedVideoArray = eval(functions.getValue("WatchedVideoArray") || "([])");
 
 				switch (Version_WatchedVideoArray) {
-					default:
+				default:
 					throw ("No Update Implemeneted!");
-						break;
+					break;
 				}
 			}
 		}
@@ -1032,21 +1031,19 @@ try {
 					functions.setValue("ScannedVideoArray-Version", 0);
 					console.log("Die Version der Tabelle ScannedVideoArray wurde auf " + functions.getValue("ScannedVideoArray-Version") + " geändert");
 					alert("DataBase:'ScannedVideoArray' die alten Daten wurden erfolgreich importiert!\r\nDie Datenbank wurde von alten Daten bereinigt.\r\nEs wurden " + removed + " doppelte Einträge entfernt.");
-				}
-				else {
+				} else {
 					functions.setValue("ScannedVideoArray-Version", 0);
 					console.log("Die Version der Tabelle ScannedVideoArray wurde auf " + functions.getValue("ScannedVideoArray-Version") + " geändert");
 					alert("DataBase:'ScannedVideoArray' sucessfully initialised!");
 				}
-			}
-			else {
+			} else {
 				// ### ScannedVideoArray ###
 				ScannedVideoArray = eval(functions.getValue("ScannedVideoArray") || "([])");
 
 				switch (Version_ScannedVideoArray) {
-					default:
+				default:
 					throw ("No Update Implemeneted!");
-						break;
+					break;
 				}
 			}
 		}
@@ -1085,197 +1082,182 @@ try {
 					alert("DataBase:'VideoObjectDictionary' die alten Daten wurden erfolgreich importiert!\r\nDie Datenbank wurde von alten Daten bereinigt.");
 
 					functions.setValue("VideoObjectDictionary", newStructure.toSource());
-				}
-				else {
+				} else {
 					functions.setValue("VideoObjectDictionary-Version", 0);
 					console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + functions.getValue("VideoObjectDictionary-Version") + " geändert");
 					alert("DataBase:'VideoObjectDictionary' sucessfully initialised!");
 				}
-			}
-			else {
+			} else {
 				// ### VideoObjectDictionary ###
 				videoObjectDictionary = eval(functions.getValue("VideoObjectDictionary") || "({})");
 
 				switch (Version_VideoObjectDictionary) {
-					case 0:
-					case 1:
-						functions.setValue("VideoObjectDictionary-Version-1", videoObjectDictionary.toSource());
+				case 0:
+				case 1:
+					functions.setValue("VideoObjectDictionary-Version-1", videoObjectDictionary.toSource());
 
-						var newStructure = ({});
-						var count = 0;
+					var newStructure = ({});
+					var count = 0;
 
-						for (var i in videoObjectDictionary) {
-							for (var j in videoObjectDictionary[i]) {
-								var newObject = videoObjectDictionary[i][j];
+					for (var i in videoObjectDictionary) {
+						for (var j in videoObjectDictionary[i]) {
+							var newObject = videoObjectDictionary[i][j];
 							if (newObject.Watches !== undefined) {
 								throw "Was ist das ?";
 							}
-								newObject.Watches = ([]);
+							newObject.Watches = ([]);
 							newObject.Watches.push(({
 									WatchedLength: newObject.WatchedLength,
 									Date: i
 								}));
-								delete newObject.WatchedLength;
-								newObject.VideoLength = Math.floor(newObject.VideoLength);
+							delete newObject.WatchedLength;
+							newObject.VideoLength = Math.floor(newObject.VideoLength);
 
-								PushVideoObject(newStructure, newObject, false);
-								count++;
-							}
+							PushVideoObject(newStructure, newObject, false);
+							count++;
 						}
+					}
 
-						console.log("Die Version der Tabelle VideoObjectDictionary ist " + functions.getValue("VideoObjectDictionary-Version"));
-						console.info("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B)");
+					console.log("Die Version der Tabelle VideoObjectDictionary ist " + functions.getValue("VideoObjectDictionary-Version"));
+					console.info("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B)");
 					if (silent !== true)
 						alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B)");
-						if (silent || confirm("Sollen die Änderungen gespeichert werden?") === true) {
-							functions.setValue("VideoObjectDictionary-Version", 2);
-							console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + functions.getValue("VideoObjectDictionary-Version") + " geändert");
-							functions.setValue("VideoObjectDictionary", newStructure.toSource());
-						}
-						else {
-							throw new Error("Das Abspeichern der geänderten Daten wurde durch den Benutzer abgelehnt");
-						}
-						break;
+					if (silent || confirm("Sollen die Änderungen gespeichert werden?") === true) {
+						functions.setValue("VideoObjectDictionary-Version", 2);
+						console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + functions.getValue("VideoObjectDictionary-Version") + " geändert");
+						functions.setValue("VideoObjectDictionary", newStructure.toSource());
+					} else {
+						throw new Error("Das Abspeichern der geänderten Daten wurde durch den Benutzer abgelehnt");
+					}
+					break;
 
-					case 2:
-						if (functions.getValue("VideoObjectDictionary-Version-2") != null) {
-							if (functions.getValue("VideoObjectDictionary-Version-2") !== videoObjectDictionary.toSource()) {
-								console.log("Current VideoObjectDictionary-Version-2 Data");
-								console.log(eval(functions.getValue("VideoObjectDictionary-Version-2")));
-								console.log("New VideoObjectDictionary-Version-2 Data");
-								console.log(eval(videoObjectDictionary.toSource()));
-								if (confirm("Der Eintrag 'VideoObjectDictionary-Version-2' ist bereits mit anderen Daten gesetzt, soll dieser überschrieben werden?\r\n[In der Konsole sind ausführliche Informationen]") === true) {
-									functions.setValue("VideoObjectDictionary-Version-2", videoObjectDictionary.toSource());
-								}
-								else {
-									if (confirm("Soll der Vorgang ohne Backup fortgesetzt werden?") !== true) {
-										throw new Error("Der Eintrag 'VideoObjectDictionary-Version-2' ist bereits mit anderen Daten gesetzt, der Benutzer hat ein überschreiben und ein Fortsetzten abgelehnt");
-									}
+				case 2:
+					if (functions.getValue("VideoObjectDictionary-Version-2") != null) {
+						if (functions.getValue("VideoObjectDictionary-Version-2") !== videoObjectDictionary.toSource()) {
+							console.log("Current VideoObjectDictionary-Version-2 Data");
+							console.log(eval(functions.getValue("VideoObjectDictionary-Version-2")));
+							console.log("New VideoObjectDictionary-Version-2 Data");
+							console.log(eval(videoObjectDictionary.toSource()));
+							if (confirm("Der Eintrag 'VideoObjectDictionary-Version-2' ist bereits mit anderen Daten gesetzt, soll dieser überschrieben werden?\r\n[In der Konsole sind ausführliche Informationen]") === true) {
+								functions.setValue("VideoObjectDictionary-Version-2", videoObjectDictionary.toSource());
+							} else {
+								if (confirm("Soll der Vorgang ohne Backup fortgesetzt werden?") !== true) {
+									throw new Error("Der Eintrag 'VideoObjectDictionary-Version-2' ist bereits mit anderen Daten gesetzt, der Benutzer hat ein überschreiben und ein Fortsetzten abgelehnt");
 								}
 							}
-							else {
-								console.log("VideoObjectDictionary-Version-2 was already set with same Data");
-							}
+						} else {
+							console.log("VideoObjectDictionary-Version-2 was already set with same Data");
 						}
-						else {
-							functions.setValue("VideoObjectDictionary-Version-2", videoObjectDictionary.toSource());
-						}
+					} else {
+						functions.setValue("VideoObjectDictionary-Version-2", videoObjectDictionary.toSource());
+					}
 
-						var newStructure = eval(videoObjectDictionary.toSource());
-						var count = 0;
-						var count2 = 0;
-						var regex = new RegExp(/(\d{1,2}).(\d{1,2}).(\d{4})(.*,.*\d{2}:\d{2}:\d{2})?/);
+					var newStructure = eval(videoObjectDictionary.toSource());
+					var count = 0;
+					var count2 = 0;
+					var regex = new RegExp(/(\d{1,2}).(\d{1,2}).(\d{4})(.*,.*\d{2}:\d{2}:\d{2})?/);
 
-						for (var i in videoObjectDictionary) {
-							for (var j in videoObjectDictionary[i].Watches) {
-								if (videoObjectDictionary[i].Watches[j].Date === "unknown" || videoObjectDictionary[i].Watches[j].Date == null) {
-									// "unknown" is a good string, but null seems to be better (NullPointer Exception is easy to find)
-									newStructure[i].Watches[j].Date = null;
-									count2++;
-									// EDIT: 14.08.2017 (DataBaseVersion 4)
-									// have to use "unknown", null provides an empty Date ("Thu Jan 01 1970 01:00:00 GMT+0100")
-									newStructure[i].Watches[j].Date = "unknown";
-								}
-								else {
-									if (isNaN(new Date(videoObjectDictionary[i].Watches[j].Date).getTime()) === false) {
-										newStructure[i].Watches[j].Date = new Date(videoObjectDictionary[i].Watches[j].Date).toString();
+					for (var i in videoObjectDictionary) {
+						for (var j in videoObjectDictionary[i].Watches) {
+							if (videoObjectDictionary[i].Watches[j].Date === "unknown" || videoObjectDictionary[i].Watches[j].Date == null) {
+								// "unknown" is a good string, but null seems to be better (NullPointer Exception is easy to find)
+								newStructure[i].Watches[j].Date = null;
+								count2++;
+								// EDIT: 14.08.2017 (DataBaseVersion 4)
+								// have to use "unknown", null provides an empty Date ("Thu Jan 01 1970 01:00:00 GMT+0100")
+								newStructure[i].Watches[j].Date = "unknown";
+							} else {
+								if (isNaN(new Date(videoObjectDictionary[i].Watches[j].Date).getTime()) === false) {
+									newStructure[i].Watches[j].Date = new Date(videoObjectDictionary[i].Watches[j].Date).toString();
+								} else {
+									var matches = videoObjectDictionary[i].Watches[j].Date.match(regex);
+									if (matches.length === 5 && matches[4] != undefined) {
+										var newDate = new Date(matches[2] + "/" + matches[1] + "/" + matches[3] + matches[4]);
 									}
+									// das Datum {videoObjectDictionary[i].Watches[j].Date} vom Datensatz {videoObjectDictionary[i].toSource()} auf die Zeit 00:00:00Uhr setzen
 									else {
-										var matches = videoObjectDictionary[i].Watches[j].Date.match(regex);
-										if (matches.length === 5 && matches[4] != undefined) {
-											var newDate = new Date(matches[2] + "/" + matches[1] + "/" + matches[3] + matches[4]);
-										}
-										// das Datum {videoObjectDictionary[i].Watches[j].Date} vom Datensatz {videoObjectDictionary[i].toSource()} auf die Zeit 00:00:00Uhr setzen
-										else {
-											var newDate = new Date(matches[2] + "/" + matches[1] + "/" + matches[3]);
-										}
-										if (isNaN(newDate.getTime()) === false) {
-											newStructure[i].Watches[j].Date = newDate.toString();
-										}
-										else {
-											alert(videoObjectDictionary[i].Watches[j].Date);
-											throw new Error("The converted Date is not a Date Object");
-										}
+										var newDate = new Date(matches[2] + "/" + matches[1] + "/" + matches[3]);
 									}
-								}
-								count++;
-							}
-						}
-
-						console.log("Die Version der Tabelle VideoObjectDictionary ist " + functions.getValue("VideoObjectDictionary-Version"));
-						console.info("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
-					if (silent !== true)
-						alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
-						if (silent || confirm("Sollen die Änderungen gespeichert werden?") === true) {
-							functions.setValue("VideoObjectDictionary-Version", 3);
-							console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + functions.getValue("VideoObjectDictionary-Version") + " geändert");
-							functions.setValue("VideoObjectDictionary", newStructure.toSource());
-						}
-						else {
-							throw new Error("Das Abspeichern der geänderten Daten wurde durch den Benutzer abgelehnt");
-						}
-						break;
-
-					case 3:
-						if (functions.getValue("VideoObjectDictionary-Version-3") != null) {
-							if (functions.getValue("VideoObjectDictionary-Version-3") !== videoObjectDictionary.toSource()) {
-								console.log("Current VideoObjectDictionary-Version-3 Data");
-								console.log(eval(functions.getValue("VideoObjectDictionary-Version-3")));
-								console.log("New VideoObjectDictionary-Version-3 Data");
-								console.log(eval(videoObjectDictionary.toSource()));
-								if (confirm("Der Eintrag 'VideoObjectDictionary-Version-3' ist bereits mit anderen Daten gesetzt, soll dieser überschrieben werden?\r\n[In der Konsole sind ausführliche Informationen]") === true) {
-									functions.setValue("VideoObjectDictionary-Version-3", videoObjectDictionary.toSource());
-								}
-								else {
-									if (confirm("Soll der Vorgang ohne Backup fortgesetzt werden?") !== true) {
-										throw new Error("Der Eintrag 'VideoObjectDictionary-Version-3' ist bereits mit anderen Daten gesetzt, der Benutzer hat ein überschreiben und ein Fortsetzten abgelehnt");
+									if (isNaN(newDate.getTime()) === false) {
+										newStructure[i].Watches[j].Date = newDate.toString();
+									} else {
+										alert(videoObjectDictionary[i].Watches[j].Date);
+										throw new Error("The converted Date is not a Date Object");
 									}
 								}
 							}
-							else {
-								console.log("VideoObjectDictionary-Version-3 was already set with same Data");
-							}
+							count++;
 						}
-						else {
-							functions.setValue("VideoObjectDictionary-Version-3", videoObjectDictionary.toSource());
-						}
+					}
 
-						var newStructure = eval(videoObjectDictionary.toSource());
-						var count = 0;
-						var count2 = 0;
-
-						for (var i in videoObjectDictionary) {
-							for (var j in videoObjectDictionary[i].Watches) {
-								if (videoObjectDictionary[i].Watches[j].Date === "unknown" || videoObjectDictionary[i].Watches[j].Date == null || new Date(videoObjectDictionary[i].Watches[j].Date).getTime() === 0) {
-									// have to use "unknown", null provides an empty Date ("Thu Jan 01 1970 01:00:00 GMT+0100")
-									newStructure[i].Watches[j].Date = "unknown";
-									count2++;
-								}
-								else if (isNaN(new Date(videoObjectDictionary[i].Watches[j].Date).getTime()) === true) {
-									console.error(videoObjectDictionary[i].Watches[j].Date);
-									throw new Error("Es wurde ein defektes Datum gefunden, hier geht es nicht weiter\r\nMich bitte Informieren");
-								}
-								count++;
-							}
-						}
-
-						console.log("Die Version der Tabelle VideoObjectDictionary ist " + functions.getValue("VideoObjectDictionary-Version"));
-						console.info("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
+					console.log("Die Version der Tabelle VideoObjectDictionary ist " + functions.getValue("VideoObjectDictionary-Version"));
+					console.info("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
 					if (silent !== true)
 						alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
-						if (silent || confirm("Sollen die Änderungen gespeichert werden?") === true) {
-							functions.setValue("VideoObjectDictionary-Version", 4);
-							console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + functions.getValue("VideoObjectDictionary-Version") + " geändert");
-							functions.setValue("VideoObjectDictionary", newStructure.toSource());
-						}
-						else {
-							throw new Error("Das Abspeichern der geänderten Daten wurde durch den Benutzer abgelehnt");
-						}
-						break;
+					if (silent || confirm("Sollen die Änderungen gespeichert werden?") === true) {
+						functions.setValue("VideoObjectDictionary-Version", 3);
+						console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + functions.getValue("VideoObjectDictionary-Version") + " geändert");
+						functions.setValue("VideoObjectDictionary", newStructure.toSource());
+					} else {
+						throw new Error("Das Abspeichern der geänderten Daten wurde durch den Benutzer abgelehnt");
+					}
+					break;
 
-					default:
+				case 3:
+					if (functions.getValue("VideoObjectDictionary-Version-3") != null) {
+						if (functions.getValue("VideoObjectDictionary-Version-3") !== videoObjectDictionary.toSource()) {
+							console.log("Current VideoObjectDictionary-Version-3 Data");
+							console.log(eval(functions.getValue("VideoObjectDictionary-Version-3")));
+							console.log("New VideoObjectDictionary-Version-3 Data");
+							console.log(eval(videoObjectDictionary.toSource()));
+							if (confirm("Der Eintrag 'VideoObjectDictionary-Version-3' ist bereits mit anderen Daten gesetzt, soll dieser überschrieben werden?\r\n[In der Konsole sind ausführliche Informationen]") === true) {
+								functions.setValue("VideoObjectDictionary-Version-3", videoObjectDictionary.toSource());
+							} else {
+								if (confirm("Soll der Vorgang ohne Backup fortgesetzt werden?") !== true) {
+									throw new Error("Der Eintrag 'VideoObjectDictionary-Version-3' ist bereits mit anderen Daten gesetzt, der Benutzer hat ein überschreiben und ein Fortsetzten abgelehnt");
+								}
+							}
+						} else {
+							console.log("VideoObjectDictionary-Version-3 was already set with same Data");
+						}
+					} else {
+						functions.setValue("VideoObjectDictionary-Version-3", videoObjectDictionary.toSource());
+					}
+
+					var newStructure = eval(videoObjectDictionary.toSource());
+					var count = 0;
+					var count2 = 0;
+
+					for (var i in videoObjectDictionary) {
+						for (var j in videoObjectDictionary[i].Watches) {
+							if (videoObjectDictionary[i].Watches[j].Date === "unknown" || videoObjectDictionary[i].Watches[j].Date == null || new Date(videoObjectDictionary[i].Watches[j].Date).getTime() === 0) {
+								// have to use "unknown", null provides an empty Date ("Thu Jan 01 1970 01:00:00 GMT+0100")
+								newStructure[i].Watches[j].Date = "unknown";
+								count2++;
+							} else if (isNaN(new Date(videoObjectDictionary[i].Watches[j].Date).getTime()) === true) {
+								console.error(videoObjectDictionary[i].Watches[j].Date);
+								throw new Error("Es wurde ein defektes Datum gefunden, hier geht es nicht weiter\r\nMich bitte Informieren");
+							}
+							count++;
+						}
+					}
+
+					console.log("Die Version der Tabelle VideoObjectDictionary ist " + functions.getValue("VideoObjectDictionary-Version"));
+					console.info("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
+					if (silent !== true)
+						alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
+					if (silent || confirm("Sollen die Änderungen gespeichert werden?") === true) {
+						functions.setValue("VideoObjectDictionary-Version", 4);
+						console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + functions.getValue("VideoObjectDictionary-Version") + " geändert");
+						functions.setValue("VideoObjectDictionary", newStructure.toSource());
+					} else {
+						throw new Error("Das Abspeichern der geänderten Daten wurde durch den Benutzer abgelehnt");
+					}
+					break;
+
+				default:
 					throw ("No Update Implemeneted!");
-						break;
+					break;
 				}
 			}
 		}
@@ -1284,12 +1266,12 @@ try {
 		if (CurrentVersion_WatchedVideoArray != eval(functions.getValue("WatchedVideoArray-Version")) ||
 			CurrentVersion_ScannedVideoArray != eval(functions.getValue("ScannedVideoArray-Version")) ||
 			CurrentVersion_VideoObjectDictionary != eval(functions.getValue("VideoObjectDictionary-Version"))) {
-				UpdateDataBase(functions, silent);
+			UpdateDataBase(functions, silent);
 		}
 
 		functions.unlock();
 	}
-	
+
 	function GetVideoWatched(watchedVideoArray, videoObjectDictionary, VideoID) {
 		// If videoObjectDictionary is false ignore Elements from Dictionary (only check Elements from WatchedVideoArray)
 		if (videoObjectDictionary !== false) {
