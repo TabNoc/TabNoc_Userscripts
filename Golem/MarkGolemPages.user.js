@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.3.0_02122017__beta11_
+// @version     1.3.0_10122017__beta12_
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/TabNoc.js
@@ -482,100 +482,105 @@ try {
 		});
 
 		var onLoadPost = returnExec(function (response) {
-			if (response.status !== 200) {
-				console.error(response);
-				alert("Statuscode:" + response.status);
-				Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
-				return;
-			}
-			if (response.responseText.charAt(0) === '#') {
-				console.error(response);
-				alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
-				Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
-				return;
-			}
-			Feedback.showProgress(100, "Senden der Daten erfolgreich abgeschlossen");
-			alert("Die Syncronisierung der Daten mit dem Server wurde erfolgreich abgeschlossen.\r\nAktueller Versionsstand: " + response.responseText);
-		});
-
-		var onLoadGet = returnExec(function (response) {
-			Feedback.showProgress(40, "Servernachricht auswerten");
-			var error = false;
-			if (response.status !== 200) {
-				console.error(response);
-				alert("Statuscode:" + response.status);
-				Feedback.showProgress(100, "Abgebrochen, es konnten keine Daten empfangen werden");
-				return;
-			}
-			if (response.responseText.charAt(0) === '#') {
-				console.error(response);
-				var errorCode = response.responseText.split("\r\n")[0].substring(1);
-				if (errorCode === "2") {
-					error = true;
-				} else {
-					alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
-					Feedback.showProgress(100, "Abgebrochen, Fehler auf dem Server");
+				if (response.status !== 200) {
+					console.error(response);
+					alert("Statuscode:" + response.status);
+					Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
 					return;
 				}
-			}
-			Feedback.showProgress(50, "Empfangene Daten migrieren");
-			if (!error) {
-				var responseData = eval(response.responseText);
-				console.info("Server response Data:", responseData);
-				if (responseData.ReadedNewsArray != null && responseData.SeenNewsArray != null) {
-					Feedback.lockProgress();
-					ImportData(responseData, ([{
-									Name: "ReadedNewsArray",
-									defaultVersion: 0,
-									defaultValue: "([])",
-									ImportAction: function (dataStorage, currentEntry, importElement) {
-										dataStorage[currentEntry.Name].push(importElement);
-									}
-								}, {
-									Name: "SeenNewsArray",
-									defaultVersion: 0,
-									defaultValue: "([])",
-									ImportAction: function (dataStorage, currentEntry, importElement) {
-										if (dataStorage["ReadedNewsArray"].indexOf(importElement) == -1) {
-											dataStorage[currentEntry.Name].push(importElement);
+				if (response.responseText.charAt(0) === '#') {
+					console.error(response);
+					alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
+					Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
+					return;
+				}
+				Feedback.showProgress(100, "Senden der Daten erfolgreich abgeschlossen");
+				alert("Die Syncronisierung der Daten mit dem Server wurde erfolgreich abgeschlossen.\r\nAktueller Versionsstand: " + response.responseText);
+			});
+
+		var onLoadGet = returnExec(function (response) {
+				console.error(response);
+				Feedback.showProgress(40, "Servernachricht auswerten");
+				var error = false;
+				if (response.status !== 200) {
+					console.error(response);
+					alert("Statuscode:" + response.status);
+					Feedback.showProgress(100, "Abgebrochen, es konnten keine Daten empfangen werden");
+					return;
+				}
+				if (response.responseText.charAt(0) === '#') {
+					console.error(response);
+					var errorCode = response.responseText.split("\r\n")[0].substring(1);
+					if (errorCode === "2") {
+						error = true;
+					} else {
+						alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
+						Feedback.showProgress(100, "Abgebrochen, Fehler auf dem Server");
+						return;
+					}
+				}
+				Feedback.showProgress(50, "Empfangene Daten migrieren");
+				if (!error) {
+					var responseData = eval(response.responseText);
+					console.info("Server response Data:", responseData);
+					if (responseData.ReadedNewsArray != null && responseData.SeenNewsArray != null) {
+						Feedback.lockProgress();
+						ImportData(responseData, ([{
+										Name: "ReadedNewsArray",
+										defaultVersion: 0,
+										defaultValue: "([])",
+										ImportAction: function (dataStorage, currentEntry, importElement) {
+											if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
+												dataStorage[currentEntry.Name].push(importElement);
+											}
+										}
+									}, {
+										Name: "SeenNewsArray",
+										defaultVersion: 0,
+										defaultValue: "([])",
+										ImportAction: function (dataStorage, currentEntry, importElement) {
+											if (dataStorage["ReadedNewsArray"].indexOf(importElement) == -1) {
+												if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
+													dataStorage[currentEntry.Name].push(importElement);
+												}
+											}
 										}
 									}
-								}
-							]));
-					Feedback.unlockProgress();
-				} else {
-					alert("Der Wert des Response des Servers war ungültig!");
+								]));
+						Feedback.unlockProgress();
+					} else {
+						alert("Der Wert des Response des Servers war ungültig!");
+					}
 				}
-			}
-			if (confirm("Sollen die aktuellen Daten auf dem Server gespeichert werden?") === false) {
-				Feedback.showProgress(100, "Senden der Daten abgebrochen");
-				return;
-			}
-			Feedback.showProgress(75, "Neue Daten auf dem Server speichern");
+				if (confirm("Sollen die aktuellen Daten auf dem Server gespeichert werden?") === false) {
+					Feedback.showProgress(100, "Senden der Daten abgebrochen");
+					return;
+				}
+				Feedback.showProgress(75, "Neue Daten auf dem Server speichern");
 
-			var element = ({});
-			element.ReadedNewsArray = eval(GM_getValue("ReadedNewsArray") || "([])");
-			element.SeenNewsArray = eval(GM_getValue("SeenNewsArray") || "([])");
-			element["ReadedNewsArray-Version"] = GetData("ReadedNewsArray-Version", 0, true);
-			element["SeenNewsArray-Version"] = GetData("SeenNewsArray-Version", 0, true);
-			GM_xmlhttpRequest({
-				data: {
-					Token: Token,
-					data: element.toSource()
-				}
-				.toSource(),
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json"
-				},
-				onabort: onAbort,
-				onerror: onError("Sending New Data Failed"),
-				onload: onLoadPost,
-				ontimeout: onTimeout,
-				timeout: 60000,
-				url: "https://tabnoc.gear.host/MyDataFiles//Input"
+				var element = ({});
+				element.ReadedNewsArray = eval(GM_getValue("ReadedNewsArray") || "([])");
+				element.SeenNewsArray = eval(GM_getValue("SeenNewsArray") || "([])");
+				element["ReadedNewsArray-Version"] = GetData("ReadedNewsArray-Version", 0, true);
+				element["SeenNewsArray-Version"] = GetData("SeenNewsArray-Version", 0, true);
+				GM_xmlhttpRequest({
+					data: {
+						Token: Token,
+						data: element.toSource()
+					}
+					.toSource(),
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json"
+					},
+					onabort: onAbort,
+					onerror: onError("Sending New Data Failed"),
+					onload: onLoadPost,
+					ontimeout: onTimeout,
+					timeout: 60000,
+					url: "https://tabnoc.gear.host/MyDataFiles//Input"
+				});
 			});
-		});
 
 		Feedback.showProgress(10, "Token erfassen");
 		var Token = prompt("Bitte Token eingeben") + scriptName;
@@ -626,7 +631,7 @@ try {
 		ModuleImport("States", getStatesVersion, "1.2.6");
 		ModuleImport("TabNoc_GM", getTabNoc_GMVersion, "2.0.2");
 		ModuleImport("TabNoc", getTabNocVersion, "1.2.2");
-		ModuleImport("ImportAll", getImportAllVersion, "1.0.0");
+		ModuleImport("ImportAll", getImportAllVersion, "1.0.2");
 
 		var count = 0;
 		while (GM_Locked() == true) {
