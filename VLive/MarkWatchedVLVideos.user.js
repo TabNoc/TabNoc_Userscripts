@@ -2,7 +2,7 @@
 // @name        MarkWatchedVLVideos
 // @namespace   TabNoc
 // @include     http*://channels.vlive.tv/*/video
-// @version     1.0.0
+// @version     1.0.1
 // @author      TabNoc
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
@@ -34,6 +34,9 @@ ChangeList started at 26.12.2017
 
 26.12.2017 - 1.0.0
 Start Writing Script - forked from MarkGolemPages v1.3.0_10122017__beta12_
+
+26.12.2017 - 1.0.1
+	- changed: using MyUninterestingElement class
 
 */
 try {
@@ -194,8 +197,8 @@ try {
 				}
 				return true;
 			}
-			else if ($(checkElement).find(".-chPlus").length > 0) {
-				$(checkElement).css("background-color", "rgb(255, 175, 175)");
+			else if ($(checkElement).find(".-chPlus, .-vlivePlus").length > 0) {
+				$(checkElement).addClass("MyUninterestingElement");
 				if (TabNoc.Settings.HideAlreadyWatchedVideos === true) {
 					$(checkElement).hide();
 				}
