@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.3.0_10122017__beta12_
+// @version     1.3.0_26122017__beta13_
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/TabNoc.js
@@ -326,7 +326,7 @@ try {
 			}
 			else {
 				if (deleteEntry === true) {
-					ReadedNews.splice(SeenNewsArray.indexOf(document.URL), 1);
+					ReadedNewsArray.splice(SeenNewsArray.indexOf(document.URL), 1);
 					SetData("ReadedNewsArray", ReadedNewsArray.toSource(), true);
 					console.info("MarkGolemPages.user.js: Newspage removed!");
 				}
