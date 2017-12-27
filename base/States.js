@@ -1,5 +1,5 @@
 function getStatesVersion(){
-	return {Version: "1.2.6", Date: "02.12.2017"};
+	return {Version: "1.2.7", Date: "27.12.2017"};
 }
 
 /*
@@ -118,7 +118,7 @@ function CreateHistoryDialog(data, callBack) {
 	try {
 		$("#HistoryDialog").remove();
 		$("<div />").attr("id", "HistoryDialog").attr("title", "Historie").css("backgroundColor", "#F9F9F9 !important;").appendTo("body");
-		
+
 		var i = 0;
 		var s = "<div id=\"HistoryDialogTabs\" style=\"margin-bottom: 10px\"><ul>";
 		for (var keyName in data) {
@@ -128,7 +128,7 @@ function CreateHistoryDialog(data, callBack) {
 			s += "<li><a href=\"#HistoryDialogTab-" + i + "\">" + keyName + "</a></li>";
 		}
 		s += "</ul>";
-		
+
 		i = 0;
 		var keyname;
 		for (keyName in data) {
@@ -136,7 +136,7 @@ function CreateHistoryDialog(data, callBack) {
 				continue;
 			i++;
 			s += "<div id=\"HistoryDialogTab-" + i + "\" style=\"padding-bottom:7px\">";
-			
+
 			s += "<label for=\"HistoryData-" + i + "\">Historien-Elemente</label>";
 			s += "<select name=\"HistoryData-" + i + "\" id=\"HistoryDataSelector-" + i + "\"><option historyGroup=\"" + keyName + "\" value=\"" + data[keyName].currentState + "\" selected=\"selected\">Aktuelle Daten</option>";
 			for (var timeIndex in data[keyName].changeLog.reverse()) {
@@ -144,16 +144,16 @@ function CreateHistoryDialog(data, callBack) {
 				s += "<option historyGroup=\"" + keyName + "\" value=\"" + time + "\">" + new Date(parseInt(time)).toLocaleString() + "</option>";
 			}
 			s += "</select>";
-			
+
 			s += "<div id=\"HistoryDialogTabResultPanel-" + keyName + "\" style=\"margin: 10px 0px 10px 0px;border: 1px solid #D3D3D3;border-radius: 5px;padding: 8px 0px 8px 0px;\"></div>";
-			
+
 			s += "<button id=\"HistoryDataButton-" + keyName + "\" historyGroup=\"" + keyName + "\" >Daten Übernehmen</button>";
 			s += "</div>";
 		}
 		s += "</div>";
-		
+
 		$(s).appendTo("#HistoryDialog");
-		
+
 		$("#HistoryDialog").dialog({
 			close: function (event, ui) {
 				$("#HistoryDialog").parentNode().remove();
@@ -164,11 +164,11 @@ function CreateHistoryDialog(data, callBack) {
 		});
 		$("#HistoryDialogTabs").tabs();
 		// $("#HistoryDialog").dialog("option", "classes.ui-dialog-content", "MyDialogBackgroundColor" );
-		
+
 		i = 0;
 		for (keyName in data) {
 			i++;
-			
+
 			$("#HistoryDataSelector-" + i).selectmenu({
 				change: returnExec(function (event, data) {
 					let group = data.item.element[0].getAttribute("historyGroup");
@@ -177,7 +177,7 @@ function CreateHistoryDialog(data, callBack) {
 					console.error($("#HistoryDataButton-" + group));
 				})
 			});
-			
+
 			$("#HistoryDataButton-" + keyName).button().click(function (event, data) {
 				console.error(event);
 				let group = $(event.target).attr("historyGroup");
