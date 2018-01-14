@@ -1,6 +1,7 @@
 // ==UserScript==
 // @name        MarkOpenedVideos
 // @namespace   TabNoc
+// @author      TabNoc
 // @include     https://www.youtube.com/feed/subscriptions*
 // @include     https://www.youtube.com/user/*
 // @include     https://www.youtube.com/channel/*
