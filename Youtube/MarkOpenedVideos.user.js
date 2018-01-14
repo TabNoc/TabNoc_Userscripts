@@ -11,7 +11,7 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.3.6_10122017__beta5_
+// @version     2.3.6_29122017__beta7_
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -177,8 +177,7 @@ fixed:	- fixed StyleChanges from Youtube
 
 02.10.2017 - 2.3.5
 	fixed:		- if an Information in MergeVideoObject is missing it can not be resolved
-	
-	
+
 10.12.2017 - 2.3.6Beta5
 	changed:	- Syncronisieren optimiert
 	changed:	- Die aufrufe nach SetData nutzen nun die Historie
@@ -286,7 +285,7 @@ try {
 		GM_registerMenuCommand("Markieren", function () {
 			startCheckElements(!TabNoc.Variables.MarkToggleState);
 		});
-		
+
 		TabNoc.Variables.ImportDataProperties = ([{
 				Name: "VideoObjectDictionary",
 				defaultVersion: 2,
@@ -307,7 +306,7 @@ try {
 				Name: "ScannedVideoArray",
 				defaultVersion: 0,
 				defaultValue: "([])",
-				ImportAction: function (dataStorage, currentEntry, importElement) {					
+				ImportAction: function (dataStorage, currentEntry, importElement) {
 					if (GetVideoWatched(dataStorage[currentEntry.Name], dataStorage["VideoObjectDictionary"], importElement) === false && GetVideoWatched(dataStorage["WatchedVideoArray"], false, importElement) === false) {
 						dataStorage[currentEntry.Name].push(importElement);
 					}
@@ -712,7 +711,7 @@ try {
 			document.body.onbeforeunload = function () {
 				SaveVideoStatistics();
 			};
-		
+
 			// prepare Current VideoStatisticsObject
 			TabNoc.Variables.VideoStatisticsObject = {
 				VideoID: unsafeWindow.document.getElementById("movie_player").getVideoData().video_id,
@@ -945,7 +944,7 @@ try {
 				throw new Error("DatabaseUpdate wurde durch den Benutzer abgebrochen!\r\nOhne ein Update der Datenbank funktioniert das System nicht.");
 			}
 
-			if (Version_WatchedVideoArray === undefined) {
+			if (Version_WatchedVideoArray === null) {
 				// aus der alten Tabelle 'Watched-Videos' importieren, same DataStructure 		#*#!LEGACY CODE!#*#
 
 				// ### Watched-Videos ###
@@ -975,9 +974,9 @@ try {
 					console.log("Die Version der Tabelle WatchedVideoArray wurde auf " + functions.getValue("WatchedVideoArray-Version") + " geändert");
 					alert("DataBase:'WatchedVideoArray' die alten Daten wurden erfolgreich importiert!\r\nDie Datenbank wurde von alten Daten bereinigt.");
 				} else {
-					functions.setValue("WatchedVideoArray-Version", 0);
+					functions.setValue("WatchedVideoArray-Version", CurrentVersion_WatchedVideoArray);
 					console.log("Die Version der Tabelle WatchedVideoArray wurde auf " + functions.getValue("WatchedVideoArray-Version") + " geändert");
-					alert("DataBase:'WatchedVideoArray' sucessfully initialised!");
+					// alert("DataBase:'WatchedVideoArray' sucessfully initialised!");
 				}
 			} else {
 				// ### WatchedVideoArray ###
@@ -999,7 +998,7 @@ try {
 				throw new Error("DatabaseUpdate wurde durch den Benutzer abgebrochen!\r\nOhne ein Update der Datenbank funktioniert das System nicht.");
 			}
 
-			if (Version_ScannedVideoArray === undefined) {
+			if (Version_ScannedVideoArray === null) {
 				// aus der alten Tabelle 'Videos' importieren, same DataStructure 		#*#!LEGACY CODE!#*#
 
 				// ### Videos ###
@@ -1033,9 +1032,9 @@ try {
 					console.log("Die Version der Tabelle ScannedVideoArray wurde auf " + functions.getValue("ScannedVideoArray-Version") + " geändert");
 					alert("DataBase:'ScannedVideoArray' die alten Daten wurden erfolgreich importiert!\r\nDie Datenbank wurde von alten Daten bereinigt.\r\nEs wurden " + removed + " doppelte Einträge entfernt.");
 				} else {
-					functions.setValue("ScannedVideoArray-Version", 0);
+					functions.setValue("ScannedVideoArray-Version", CurrentVersion_ScannedVideoArray);
 					console.log("Die Version der Tabelle ScannedVideoArray wurde auf " + functions.getValue("ScannedVideoArray-Version") + " geändert");
-					alert("DataBase:'ScannedVideoArray' sucessfully initialised!");
+					// alert("DataBase:'ScannedVideoArray' sucessfully initialised!");
 				}
 			} else {
 				// ### ScannedVideoArray ###
@@ -1057,7 +1056,7 @@ try {
 				throw new Error("DatabaseUpdate wurde durch den Benutzer abgebrochen!\r\nOhne ein Update der Datenbank funktioniert das System nicht.");
 			}
 
-			if (Version_VideoObjectDictionary === undefined) {
+			if (Version_VideoObjectDictionary === null) {
 				// aus der alten Tabelle 'VideoStatistics' importieren 		#*#!LEGACY CODE!#*#
 
 				// ### VideoStatistics ###
@@ -1084,9 +1083,9 @@ try {
 
 					functions.setValue("VideoObjectDictionary", newStructure.toSource());
 				} else {
-					functions.setValue("VideoObjectDictionary-Version", 0);
+					functions.setValue("VideoObjectDictionary-Version", CurrentVersion_VideoObjectDictionary);
 					console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + functions.getValue("VideoObjectDictionary-Version") + " geändert");
-					alert("DataBase:'VideoObjectDictionary' sucessfully initialised!");
+					// alert("DataBase:'VideoObjectDictionary' sucessfully initialised!");
 				}
 			} else {
 				// ### VideoObjectDictionary ###
@@ -1739,7 +1738,7 @@ try {
 		if (!($("#app-drawer").length == 1 && $("#app-drawer")[0].nodeName == "DOM-MODULE")) {
 			alert("Der Support für das alte YoutubeLayout wurde mit Version 2.3.1 (02.09.2017) entfernt, wenn dies erforderlich ist bitte zur alten Version zurückkehren");
 		}
-		
+
 		// SubscriptionPage
 		if ($("ytd-grid-renderer").length >= 1 || $("ytd-video-renderer").length >= 1 || $("ytd-grid-video-renderer").length >= 1 || true) {
 			$(SubscriptionPageLoader);
