@@ -11,7 +11,7 @@
 // @include     https://www.youtube.com/results?*
 // @include     https://www.youtube.com/feed/history
 // @include     https://www.youtube.com/
-// @version     2.3.6_29122017__beta7_
+// @version     2.3.6_b_8_14012018
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/GM__.js
 // @require     https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/base/TabNoc.js
@@ -216,7 +216,7 @@ try {
 			SavingEnabled: true,
 			TimerInterval: 5000,
 			UninterestingVideos: (["Recht für YouTuber:"]),
-			NotWantedVideos: (["Arumba Plays DOTA", "Europa Universalis IV", "Let's Play Crusader Kings 2", "Challenge WBS", "Let's Play Civilization VI", "Let's Play Galactic Civilizations 3", "The Binding of Isaac ", "Civilization 6", "Endless Space", "Galactic Cililisations 3", "Civilization V", "Let's Play Stellaris", "SPAZ2", "EU4", "Factorio S7E"]),
+			NotWantedVideos: (["Arumba Plays DOTA", "Europa Universalis IV", "Let's Play Crusader Kings 2", "Challenge WBS", "Let's Play Civilization VI", "Let's Play Galactic Civilizations 3", "The Binding of Isaac ", "Civilization 6", "Endless Space", "Galactic Cililisations 3", "Civilization V", "Let's Play Stellaris", "SPAZ2", "EU4", "Factorio S7E", "Lets Play S9 E"]),
 			DeleteNotWantedVideos: false,
 			HideAlreadyWatchedVideos: false,
 			ShowAlreadyWatchedDialog: true,
@@ -298,7 +298,7 @@ try {
 				defaultVersion: 0,
 				defaultValue: "([])",
 				ImportAction: function (dataStorage, currentEntry, importElement) {
-					if (GetVideoWatched(dataStorage[currentEntry.Name], dataStorage["VideoObjectDictionary"], importElement) === false) {
+					if (GetVideoWatched(dataStorage[currentEntry.Name], dataStorage.VideoObjectDictionary, importElement) === false) {
 						dataStorage[currentEntry.Name].push(importElement);
 					}
 				}
@@ -307,7 +307,7 @@ try {
 				defaultVersion: 0,
 				defaultValue: "([])",
 				ImportAction: function (dataStorage, currentEntry, importElement) {
-					if (GetVideoWatched(dataStorage[currentEntry.Name], dataStorage["VideoObjectDictionary"], importElement) === false && GetVideoWatched(dataStorage["WatchedVideoArray"], false, importElement) === false) {
+					if (GetVideoWatched(dataStorage[currentEntry.Name], dataStorage.VideoObjectDictionary, importElement) === false && GetVideoWatched(dataStorage.WatchedVideoArray, false, importElement) === false) {
 						dataStorage[currentEntry.Name].push(importElement);
 					}
 				}
@@ -985,7 +985,6 @@ try {
 				switch (Version_WatchedVideoArray) {
 				default:
 					throw ("No Update Implemeneted!");
-					break;
 				}
 			}
 		}
@@ -1043,7 +1042,6 @@ try {
 				switch (Version_ScannedVideoArray) {
 				default:
 					throw ("No Update Implemeneted!");
-					break;
 				}
 			}
 		}
@@ -1074,7 +1072,7 @@ try {
 					}
 
 					for (var element in VideoStatistics) {
-						newStructure["unknown"].push(VideoStatistics[element]);
+						newStructure.unknown.push(VideoStatistics[element]);
 					}
 
 					functions.setValue("VideoObjectDictionary-Version", 0);
@@ -1257,7 +1255,6 @@ try {
 
 				default:
 					throw ("No Update Implemeneted!");
-					break;
 				}
 			}
 		}
@@ -1352,18 +1349,19 @@ try {
 			console.log("Merging ...");
 		}
 		var namesArray = ([]);
-		for (var i in videoObject_1) {
+		var i;
+		for (i in videoObject_1) {
 			if (namesArray.indexOf(i) === -1) {
 				namesArray.push(i);
 			}
 		}
-		for (var i in videoObject_2) {
+		for (i in videoObject_2) {
 			if (namesArray.indexOf(i) === -1) {
 				namesArray.push(i);
 			}
 		}
 
-		for (var i in namesArray) {
+		for (i in namesArray) {
 			var objectIndex = namesArray[i];
 			if (videoObject_1[objectIndex] === undefined || videoObject_2[objectIndex] === undefined) {
 				console.error(objectIndex, videoObject_1, videoObject_2, videoObject_1[objectIndex], videoObject_2[objectIndex]);
@@ -1386,7 +1384,6 @@ try {
 						console.log(videoObject_2);
 						alert("Es wurde keine Behandlung für das Fehlen dieser Information (" + objectIndex + ") definiert!\r\nSiehe Konsole für mehr Informationen.");
 						throw new Error("NotDefinedException");
-						break;
 					}
 					if (canContinue == false) {
 						break;
@@ -1492,7 +1489,7 @@ try {
 								break;
 							}
 						}
-					} while (changed === true)
+					} while (changed === true);
 
 					// gleichstellen, damit vergleich funktioniert
 					videoObject_1.Watches = eval(newArray.toSource());
@@ -1544,7 +1541,6 @@ try {
 					console.log(videoObject_2);
 					alert("Für diesen Unterschied wurde kein automatisches Zusammenführen definiert!\r\nSiehe Konsole für mehr Informationen.");
 					throw new Error("NotDefinedException");
-					break;
 				}
 			}
 		}
@@ -1591,7 +1587,7 @@ try {
 				}
 				Feedback.showProgress(100, "Senden der Daten erfolgreich abgeschlossen");
 				alert("Die Syncronisierung der Daten mit dem Server wurde erfolgreich abgeschlossen.\r\nAktueller Versionsstand: " + response.responseText);
-			})
+			});
 
 			var onLoadGet = returnExec(function (response) {
 				Feedback.showProgress(40, "Servernachricht auswerten");
@@ -1684,29 +1680,29 @@ try {
 		let versionCompareResult = versionCompare(currentVersion, expectedVersion);
 		var versionData = GetData("ImportVersion", "({show: true})", true);
 		versionData[moduleName] = versionData[moduleName] || ({});
-		if (versionData["show"] == true && versionData[moduleName].Version != currentVersion && versionData[moduleName].Version != undefined) {
+		if (versionData.show == true && versionData[moduleName].Version != currentVersion && versionData[moduleName].Version != undefined) {
 			alert("Das Modul " + moduleName + " wurde von Version " + versionData[moduleName].Version + " auf Version " + currentVersion + " aktualisiert (Die erwartete Version ist " + expectedVersion + ")");
 		}
 
 		if (versionCompareResult != 0) {
-			var msg = "Das geladene " + moduleName + " Modul ist " + (versionCompareResult < 0 ? "älter" : "neuer") + " als die konfigurierte Version";
+			var msg = "Das geladene Modul: \"" + moduleName + "\" ist " + (versionCompareResult < 0 ? "älter" : "neuer") + " als die konfigurierte Version";
 			msg += "\r\nDie erwartete Version ist: " + expectedVersion + " gegeben ist: " + currentVersion;
+			console.info(msg);
 			if (versionData[moduleName].skipNotification !== currentVersion && !confirm(msg + "\r\n\r\nSoll diese Meldung für diese Version des Moduls weiterhin angezeigt werden?")) {
 				versionData[moduleName].skipNotification = currentVersion;
 			}
-			console.info(msg);
 		}
 		versionData[moduleName].Version = currentVersion;
 		SetData("ImportVersion", versionData.toSource(), true, false);
 	}
 
 	function Main() {
-		ModuleImport("States", getStatesVersion, "1.2.6");
+		ModuleImport("States", getStatesVersion, "1.2.7");
 		ModuleImport("TabNoc_GM", getTabNoc_GMVersion, "2.0.2");
-		ModuleImport("TabNoc", getTabNocVersion, "1.2.3");
+		ModuleImport("TabNoc", getTabNocVersion, "1.2.4");
 		ModuleImport("ImportAll", getImportAllVersion, "1.0.2");
 
-		// ModuleImport("VideoGreyDetector", getImportAllVersion, "1.0.0");
+		// ModuleImport("VideoGreyDetector", getVideoGreyDetectorVersion, "1.0.0");
 
 		if (document.URL.contains("feature=youtu.be")) {
 			console.info("URL contains feature=youtu.be, skipping execution");
