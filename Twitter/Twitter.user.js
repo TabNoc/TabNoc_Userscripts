@@ -83,7 +83,7 @@ changed:	- polished some Formatting
 
 16.01.2018 - 1.13.7
 changed:	- Removed Button Quickfix, instead implemented proper way of eventHandling
-
+*/
 
 // STatistics.Name -> Merge over element.Tweet_from
 
