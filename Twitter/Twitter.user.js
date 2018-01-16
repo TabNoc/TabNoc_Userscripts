@@ -3,7 +3,7 @@
 // @namespace   TabNoc
 // @description Marking of already readed Tweets and some other nice features 		©2017 TabNoc
 // @include     http*://twitter.com/*
-// @version     1.13.6_04122017
+// @version     1.13.7_16012018
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/trentrichardson/jQuery-Impromptu/master/dist/jquery-impromptu.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/master/base/GM__.js
@@ -80,7 +80,9 @@ changed:	- only visible elements were marked
 04.12.2017 - 1.13.6
 fixed:		- elementIdArray was not properly initialised
 changed:	- polished some Formatting
-*/
+
+16.01.2018 - 1.13.7
+changed:	- Removed Button Quickfix, instead implemented proper way of eventHandling
 
 
 // STatistics.Name -> Merge over element.Tweet_from
@@ -130,7 +132,7 @@ try {
 			Scannen:
 			'<li id = "btn_Scannen" style = "padding: 2px; display: inline-block; position: absolute; background-color: rgb(255, 255, 255);">' +
 			'	<div class="not-following">' +
-			'		<button class="follow-button btn" type="button" onclick="getAllElements();return true;">' +
+			'		<button class="follow-button btn" type="button">' +
 			//			'			style = "padding:4px 12px 9px; border: 1px solid #E1E8ED; border-radius:4px;font-weight:bold; line-height: normal;cursor:pointer; font:inherit"' +
 			'			<span id = "btn_Scannen_Text" style = "display:block; color:#292F33; font-weight:bold; line-height: normal; cursor:pointer; font:inherit; min-width:73px">' +
 			'				Scannen' +
@@ -142,7 +144,7 @@ try {
 			Markieren:
 			'<li id = "btn_Markieren" style = "margin-top:36px;padding: 2px; display: inline-block; position: absolute; background-color: rgb(255, 255, 255);">' +
 			'	<div class="not-following">' +
-			'		<button class="follow-button btn" type="button" onclick="startCheckElements(!TabNoc.Variables.MarkToggleState);return true;">' +
+			'		<button class="follow-button btn" type="button">' +
 			'			<span id = "btn_Markieren_Text" style = "display:block; color:#292F33; font-weight:bold; line-height: normal; cursor:pointer; font:inherit; min-width:73px">' +
 			'				Markieren' +
 			'			</span>' +
@@ -152,7 +154,7 @@ try {
 
 			StyleMarked: "background-color:rgb(151, 255, 139);background-image:linear-gradient(rgb(255, 255, 255), transparent)",
 			StyleMustScanning: "background-color:rgb(255, 138, 138);background-image:linear-gradient(rgb(255, 255, 255), transparent)",
-			TweetsDropDownButtons: '<br/><button class="dropdown-link js-dropdown-toggle" onclick="getAllElements({element});return true;">Bis hier Markieren [/\\]</button><button class="dropdown-link js-dropdown-toggle" onclick="getAllElements(null, {element});return true;">Ab hier Markieren [\\/]</button><button class="dropdown-link js-dropdown-toggle" onclick="scanRange({element});return true;">Markierbereich</button>'
+			TweetsDropDownButtons: '<br/><li class="dropdown-divider" role="presentation"></li><button class="dropdown-link js-dropdown-toggle" data-element="{element}">Bis hier Markieren [/\\]</button><button class="dropdown-link js-dropdown-toggle" data-element="{element}">Ab hier Markieren [\\/]</button><button class="dropdown-link js-dropdown-toggle" data-element="{element}">Markierbereich</button>'
 		}
 	});
 	
@@ -440,16 +442,17 @@ try {
 		if (checkElement.getAttribute("TabNoc_DropDownButtons") != "true") {
 			$(checkElement).find(".dropdown-menu")[0].children[1].innerHTML += TabNoc.HTML.TweetsDropDownButtons.replaceAll("{element}", ElementID);
 			checkElement.setAttribute("TabNoc_DropDownButtons", "true");
-			{
-				var baseFixElement = $(checkElement).find(".dropdown-menu")[0].children[1].children;
-				var fixElements = [baseFixElement[baseFixElement.length - 3], baseFixElement[baseFixElement.length - 2], baseFixElement[baseFixElement.length - 1]];
-				for (ii = 0; ii < fixElements.length; ii++) {
-					// Quickfix buttons
-					var FixElement = fixElements[ii];
-					FixElement.onclick = eval("(function() {" + FixElement.getAttribute("onclick") + "})");
-					FixElement.setAttribute("onclick", "");
-				}
-			}
+			var baseFixElement = $(checkElement).find(".dropdown-menu")[0].children[1].children;
+			
+			// Bis hier Markieren[/\]
+			baseFixElement[baseFixElement.length - 3].onclick = function(mouseEvent){getAllElements(mouseEvent.target.getAttribute("data-element"));return true;};
+			
+			// Ab hier Markieren [\/]
+			baseFixElement[baseFixElement.length - 2].onclick = function(mouseEvent){getAllElements(null, mouseEvent.target.getAttribute("data-element"));return true;};
+			
+			// Markierbereich
+			baseFixElement[baseFixElement.length - 1].onclick = function(mouseEvent){scanRange(mouseEvent.target.getAttribute("data-element"));return true;};
+			
 		}
 		
 		checkElement.style.borderRadius = "15px"; //"10px";
@@ -790,12 +793,14 @@ try {
 		var btn_Scannen = document.createElement("li");
 		$("#floatingButtons").append(btn_Scannen);
 		btn_Scannen.outerHTML = TabNoc.HTML.Scannen;
+		$("#btn_Scannen").children()[0].children[0].onclick = function() {getAllElements();return true;};
 
 		//###btn_Markieren###
 		var btn_Markieren = document.createElement("li");
 		$("#floatingButtons").append(btn_Markieren);
 		btn_Markieren.outerHTML = TabNoc.HTML.Markieren;
-
+		$("#btn_Markieren").children()[0].children[0].onclick = function() {startCheckElements(!TabNoc.Variables.MarkToggleState);return true;};
+		
 		// //###upperTweets###
 
 		var upperTweets = document.createElement("div");
@@ -828,18 +833,6 @@ try {
 		startCheckElements(TabNoc.Variables.MarkToggleState);
 
 		console.log("Twitter.user.js done");
-		{
-			// Quickfix btn_Scannen
-			var element = $("#btn_Scannen").children()[0].children[0];
-			element.onclick = eval("(function() {" + element.getAttribute("onclick").replace(/TabNoc/g, "TabNoc") + "})");
-			element.setAttribute("onclick", "");
-		}
-		{
-			// Quickfix btn_Markieren
-			var element = $("#btn_Markieren").children()[0].children[0];
-			element.onclick = eval("(function() {" + element.getAttribute("onclick").replace(/TabNoc/g, "TabNoc") + "})");
-			element.setAttribute("onclick", "");
-		}
 		
 		$(".stream").css("min-height", "101vh");
 	}
