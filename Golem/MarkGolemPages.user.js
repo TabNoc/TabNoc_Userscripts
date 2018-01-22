@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.3.0_26122017__beta13_
+// @version     1.3.0_b_15_22012018
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/TabNoc.js
@@ -180,7 +180,7 @@ try {
 														  $(element).children("a")[0].getAttribute("id").includes("bigalt"))) {
 				UnScannedElements = checkElement(element, ReadedNewsArray, ToggleState, SeenNewsArray) == true ? UnScannedElements : UnScannedElements + 1;
 			} else {
-				console.warn(element);
+				console.warn("checkElements: Folgendes Element entspricht nicht den Vorgaben", element);
 			}
 		}
 		TabNoc.Variables.MarkToggleState = ToggleState;
@@ -247,10 +247,10 @@ try {
 
 			var elements = $("#index-promo, .list-articles>li");
 
-			var fromIndex = from == null ? 0 : elements.toArray().findIndex(function (element) { return $(element).children("a")[0].getAttribute("href") == from; });
+			var fromIndex = from == null ? 0 : elements.toArray().findIndex(function (element) { try {return $(element).children("a")[0].getAttribute("href") == from;} catch(exc) {console.error("getAllElements: getFromIndex", exc); return false;}});
 			if (fromIndex == -1) throw "from(" + from + ") were not found";
 
-			var tillIndex = till == null ? elements.length : (elements.toArray().findIndex(function (element) { return $(element).children("a")[0].getAttribute("href") == till; }) + 1);
+			var tillIndex = till == null ? elements.length : (elements.toArray().findIndex(function (element) { try {return $(element).children("a")[0].getAttribute("href") == till;} catch(exc) {console.error("getAllElements: getTillIndex", exc); return false;}}) + 1);
 			if (tillIndex == -1) throw "till(" + till + ") were not found";
 			// tillIndex > elements.length ? elements.length : tillIndex;
 
@@ -628,7 +628,7 @@ try {
 	}
 
 	function Main() {
-		ModuleImport("States", getStatesVersion, "1.2.6");
+		ModuleImport("States", getStatesVersion, "1.2.7");
 		ModuleImport("TabNoc_GM", getTabNoc_GMVersion, "2.0.2");
 		ModuleImport("TabNoc", getTabNocVersion, "1.2.2");
 		ModuleImport("ImportAll", getImportAllVersion, "1.0.2");
