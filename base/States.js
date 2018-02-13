@@ -1,5 +1,5 @@
 function getStatesVersion(){
-	return {Version: "1.2.7", Date: "27.12.2017"};
+	return {Version: "1.2.8", Date: "13.02.2018"};
 }
 
 /*
@@ -275,7 +275,7 @@ function GetData(keyName, defaultValue, evalValue) {
 		var data = GM_getValue(keyName);
 
 		if (data == null || data === "") {
-			data = defaultValue || null;
+			data = defaultValue;
 		}
 
 		if (TabNoc.Settings.Debug === true) {
