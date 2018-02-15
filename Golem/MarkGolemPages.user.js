@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.3.0_b_15_22012018
+// @version     1.3.0_b_16_15022018
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/TabNoc.js
@@ -75,7 +75,8 @@ try {
 			Active: true,
 
 			lastCheckRNewsAmount : 0,
-			lastCheckSNewsAmount : 0
+			lastCheckSNewsAmount : 0,
+			lastCheckTRNewsAmount : 0
 		},
 
 		Settings: {
@@ -92,7 +93,8 @@ try {
 		},
 
 		HTML: {
-			ScanButton: '<div class="MyScanButton"><div></div></div>'
+			ScanButton: '<div class="MyScanButton" title="Scannen"><div></div></div>',
+			ReadButton: '<div class="MyReadButton" title="Lesen"><div></div></div>'
 		}
 	});
 
@@ -147,24 +149,28 @@ try {
 	function startCheckElements(ToggleState, force) {
 		if (document.hidden === false || force === true) {
 			// ### ReadedNewsArray ###
-			var ReadedNewsArray = eval(GM_getValue("ReadedNewsArray") || "([])");
+			var ReadedNewsArray = GetData("ReadedNewsArray", "([])", true);
 			// ### SeenNewsArray ###
-			var SeenNewsArray = eval(GM_getValue("SeenNewsArray") || "([])");
+			var SeenNewsArray = GetData("SeenNewsArray", "([])", true);
+			// ### ToReadNewsArray ###
+			var ToReadNewsArray = GetData("ToReadNewsArray", "([])", true);
 
 			var elements = $("#index-promo, .list-articles>li");
 			if (force === true || TabNoc.Variables.lastCheckItemCount !== elements.length ||
 					TabNoc.Variables.lastCheckRNewsAmount !== ReadedNewsArray.length ||
-					TabNoc.Variables.lastCheckSNewsAmount !== SeenNewsArray.length) {
-				execTime(checkElements, ReadedNewsArray.reverse(), elements, ToggleState, SeenNewsArray.reverse());
+					TabNoc.Variables.lastCheckSNewsAmount !== SeenNewsArray.length ||
+					TabNoc.Variables.lastCheckTRNewsAmount !== ToReadNewsArray.length) {
+				execTime(checkElements, ReadedNewsArray.reverse(), elements, ToggleState, SeenNewsArray.reverse(), ToReadNewsArray.reverse());
 
 				TabNoc.Variables.lastCheckRNewsAmount = ReadedNewsArray.length;
 				TabNoc.Variables.lastCheckSNewsAmount = SeenNewsArray.length;
+				TabNoc.Variables.lastCheckTRNewsAmount = ToReadNewsArray.length;
 				TabNoc.Variables.lastCheckItemCount = elements.length;
 			}
 		}
 	}
 
-	function checkElements(ReadedNewsArray, elements, ToggleState, SeenNewsArray) {
+	function checkElements(ReadedNewsArray, elements, ToggleState, SeenNewsArray, ToReadNewsArray) {
 		var UnScannedElements = 0;
 		Feedback.showProgress(0, "Initialised Scan");
 
@@ -178,7 +184,7 @@ try {
 
 			if ($(element).children("a").length === 1 && ($(element).children("a")[0].getAttribute("id").includes("hpalt") ||
 														  $(element).children("a")[0].getAttribute("id").includes("bigalt"))) {
-				UnScannedElements = checkElement(element, ReadedNewsArray, ToggleState, SeenNewsArray) == true ? UnScannedElements : UnScannedElements + 1;
+				UnScannedElements = checkElement(element, ReadedNewsArray, ToggleState, SeenNewsArray, ToReadNewsArray) == true ? UnScannedElements : UnScannedElements + 1;
 			} else {
 				console.warn("checkElements: Folgendes Element entspricht nicht den Vorgaben", element);
 			}
@@ -193,23 +199,28 @@ try {
 		}
 	}
 
-	function checkElement(checkElement, ReadedNewsArray, ToggleState, SeenNewsArray) {
+	function checkElement(checkElement, ReadedNewsArray, ToggleState, SeenNewsArray, ToReadNewsArray) {
 		//return true if checkedElement is already Scanned
 		var SearchString = $(checkElement).children("a")[0].getAttribute("href");
 
 		var ReadedID = ReadedNewsArray.indexOf(SearchString);
 		var SeenID = SeenNewsArray.indexOf(SearchString);
+		var ToReadID = ToReadNewsArray.indexOf(SearchString);
 
 		if ($(checkElement).find(".MyScanButton").length === 0 && $(checkElement).find(".MyMarkedReadedElement").length === 0 && $(checkElement).find(".MyMarkedSeenElement").length === 0) {
 			var ScanButton = $(TabNoc.HTML.ScanButton);
 			ScanButton.click(function(){getAllElements(SearchString, SearchString);});
 			$(checkElement).append(ScanButton);
+
+			var ReadButton = $(TabNoc.HTML.ReadButton);
+			ReadButton.click(function(){getAllElements(SearchString, SearchString, true);});
+			$(checkElement).append(ReadButton);
 		}
 
 		if (ToggleState === true) {
 			$(checkElement).addClass("MyPageElement");
 			if (ReadedID !== -1) {
-				$(checkElement).addClass("MyMarkedReadedElement").removeClass("MyMarkedSeenElement").find(".MyScanButton").remove();
+				$(checkElement).addClass("MyMarkedReadedElement").removeClass("MyMarkedSeenElement").removeClass("MyMarkedToReadElement").find(".MyScanButton,.MyReadButton").remove();
 				if (TabNoc.Settings.HideAlreadyWatchedNews === true) {
 					$(checkElement).hide();
 				}
@@ -219,7 +230,17 @@ try {
 				return true;
 			}
 			else if (SeenID !== -1) {
-				$(checkElement).removeClass("MyMarkedReadedElement").addClass("MyMarkedSeenElement").find(".MyScanButton").remove();
+				$(checkElement).removeClass("MyMarkedReadedElement").addClass("MyMarkedSeenElement").removeClass("MyMarkedToReadElement").find(".MyScanButton").remove();
+				if (TabNoc.Settings.HideAlreadyWatchedNews === true) {
+					$(checkElement).hide();
+				}
+				else {
+					$(checkElement).show();
+				}
+				return true;
+			}
+			else if (ToReadID !== -1) {
+				$(checkElement).removeClass("MyMarkedReadedElement").removeClass("MyMarkedSeenElement").addClass("MyMarkedToReadElement").find(".MyScanButton,.MyReadButton").remove();
 				if (TabNoc.Settings.HideAlreadyWatchedNews === true) {
 					$(checkElement).hide();
 				}
@@ -230,20 +251,22 @@ try {
 			}
 		}
 		else {
-			$(checkElement).removeClass("MyMarkedReadedElement").removeClass("MyMarkedSeenElement").removeClass("MyPageElement").show();
+			$(checkElement).removeClass("MyMarkedReadedElement").removeClass("MyMarkedSeenElement").removeClass("MyToReadElement").removeClass("MyPageElement").show().find(".MyScanButton .MyReadButton").remove();
 		}
 
 		return false;
 	}
 
-	function getAllElements(from, till) {
+	function getAllElements(from, till, asToRead) {
 		try {
 			var start = new Date().getTime();
 
 			// ### ReadedNewsArray ###
-			var ReadedNewsArray = eval(GM_getValue("ReadedNewsArray") || "([])");
+			var ReadedNewsArray = GetData("ReadedNewsArray", "([])", true);
 			// ### SeenNewsArray ###
-			var SeenNewsArray = eval(GM_getValue("SeenNewsArray") || "([])");
+			var SeenNewsArray = GetData("SeenNewsArray", "([])", true);
+			// ### ToReadNewsArray ###
+			var ToReadNewsArray = GetData("ToReadNewsArray", "([])", true);
 
 			var elements = $("#index-promo, .list-articles>li");
 
@@ -260,8 +283,18 @@ try {
 
 				if ($(element).children("a").length === 1 && ($(element).children("a")[0].getAttribute("id").includes("hpalt") ||
 															  $(element).children("a")[0].getAttribute("id").includes("bigalt"))) {
-					if (SeenNewsArray.indexOf(currentElementId) == -1 && ReadedNewsArray.indexOf(currentElementId) == -1) {
-						SeenNewsArray.push(currentElementId);
+					if (asToRead == true) {
+						if (ReadedNewsArray.indexOf(currentElementId) == -1 && ToReadNewsArray.indexOf(currentElementId) == -1) {
+							ToReadNewsArray.push(currentElementId);
+							if (SeenNewsArray.indexOf(currentElementId) != -1) {
+								SeenNewsArray.splice(SeenNewsArray.indexOf(currentElementId), 1);
+							}
+						}
+					}
+					else {
+						if (SeenNewsArray.indexOf(currentElementId) == -1 && ReadedNewsArray.indexOf(currentElementId) == -1 && ToReadNewsArray.indexOf(currentElementId) == -1) {
+							SeenNewsArray.push(currentElementId);
+						}
 					}
 				} else {
 					console.warn(element);
@@ -269,6 +302,7 @@ try {
 			}
 			GM_Lock();
 			SetData("SeenNewsArray", SeenNewsArray.toSource(), true);
+			SetData("ToReadNewsArray", ToReadNewsArray.toSource(), true);
 			GM_Unlock();
 
 			if (TabNoc.Settings.MarkAfterScan) {
@@ -283,6 +317,14 @@ try {
 			alert(exc);
 		}
 	}
+
+	function createToReadDialog(){
+
+		bla +="<ul style='list-style-type:none'>";
+		foreach();{bla +="<li>" + Coffee  + "</li>";}
+		bla +="</ul>";
+	}
+
 	// ### http*://www.golem.de ###
 
 	// ### http*://www.golem.de/news/* ###
@@ -307,9 +349,11 @@ try {
 			if (deleteEntry !== true) deleteEntry = false;
 
 			// ### ReadedNewsArray ###
-			var ReadedNewsArray = eval(GM_getValue("ReadedNewsArray") || "([])");
+			var ReadedNewsArray = GetData("ReadedNewsArray", "([])", true);
 			// ### SeenNewsArray ###
-			var SeenNewsArray = eval(GM_getValue("SeenNewsArray") || "([])");
+			var SeenNewsArray = GetData("SeenNewsArray", "([])", true);
+			// ### ToReadNewsArray ###
+			var ToReadNewsArray = GetData("ToReadNewsArray", "([])", true);
 
 			GM_Lock();
 
@@ -319,7 +363,13 @@ try {
 				SetData("SeenNewsArray", SeenNewsArray.toSource(), true);
 			}
 
-			if (ReadedNewsArray.indexOf(document.URL) === -1) {
+			if (ToReadNewsArray.indexOf(document.URL) !== -1 && deleteEntry === false) {
+				ToReadNewsArray.splice(ToReadNewsArray.indexOf(document.URL), 1);
+				SetData("ToReadNewsArray", ToReadNewsArray.toSource(), true);
+				console.info("MarkGolemPages.user.js: ToReadNewspage removed");
+			}
+
+			if (ReadedNewsArray.indexOf(document.URL) === -1 && deleteEntry === false) {
 				ReadedNewsArray.push(document.URL);
 				SetData("ReadedNewsArray", ReadedNewsArray.toSource(), true);
 				console.info("MarkGolemPages.user.js: Newspage added");
@@ -345,12 +395,14 @@ try {
 	function UpdateDataBase() {
 		var CurrentVersion_ReadedNewsArray = 1;
 		var CurrentVersion_SeenNewsArray = 1;
+		var CurrentVersion_ToReadNewsArray = 1;
 
 		// ### ReadedNewsArray-Version ###
-		Version_ReadedNewsArray = eval(GM_getValue("ReadedNewsArray-Version") || 0);
-
+		var Version_ReadedNewsArray = GetData("ReadedNewsArray-Version", 0, true);
 		// ### SeenNewsArray-Version ###
-		Version_SeenNewsArray = eval(GM_getValue("SeenNewsArray-Version") || 0);
+		var Version_SeenNewsArray = GetData("SeenNewsArray-Version", 0, true);
+		// ### ToReadNewsArray-Version ###
+		var Version_ToReadNewsArray = GetData("ToReadNewsArray-Version", 0, true);
 
 		// ### ReadedNewsArray ###
 		if (Version_ReadedNewsArray != CurrentVersion_ReadedNewsArray) {
@@ -459,6 +511,29 @@ try {
 
 		}
 		// ### SeenNewsArray ###
+
+		// ### ToReadNewsArray ###
+		if (Version_ToReadNewsArray != CurrentVersion_ToReadNewsArray) {
+			var updateMsg = "Es wurde ein Versionsunterschied der Datenbank-Tabelle ToReadNewsArray gefunden (alt: " + Version_ToReadNewsArray + " | aktuell: " + CurrentVersion_ToReadNewsArray + ")";
+			console.info(updateMsg);
+			alert(updateMsg + "\r\nOK drücken um den Updatevorgang zu starten.");
+
+			switch (Version_ToReadNewsArray) {
+				case 0:
+					GM_setValue("ToReadNewsArray-Version", 1);
+
+					updateMsg = "Die Datenbank-Tabelle ToReadNewsArray wurde erfolgreich initialisiert (Version: " + GM_getValue("ToReadNewsArray-Version") + ")";
+					console.log(updateMsg);
+					alert(updateMsg);
+
+					break;
+
+				default:
+					throw("No Update Implemeneted!");
+			}
+
+		}
+		// ### ToReadNewsArray ###
 	}
 
 	function Syncronisieren(scriptName) {
@@ -628,7 +703,7 @@ try {
 	}
 
 	function Main() {
-		ModuleImport("States", getStatesVersion, "1.2.7");
+		ModuleImport("States", getStatesVersion, "1.2.8");
 		ModuleImport("TabNoc_GM", getTabNoc_GMVersion, "2.0.2");
 		ModuleImport("TabNoc", getTabNocVersion, "1.2.2");
 		ModuleImport("ImportAll", getImportAllVersion, "1.0.2");
