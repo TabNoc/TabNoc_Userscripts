@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.3.0_b_16_15022018
+// @version     1.3.0_b_17_16022018
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/TabNoc.js
@@ -610,11 +610,20 @@ try {
 											}
 										}
 									}, {
+										Name: "ToReadNewsArray",
+										defaultVersion: 0,
+										defaultValue: "([])",
+										ImportAction: function (dataStorage, currentEntry, importElement) {
+											if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
+												dataStorage[currentEntry.Name].push(importElement);
+											}
+										}
+									}, {
 										Name: "SeenNewsArray",
 										defaultVersion: 0,
 										defaultValue: "([])",
 										ImportAction: function (dataStorage, currentEntry, importElement) {
-											if (dataStorage["ReadedNewsArray"].indexOf(importElement) == -1) {
+											if (dataStorage["ReadedNewsArray"].indexOf(importElement) == -1 && dataStorage["ToReadNewsArray"].indexOf(importElement) == -1) {
 												if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
 													dataStorage[currentEntry.Name].push(importElement);
 												}
@@ -636,8 +645,10 @@ try {
 				var element = ({});
 				element.ReadedNewsArray = eval(GM_getValue("ReadedNewsArray") || "([])");
 				element.SeenNewsArray = eval(GM_getValue("SeenNewsArray") || "([])");
+				element.ToReadNewsArray = eval(GM_getValue("ToReadNewsArray") || "([])");
 				element["ReadedNewsArray-Version"] = GetData("ReadedNewsArray-Version", 0, true);
 				element["SeenNewsArray-Version"] = GetData("SeenNewsArray-Version", 0, true);
+				element["ToReadNewsArray-Version"] = GetData("ToReadNewsArray-Version", 0, true);
 				GM_xmlhttpRequest({
 					data: {
 						Token: Token,
@@ -678,9 +689,7 @@ try {
 		});
 		Feedback.showProgress(30, "Warte auf Rückmeldung vom Server");
 	}
-
-	// SetData(keyName, value, locked, disableValueHistory)
-
+	
 	function ModuleImport(moduleName, moduleFunction, expectedVersion) {
 		let currentVersion = moduleFunction().Version;
 		let versionCompareResult = versionCompare(currentVersion, expectedVersion);
