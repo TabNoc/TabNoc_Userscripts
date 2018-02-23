@@ -2,14 +2,14 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.3.0_b_17_16022018
+// @version     1.3.0_b_18_23022018
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/TabNoc.js
-// @require     https://raw.githubusercontent.com/benjamine/jsondiffpatch/master/public/build/jsondiffpatch.js
-// @require     https://raw.githubusercontent.com/benjamine/jsondiffpatch/master/public/build/jsondiffpatch-formatters.js
-// @resource    JDiffHtml https://raw.githubusercontent.com/benjamine/jsondiffpatch/master/public/formatters-styles/html.css
-// @resource    JDiffAnno https://raw.githubusercontent.com/benjamine/jsondiffpatch/master/public/formatters-styles/annotated.css
+// @require     https://raw.githubusercontent.com/benjamine/jsondiffpatch/v0.2.5/public/build/jsondiffpatch.js
+// @require     https://raw.githubusercontent.com/benjamine/jsondiffpatch/v0.2.5/public/build/jsondiffpatch-formatters.js
+// @resource    JDiffHtml https://raw.githubusercontent.com/benjamine/jsondiffpatch/v0.2.5/public/formatters-styles/html.css
+// @resource    JDiffAnno https://raw.githubusercontent.com/benjamine/jsondiffpatch/v0.2.5/public/formatters-styles/annotated.css
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/States.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/ImportAll.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/jquery_ui/jquery-ui.min.js
@@ -381,7 +381,7 @@ try {
 					console.info("MarkGolemPages.user.js: Newspage removed!");
 				}
 				else {
-					alert("readed");
+					setTimeout(function(){alert("readed");}, 100);
 				}
 			}
 			GM_Unlock();
@@ -689,7 +689,7 @@ try {
 		});
 		Feedback.showProgress(30, "Warte auf Rückmeldung vom Server");
 	}
-	
+
 	function ModuleImport(moduleName, moduleFunction, expectedVersion) {
 		let currentVersion = moduleFunction().Version;
 		let versionCompareResult = versionCompare(currentVersion, expectedVersion);
