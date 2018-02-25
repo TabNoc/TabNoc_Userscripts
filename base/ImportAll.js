@@ -1,30 +1,26 @@
 function getImportAllVersion(){
-	return {Version: "1.0.2", Date: "10.12.2017"};
+	return {Version: "1.0.3", Date: "25.02.2018"};
 }
 
 /*
-	ImportData(responseData, ([{
-					Name: "ReadedNewsArray",
-					defaultVersion: 0,
-					defaultValue: "([])",
-					ImportAction: function (dataStorage, currentEntry, importElement) {
-						if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
-							dataStorage[currentEntry.Name].push(importElement);
-						}
-					}
-				}, {
-					Name: "SeenNewsArray",
-					defaultVersion: 0,
-					defaultValue: "([])",
-					ImportAction: function (dataStorage, currentEntry, importElement) {
-						if (dataStorage["ReadedNewsArray"].indexOf(importElement) == -1) {
-							if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
-								dataStorage[currentEntry.Name].push(importElement);
-							}
-						}
-					}
-				}
-			]));
+ImportData(responseData, ([{
+		Name: "Array",
+		defaultVersion: 0,
+		defaultValue: "([])",
+		ImportAction: function (dataStorage, currentEntry, importElement, elementId) {
+			if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
+				dataStorage[currentEntry.Name].push(importElement);
+			}
+		}
+	}, {
+		Name: "Object",
+		defaultVersion: 0,
+		defaultValue: "({})",
+		ImportAction: function (dataStorage, currentEntry, importElement, elementId) {
+			dataStorage[currentEntry.Name][elementId] = importElement;
+		}
+	}
+]));
 */
 function ImportData(allData, entriesArray) {
 	var entryID = null;
@@ -128,7 +124,7 @@ function ImportData(allData, entriesArray) {
 				console.info("Importing stored " + entry.Name);
 			}
 			for (var i in element.currentData[entry.Name]) {
-				entry.ImportAction(newDataStorage, entry, element.currentData[entry.Name][i]);
+				entry.ImportAction(newDataStorage, entry, element.currentData[entry.Name][i], i);
 				element.count[entry.Name]++;
 			}
 			if (TabNoc.Settings.Debug) {
@@ -136,7 +132,7 @@ function ImportData(allData, entriesArray) {
 				console.info(element[entry.Name]);
 			}
 			for (var i in element[entry.Name]) {
-				entry.ImportAction(newDataStorage, entry, element[entry.Name][i]);
+				entry.ImportAction(newDataStorage, entry, element[entry.Name][i], i);
 				element.count[entry.Name]++;
 			}
 		}
