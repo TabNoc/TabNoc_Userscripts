@@ -53,6 +53,21 @@
 	width: 25px;
 }
 
+.MyOpenTabButton {
+	position: absolute;
+	bottom: 10px;
+	z-index: 2147483647;
+	right: 40px;
+}
+.MyOpenTabButton > div {
+	border-radius: 5px;
+	cursor: pointer;
+	box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+	background-color: rgb(200, 244, 80);
+	height: 35px;
+	width: 15px;
+}
+
 .head2 .head4 {
 	z-index: 2147483648;
 	position: relative;
