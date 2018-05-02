@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.3.0_b_18_23022018
+// @version     1.3.3_02052018
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/TabNoc.js
@@ -25,6 +25,8 @@
 // @grant       GM_addStyle
 // @grant       GM_getResourceText
 // @grant       GM_xmlhttpRequest
+// @grant       GM_addValueChangeListener
+// @grant       GM_openInTab
 // @connect     tabnoc.gear.host
 // @noframes
 // ==/UserScript==
@@ -61,6 +63,18 @@ Start Writing Script
 30.09.2017 - 1.2.4
 	- added: CreateHistoryDialog
 	- added: Version checking from Imports
+
+30.09.2017 - 09.04.2018 - 1.3.0 beta
+	- changed alot
+
+09.04.2018 - 1.3.1
+	- added: Debug to show Refresh reason
+
+26.04.2018 - 1.3.2
+	- changed: modified src, so a webSite change is more easy to handle
+
+27.04.2018 - 1.3.3
+	- added: ScanWithKeyPress
 */
 
 try {
@@ -74,9 +88,13 @@ try {
 			lastCheckScanBufferAmount: 0,
 			Active: true,
 
-			lastCheckRNewsAmount : 0,
-			lastCheckSNewsAmount : 0,
-			lastCheckTRNewsAmount : 0
+			promptOnClose : true,
+
+			Debug: false, // WebKonsole: TabNoc_.MarkGolemPages.Variables.Debug = true;
+			// Wird zurückgesetzt, wenn die Seite versteckt war
+			WasHidden: true,
+			// Status, wann die Funktion wieder bestätigt werden muss
+			ScanWithKeyPressActiveTimeOut: 0
 		},
 
 		Settings: {
@@ -89,12 +107,23 @@ try {
 				HideUninterestingTweets: false,
 				UninterestingTweetsText: [],
 				TimerInterval: 1000
-			}
+			},
+
+			ScanWithKeyPressEnabled: true,
+			ShowOpenInNewTabButton: false,
+
+			ScanButtonDomParent: "#grandwrapper",
+			ElementsSearchString: "#index-promo, .list-articles>li",
+			NameOfElements: "Newspages",
+			NameOfElement: "Newspage",
+			GetIDFunction: function(element) {return $(element).children("a")[0].getAttribute("href");},
+			GetCurrentSiteIDFunction: function() {return document.URL;}
 		},
 
 		HTML: {
 			ScanButton: '<div class="MyScanButton" title="Scannen"><div></div></div>',
-			ReadButton: '<div class="MyReadButton" title="Lesen"><div></div></div>'
+			ReadButton: '<div class="MyReadButton" title="Lesen"><div></div></div>',
+			OpenTabButton: '<div class="MyOpenTabButton" title="Open in new Tab"><div></div></div>'
 		}
 	});
 
@@ -104,9 +133,7 @@ try {
 		try {
 			registerTabNoc();
 
-			var ScanButton = $(TabNoc.HTML.ScanButton);
-			ScanButton.click(function(){getAllElements();$("#grandwrapper>.MyScanButton").remove();});
-			$("#grandwrapper").append(ScanButton);
+			// ############# Golem Code #############
 
 			$("#index-vica2").remove();
 
@@ -114,6 +141,41 @@ try {
 
 			$(".iqadlinetop>div").css("border-color", "transparent");
 
+			// ############# Golem Code #############
+
+			// ## ScanWithKeyPress ##
+
+			if (TabNoc.Settings.ScanWithKeyPressEnabled === true) {
+				$(document).on("keydown", event => {
+					if (event.keyCode == 160) {
+						if (TabNoc.Variables.ScanWithKeyPressActiveTimeout > new Date() && TabNoc.Variables.WasHidden == false) {
+							let scanElement = $(TabNoc.Settings.ElementsSearchString).toArray().find(element => element.className == "MyPageElement");
+							if (scanElement != null) {getAllElements(null, TabNoc.Settings.GetIDFunction(scanElement), false);}
+							event.preventDefault();
+							TabNoc.Variables.ScanWithKeyPressActiveTimeout = new Date(new Date().getTime() + 600000);
+						}
+						else {
+							if (confirm("Soll die Bearbeitung durch ScanWithKeyPress aktiviert werden?") == true) {
+							TabNoc.Variables.ScanWithKeyPressActiveTimeout = new Date(new Date().getTime() + 600000);
+								TabNoc.Variables.WasHidden = false;
+							}
+						}
+					}
+				});
+			}
+
+			// ## ScanWithKeyPress ##
+
+			var ScanButton = $(TabNoc.HTML.ScanButton);
+			ScanButton.click(function(){getAllElements();$(TabNoc.Settings.ScanButtonDomParent + ">.MyScanButton").remove();});
+			$(TabNoc.Settings.ScanButtonDomParent).append(ScanButton);
+
+			var ValueChangeCallback = function(name, old_value, new_value, remote) {
+				startCheckElements(TabNoc.Variables.MarkToggleState, true);
+			};
+			GM_addValueChangeListener("ReadedNewsArray", ValueChangeCallback);
+			GM_addValueChangeListener("SeenNewsArray", ValueChangeCallback);
+			GM_addValueChangeListener("ToReadNewsArray", ValueChangeCallback);
 
 			TabNoc.Variables.checkElementsInterval = setInterval(returnExec(function () {
 				startCheckElements(TabNoc.Variables.MarkToggleState);
@@ -135,7 +197,7 @@ try {
 
 		GM_registerMenuCommand("Einlesen", returnExec(getAllElements));
 
-		GM_registerMenuCommand("CreateHistoryDialog", function() {CreateHistoryDialog(eval(GM_getValue("changes")));});
+		GM_registerMenuCommand("CreateHistoryDialog", function() {CreateHistoryDialog(GetData("changes", "([])", true));});
 
 		GM_registerMenuCommand("ManuelleSyncronisation", returnExec(Syncronisieren));
 	}
@@ -148,25 +210,26 @@ try {
 	 */
 	function startCheckElements(ToggleState, force) {
 		if (document.hidden === false || force === true) {
-			// ### ReadedNewsArray ###
-			var ReadedNewsArray = GetData("ReadedNewsArray", "([])", true);
-			// ### SeenNewsArray ###
-			var SeenNewsArray = GetData("SeenNewsArray", "([])", true);
-			// ### ToReadNewsArray ###
-			var ToReadNewsArray = GetData("ToReadNewsArray", "([])", true);
+			var elements = $(TabNoc.Settings.ElementsSearchString);
+			if (force === true || TabNoc.Variables.lastCheckItemCount !== elements.length) {
+				// ### ReadedNewsArray ###
+				var ReadedNewsArray = GetData("ReadedNewsArray", "([])", true);
+				// ### SeenNewsArray ###
+				var SeenNewsArray = GetData("SeenNewsArray", "([])", true);
+				// ### ToReadNewsArray ###
+				var ToReadNewsArray = GetData("ToReadNewsArray", "([])", true);
 
-			var elements = $("#index-promo, .list-articles>li");
-			if (force === true || TabNoc.Variables.lastCheckItemCount !== elements.length ||
-					TabNoc.Variables.lastCheckRNewsAmount !== ReadedNewsArray.length ||
-					TabNoc.Variables.lastCheckSNewsAmount !== SeenNewsArray.length ||
-					TabNoc.Variables.lastCheckTRNewsAmount !== ToReadNewsArray.length) {
+				if (TabNoc.Variables.Debug === true) {
+					console.log(force === true, TabNoc.Variables.lastCheckItemCount !== elements.length);
+				}
+
 				execTime(checkElements, ReadedNewsArray.reverse(), elements, ToggleState, SeenNewsArray.reverse(), ToReadNewsArray.reverse());
 
-				TabNoc.Variables.lastCheckRNewsAmount = ReadedNewsArray.length;
-				TabNoc.Variables.lastCheckSNewsAmount = SeenNewsArray.length;
-				TabNoc.Variables.lastCheckTRNewsAmount = ToReadNewsArray.length;
 				TabNoc.Variables.lastCheckItemCount = elements.length;
 			}
+		}
+		else {
+			TabNoc.Variables.WasHidden = true;
 		}
 	}
 
@@ -178,10 +241,11 @@ try {
 			ToggleState = TabNoc.Variables.MarkToggleState;
 		}
 
-		for (i = 0; i < elements.length; i++) {
+		for (var i = 0; i < elements.length; i++) {
 			Feedback.showProgress(i / elements.length * 100, "Analysing Element " + i + " from " + elements.length);
 			var element = elements[i];
 
+			// ############# TODO: addCondition #############
 			if ($(element).children("a").length === 1 && ($(element).children("a")[0].getAttribute("id").includes("hpalt") ||
 														  $(element).children("a")[0].getAttribute("id").includes("bigalt"))) {
 				UnScannedElements = checkElement(element, ReadedNewsArray, ToggleState, SeenNewsArray, ToReadNewsArray) == true ? UnScannedElements : UnScannedElements + 1;
@@ -192,7 +256,7 @@ try {
 		TabNoc.Variables.MarkToggleState = ToggleState;
 
 		Feedback.showProgress(100, "Finished " + (elements.length - UnScannedElements) + " elements marked");
-		console.log((elements.length - UnScannedElements) + " Marked Elements | " + UnScannedElements + " UnMarked Elements | Total " + elements.length + " Elements (" + ReadedNewsArray.length + " Newspages listed)");
+		console.log((elements.length - UnScannedElements) + " Marked Elements | " + UnScannedElements + " UnMarked Elements | Total " + elements.length + " Elements (" + ReadedNewsArray.length + " " + TabNoc.Settings.NameOfElements + " readed, " + ToReadNewsArray.length + " " + TabNoc.Settings.NameOfElements + " to read, " + SeenNewsArray.length + " " + TabNoc.Settings.NameOfElements + " marked)");
 
 		if (TabNoc.Settings.HideAlreadyWatchedNews === false) {
 			Feedback.notify(UnScannedElements + " UnMarked Elements", 10000, function(){TabNoc.Settings.HideAlreadyWatchedNews = !TabNoc.Settings.HideAlreadyWatchedNews; startCheckElements(true, true);Feedback.hideMessage();});
@@ -201,20 +265,26 @@ try {
 
 	function checkElement(checkElement, ReadedNewsArray, ToggleState, SeenNewsArray, ToReadNewsArray) {
 		//return true if checkedElement is already Scanned
-		var SearchString = $(checkElement).children("a")[0].getAttribute("href");
+		var SearchString = TabNoc.Settings.GetIDFunction(checkElement);
 
 		var ReadedID = ReadedNewsArray.indexOf(SearchString);
 		var SeenID = SeenNewsArray.indexOf(SearchString);
 		var ToReadID = ToReadNewsArray.indexOf(SearchString);
 
-		if ($(checkElement).find(".MyScanButton").length === 0 && $(checkElement).find(".MyMarkedReadedElement").length === 0 && $(checkElement).find(".MyMarkedSeenElement").length === 0) {
-			var ScanButton = $(TabNoc.HTML.ScanButton);
+		if ($(checkElement).find(".MyScanButton").length === 0 && $(checkElement).find(".MyMarkedReadedElement").length === 0 && $(checkElement).find(".MyOpenTabButton").length === 0 && $(checkElement).find(".MyMarkedSeenElement").length === 0) {
+			let ScanButton = $(TabNoc.HTML.ScanButton);
 			ScanButton.click(function(){getAllElements(SearchString, SearchString);});
 			$(checkElement).append(ScanButton);
 
-			var ReadButton = $(TabNoc.HTML.ReadButton);
-			ReadButton.click(function(){getAllElements(SearchString, SearchString, true);});
+			let ReadButton = $(TabNoc.HTML.ReadButton);
+			ReadButton.click(function(){if (confirm("Soll dieser Eintrag wirklich ohne zu öffnen auf ToRead gesetz werden?") == true) getAllElements(SearchString, SearchString, true);});
 			$(checkElement).append(ReadButton);
+
+			if (TabNoc.Settings.ShowOpenInNewTabButton == true) {
+				let OpenTabButton = $(TabNoc.HTML.OpenTabButton);
+				OpenTabButton.click(function(){GM_openInTab(SearchString, {active: false, loadInBackground: true, insert: true, setParent: true});});
+				$(checkElement).append(OpenTabButton);
+			}
 		}
 
 		if (ToggleState === true) {
@@ -268,19 +338,20 @@ try {
 			// ### ToReadNewsArray ###
 			var ToReadNewsArray = GetData("ToReadNewsArray", "([])", true);
 
-			var elements = $("#index-promo, .list-articles>li");
+			var elements = $(TabNoc.Settings.ElementsSearchString);
 
-			var fromIndex = from == null ? 0 : elements.toArray().findIndex(function (element) { try {return $(element).children("a")[0].getAttribute("href") == from;} catch(exc) {console.error("getAllElements: getFromIndex", exc); return false;}});
+			var fromIndex = from == null ? 0 : elements.toArray().findIndex(function (element) { try {return TabNoc.Settings.GetIDFunction(element) == from;} catch(exc) {console.error("getAllElements: getFromIndex", exc); return false;}});
 			if (fromIndex == -1) throw "from(" + from + ") were not found";
 
-			var tillIndex = till == null ? elements.length : (elements.toArray().findIndex(function (element) { try {return $(element).children("a")[0].getAttribute("href") == till;} catch(exc) {console.error("getAllElements: getTillIndex", exc); return false;}}) + 1);
+			var tillIndex = till == null ? elements.length : (elements.toArray().findIndex(function (element) { try {return TabNoc.Settings.GetIDFunction(element) == till;} catch(exc) {console.error("getAllElements: getTillIndex", exc); return false;}}) + 1);
 			if (tillIndex == -1) throw "till(" + till + ") were not found";
 			// tillIndex > elements.length ? elements.length : tillIndex;
 
-			for (i = fromIndex; i < tillIndex; i++) {
+			for (var i = fromIndex; i < tillIndex; i++) {
 				var element = elements[i];
-				var currentElementId = $(element).children("a")[0].getAttribute("href");
+				var currentElementId = TabNoc.Settings.GetIDFunction(element);
 
+				// ############# TODO: check valid Element #############
 				if ($(element).children("a").length === 1 && ($(element).children("a")[0].getAttribute("id").includes("hpalt") ||
 															  $(element).children("a")[0].getAttribute("id").includes("bigalt"))) {
 					if (asToRead == true) {
@@ -297,7 +368,7 @@ try {
 						}
 					}
 				} else {
-					console.warn(element);
+					console.error(element);
 				}
 			}
 			GM_Lock();
@@ -319,7 +390,7 @@ try {
 	}
 
 	function createToReadDialog(){
-
+		throw "NotImplementedException";
 		bla +="<ul style='list-style-type:none'>";
 		foreach();{bla +="<li>" + Coffee  + "</li>";}
 		bla +="</ul>";
@@ -331,13 +402,61 @@ try {
 	function NewsPageLoader(){
 		console.log("MarkGolemPages.user.js loading");
 		try {
-			ReadingNewspage();
+			OpenNewspage();
 
 			GM_registerMenuCommand("Löschen", function () {
 				ReadingNewspage(true);
 			});
 
+			$(window).on('beforeunload', function(e){
+				if (TabNoc.Variables.promptOnClose === true) {
+					e.returnValue = 'Die Seite wurde nicht als gelsesen markiert, fortfahren?';
+					return 'Die Seite wurde nicht als gelsesen markiert, fortfahren?';
+				}
+			});
+
 			console.log("MarkGolemPages.user.js done");
+		} catch (exc) {
+			console.error(exc);
+			alert(exc);
+		}
+	}
+
+	function OpenNewspage(){
+		try {
+			// ### ReadedNewsArray ###
+			var ReadedNewsArray = GetData("ReadedNewsArray", "([])", true);
+			// ### SeenNewsArray ###
+			var SeenNewsArray = GetData("SeenNewsArray", "([])", true);
+			// ### ToReadNewsArray ###
+			var ToReadNewsArray = GetData("ToReadNewsArray", "([])", true);
+
+			GM_Lock();
+
+			var currentID = TabNoc.Settings.GetCurrentSiteIDFunction();
+
+			if (SeenNewsArray.indexOf(currentID) !== -1) {
+				SeenNewsArray.splice(SeenNewsArray.indexOf(currentID), 1);
+				SetData("SeenNewsArray", SeenNewsArray.toSource(), true);
+				console.info("OpenNewspage: " + TabNoc.Settings.NameOfElement + " removed from SeenNewsArray");
+			}
+
+			if (ToReadNewsArray.indexOf(currentID) === -1 && ReadedNewsArray.indexOf(currentID) === -1) {
+				ToReadNewsArray.push(currentID);
+				SetData("ToReadNewsArray", ToReadNewsArray.toSource(), true);
+				console.info("OpenNewspage: " + TabNoc.Settings.NameOfElement + " added to ToReadNewsArray");
+			}
+
+			if (ReadedNewsArray.indexOf(currentID) !== -1) {
+				setTimeout(function(){alert("readed");}, 100);
+				console.info("OpenNewspage: " + TabNoc.Settings.NameOfElement + " already readed!");
+			}
+			else {
+				$("body").append('<div id="reading" style="position: fixed;top: 20px;right: 20px;">Gelesen</div>');
+				$("#reading").button().on("click", (function(){ReadingNewspage();$("#reading").remove();}));
+			}
+
+			GM_Unlock();
 		} catch (exc) {
 			console.error(exc);
 			alert(exc);
@@ -348,6 +467,8 @@ try {
 		try {
 			if (deleteEntry !== true) deleteEntry = false;
 
+			var currentID = TabNoc.Settings.GetCurrentSiteIDFunction();
+
 			// ### ReadedNewsArray ###
 			var ReadedNewsArray = GetData("ReadedNewsArray", "([])", true);
 			// ### SeenNewsArray ###
@@ -357,34 +478,39 @@ try {
 
 			GM_Lock();
 
-			if (SeenNewsArray.indexOf(document.URL) !== -1 && deleteEntry === false) {
-				console.log(SeenNewsArray);
-				SeenNewsArray.splice(SeenNewsArray.indexOf(document.URL), 1);
+			if (SeenNewsArray.indexOf(currentID) !== -1 && deleteEntry === false) {
+				SeenNewsArray.splice(SeenNewsArray.indexOf(currentID), 1);
 				SetData("SeenNewsArray", SeenNewsArray.toSource(), true);
+				console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " removed from SeenNewsArray");
 			}
 
-			if (ToReadNewsArray.indexOf(document.URL) !== -1 && deleteEntry === false) {
-				ToReadNewsArray.splice(ToReadNewsArray.indexOf(document.URL), 1);
+			if (ToReadNewsArray.indexOf(currentID) !== -1 && deleteEntry === false) {
+				ToReadNewsArray.splice(ToReadNewsArray.indexOf(currentID), 1);
 				SetData("ToReadNewsArray", ToReadNewsArray.toSource(), true);
-				console.info("MarkGolemPages.user.js: ToReadNewspage removed");
+				console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " removed from ToReadNewspage");
 			}
 
-			if (ReadedNewsArray.indexOf(document.URL) === -1 && deleteEntry === false) {
-				ReadedNewsArray.push(document.URL);
+			if (ReadedNewsArray.indexOf(currentID) === -1 && deleteEntry === false) {
+				ReadedNewsArray.push(currentID);
 				SetData("ReadedNewsArray", ReadedNewsArray.toSource(), true);
-				console.info("MarkGolemPages.user.js: Newspage added");
+				console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " added to ReadedNewsArray");
+
+				TabNoc.Variables.promptOnClose = false;
 			}
 			else {
 				if (deleteEntry === true) {
-					ReadedNewsArray.splice(SeenNewsArray.indexOf(document.URL), 1);
+					ReadedNewsArray.splice(SeenNewsArray.indexOf(currentID), 1);
 					SetData("ReadedNewsArray", ReadedNewsArray.toSource(), true);
-					console.info("MarkGolemPages.user.js: Newspage removed!");
+					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " removed from ReadedNewsArray!!!");
 				}
 				else {
 					setTimeout(function(){alert("readed");}, 100);
+					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " already readed!");
 				}
+				TabNoc.Variables.promptOnClose = false;
 			}
 			GM_Unlock();
+			console.log("TabNoc.Variables.promptOnClose", TabNoc.Variables.promptOnClose);
 		} catch (exc) {
 			console.error(exc);
 			alert(exc);
@@ -460,7 +586,7 @@ try {
 
 		// ### SeenNewsArray ###
 		if (Version_SeenNewsArray != CurrentVersion_SeenNewsArray) {
-			var updateMsg = "Es wurde ein Versionsunterschied der Datenbank-Tabelle SeenNewsArray gefunden (alt: " + Version_SeenNewsArray + " | aktuell: " + CurrentVersion_SeenNewsArray + ")";
+			updateMsg = "Es wurde ein Versionsunterschied der Datenbank-Tabelle SeenNewsArray gefunden (alt: " + Version_SeenNewsArray + " | aktuell: " + CurrentVersion_SeenNewsArray + ")";
 			console.info(updateMsg);
 			alert(updateMsg + "\r\nOK drücken um den Updatevorgang zu starten.");
 
@@ -514,7 +640,7 @@ try {
 
 		// ### ToReadNewsArray ###
 		if (Version_ToReadNewsArray != CurrentVersion_ToReadNewsArray) {
-			var updateMsg = "Es wurde ein Versionsunterschied der Datenbank-Tabelle ToReadNewsArray gefunden (alt: " + Version_ToReadNewsArray + " | aktuell: " + CurrentVersion_ToReadNewsArray + ")";
+			updateMsg = "Es wurde ein Versionsunterschied der Datenbank-Tabelle ToReadNewsArray gefunden (alt: " + Version_ToReadNewsArray + " | aktuell: " + CurrentVersion_ToReadNewsArray + ")";
 			console.info(updateMsg);
 			alert(updateMsg + "\r\nOK drücken um den Updatevorgang zu starten.");
 
@@ -623,7 +749,7 @@ try {
 										defaultVersion: 0,
 										defaultValue: "([])",
 										ImportAction: function (dataStorage, currentEntry, importElement) {
-											if (dataStorage["ReadedNewsArray"].indexOf(importElement) == -1 && dataStorage["ToReadNewsArray"].indexOf(importElement) == -1) {
+											if (dataStorage.ReadedNewsArray.indexOf(importElement) == -1 && dataStorage.ToReadNewsArray.indexOf(importElement) == -1) {
 												if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
 													dataStorage[currentEntry.Name].push(importElement);
 												}
@@ -695,7 +821,7 @@ try {
 		let versionCompareResult = versionCompare(currentVersion, expectedVersion);
 		var versionData = GetData("ImportVersion", "({show: true})", true);
 		versionData[moduleName] = versionData[moduleName] || ({});
-		if (versionData["show"] == true && versionData[moduleName].Version != currentVersion && versionData[moduleName].Version != undefined) {
+		if (versionData.show == true && versionData[moduleName].Version != currentVersion && versionData[moduleName].Version != undefined) {
 			alert ("Das Modul " + moduleName + " wurde von Version " + versionData[moduleName].Version + " auf Version " + currentVersion + " aktualisiert (Die erwartete Version ist " + expectedVersion + ")");
 		}
 
@@ -715,7 +841,7 @@ try {
 		ModuleImport("States", getStatesVersion, "1.2.8");
 		ModuleImport("TabNoc_GM", getTabNoc_GMVersion, "2.0.2");
 		ModuleImport("TabNoc", getTabNocVersion, "1.2.2");
-		ModuleImport("ImportAll", getImportAllVersion, "1.0.2");
+		ModuleImport("ImportAll", getImportAllVersion, "1.0.3");
 
 		var count = 0;
 		while (GM_Locked() == true) {
@@ -747,6 +873,24 @@ try {
 			alert("MarkGolemPages.user.js:Main()->No LoadObject found!");
 			console.info("No LoadObject found!");
 		}
+	}
+
+	if (false) {
+// 		var Feedback = Feedback || null;
+// 		var GM_Unlock = GM_Unlock || null;
+// 		var GM_Locked = GM_Locked || null;
+// 		var SetData = SetData || null;
+// 		var GetData = GetData || null;
+// 		var versionCompare = versionCompare || null;
+// 		var ImportData = ImportData || null;
+// 		var $ = $ || null;
+// 		var returnExec = returnExec || null;
+// 		var TabNoc = TabNoc || null;
+// 		var GM_Lock = GM_Lock || null;
+// 		var setTabNoc = setTabNoc || null;
+// 		var exportFunction = exportFunction || null;
+// 		var CreateHistoryDialog = CreateHistoryDialog || null;
+// 		var execTime = execTime || null;
 	}
 
 	$(Main());
