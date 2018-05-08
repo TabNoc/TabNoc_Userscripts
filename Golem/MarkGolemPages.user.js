@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.3.3_02052018
+// @version     1.3.4_07052018
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/TabNoc.js
@@ -73,8 +73,13 @@ Start Writing Script
 26.04.2018 - 1.3.2
 	- changed: modified src, so a webSite change is more easy to handle
 
-27.04.2018 - 1.3.3
+02.05.2018 - 1.3.3
 	- added: ScanWithKeyPress
+
+07.05.2018 - 1.3.4
+	- changed: Validating Element with CheckCurrentElementFunction
+	- added: ScanWithKeyPress at Page view to Scan Page etc.
+	- changed: replaced UpdateDataBase with a more generic version
 */
 
 try {
@@ -94,7 +99,8 @@ try {
 			// Wird zurückgesetzt, wenn die Seite versteckt war
 			WasHidden: true,
 			// Status, wann die Funktion wieder bestätigt werden muss
-			ScanWithKeyPressActiveTimeOut: 0
+			ScanWithKeyPressActiveTimeOut: 0,
+			PageReaded: false
 		},
 
 		Settings: {
@@ -117,7 +123,10 @@ try {
 			NameOfElements: "Newspages",
 			NameOfElement: "Newspage",
 			GetIDFunction: function(element) {return $(element).children("a")[0].getAttribute("href");},
-			GetCurrentSiteIDFunction: function() {return document.URL;}
+			GetCurrentSiteIDFunction: function() {return document.URL;},
+			CheckCurrentElementFunction: function(element) {return $(element).children("a").length === 1 && ($(element).children("a")[0].getAttribute("id").includes("hpalt") ||
+														  $(element).children("a")[0].getAttribute("id").includes("bigalt") ||
+														  $(element).children("a")[0].getAttribute("id").includes("msalt"));}
 		},
 
 		HTML: {
@@ -245,12 +254,10 @@ try {
 			Feedback.showProgress(i / elements.length * 100, "Analysing Element " + i + " from " + elements.length);
 			var element = elements[i];
 
-			// ############# TODO: addCondition #############
-			if ($(element).children("a").length === 1 && ($(element).children("a")[0].getAttribute("id").includes("hpalt") ||
-														  $(element).children("a")[0].getAttribute("id").includes("bigalt"))) {
+			if (TabNoc.Settings.CheckCurrentElementFunction(element) == true) {
 				UnScannedElements = checkElement(element, ReadedNewsArray, ToggleState, SeenNewsArray, ToReadNewsArray) == true ? UnScannedElements : UnScannedElements + 1;
 			} else {
-				console.warn("checkElements: Folgendes Element entspricht nicht den Vorgaben", element);
+				console.error("CheckCurrentElementFunction: Folgendes Element entspricht nicht den Vorgaben", element);
 			}
 		}
 		TabNoc.Variables.MarkToggleState = ToggleState;
@@ -351,9 +358,7 @@ try {
 				var element = elements[i];
 				var currentElementId = TabNoc.Settings.GetIDFunction(element);
 
-				// ############# TODO: check valid Element #############
-				if ($(element).children("a").length === 1 && ($(element).children("a")[0].getAttribute("id").includes("hpalt") ||
-															  $(element).children("a")[0].getAttribute("id").includes("bigalt"))) {
+				if (TabNoc.Settings.CheckCurrentElementFunction(element) == true) {
 					if (asToRead == true) {
 						if (ReadedNewsArray.indexOf(currentElementId) == -1 && ToReadNewsArray.indexOf(currentElementId) == -1) {
 							ToReadNewsArray.push(currentElementId);
@@ -361,14 +366,13 @@ try {
 								SeenNewsArray.splice(SeenNewsArray.indexOf(currentElementId), 1);
 							}
 						}
-					}
-					else {
+					} else {
 						if (SeenNewsArray.indexOf(currentElementId) == -1 && ReadedNewsArray.indexOf(currentElementId) == -1 && ToReadNewsArray.indexOf(currentElementId) == -1) {
 							SeenNewsArray.push(currentElementId);
 						}
 					}
 				} else {
-					console.error(element);
+					console.error("CheckCurrentElementFunction: Folgendes Element entspricht nicht den Vorgaben", element);
 				}
 			}
 			GM_Lock();
@@ -415,6 +419,56 @@ try {
 				}
 			});
 
+			// ## ScanWithKeyPress ##
+			if (TabNoc.Settings.ScanWithKeyPressEnabled === true) {
+				$(document).on("keydown", event => {
+					let finished = false;
+					let KeyPressActivated = TabNoc.Variables.ScanWithKeyPressActiveTimeout > new Date() && TabNoc.Variables.WasHidden == false;
+					if (event.keyCode == 160) {
+						if (KeyPressActivated == false) {
+							if (confirm("Soll die Bearbeitung durch ScanWithKeyPress aktiviert werden?") == true) {
+								TabNoc.Variables.WasHidden = false;
+								finished = true;
+								KeyPressActivated = true;
+							}
+							event.preventDefault();
+						}
+						if (KeyPressActivated && TabNoc.Variables.PageReaded == false && confirm("Soll die Seite als Gelesen markiert werden?") == true) {
+							ReadingNewspage();
+							finished = true;
+							if ($("#jtocb_next").length == 1 && confirm("Soll die nächste Siete geöffnet werden?") == true) {
+								$("#jtocb_next")[0].click();
+							}
+						}
+						if (KeyPressActivated && TabNoc.Variables.PageReaded == true && confirm("Soll die Seite geschlossen werden?") == true) {
+							window.open('', '_self').close();
+							alert("If you can see this you have to set 'dom.allow_scripts_to_close_windows' to 'true' in about:config.");
+						}
+					}
+					else if (event.key == "ArrowRight" && event.ctrlKey == true) {
+						if (KeyPressActivated) {
+							if ($("#jtocb_next").length == 1) {
+								$("#jtocb_next")[0].click();
+							}
+							finished = true;
+						}
+					}
+					else if (event.key == "ArrowLeft" && event.ctrlKey == true) {
+						if (KeyPressActivated) {
+							if ($("#atoc_prev").length == 1) {
+								$("#atoc_prev")[0].click();
+							}
+							finished = true;
+						}
+					}
+					if (finished == true) {
+						event.preventDefault();
+						TabNoc.Variables.ScanWithKeyPressActiveTimeout = new Date(new Date().getTime() + 600000);
+					}
+				});
+			}
+			// ## ScanWithKeyPress ##
+
 			console.log("MarkGolemPages.user.js done");
 		} catch (exc) {
 			console.error(exc);
@@ -450,10 +504,11 @@ try {
 			if (ReadedNewsArray.indexOf(currentID) !== -1) {
 				setTimeout(function(){alert("readed");}, 100);
 				console.info("OpenNewspage: " + TabNoc.Settings.NameOfElement + " already readed!");
+				TabNoc.Variables.PageReaded = true;
 			}
 			else {
 				$("body").append('<div id="reading" style="position: fixed;top: 20px;right: 20px;">Gelesen</div>');
-				$("#reading").button().on("click", (function(){ReadingNewspage();$("#reading").remove();}));
+				$("#reading").button().on("click", (function(){ReadingNewspage();}));
 			}
 
 			GM_Unlock();
@@ -495,7 +550,9 @@ try {
 				SetData("ReadedNewsArray", ReadedNewsArray.toSource(), true);
 				console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " added to ReadedNewsArray");
 
+				$("#reading").remove();
 				TabNoc.Variables.promptOnClose = false;
+				TabNoc.Variables.PageReaded = true;
 			}
 			else {
 				if (deleteEntry === true) {
@@ -507,7 +564,9 @@ try {
 					setTimeout(function(){alert("readed");}, 100);
 					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " already readed!");
 				}
+				$("#reading").remove();
 				TabNoc.Variables.promptOnClose = false;
+				TabNoc.Variables.PageReaded = true;
 			}
 			GM_Unlock();
 			console.log("TabNoc.Variables.promptOnClose", TabNoc.Variables.promptOnClose);
@@ -518,150 +577,175 @@ try {
 	}
 	// ### http*://www.golem.de/news/* ###
 
-	function UpdateDataBase() {
-		var CurrentVersion_ReadedNewsArray = 1;
-		var CurrentVersion_SeenNewsArray = 1;
-		var CurrentVersion_ToReadNewsArray = 1;
-
-		// ### ReadedNewsArray-Version ###
-		var Version_ReadedNewsArray = GetData("ReadedNewsArray-Version", 0, true);
-		// ### SeenNewsArray-Version ###
-		var Version_SeenNewsArray = GetData("SeenNewsArray-Version", 0, true);
-		// ### ToReadNewsArray-Version ###
-		var Version_ToReadNewsArray = GetData("ToReadNewsArray-Version", 0, true);
-
-		// ### ReadedNewsArray ###
-		if (Version_ReadedNewsArray != CurrentVersion_ReadedNewsArray) {
-			var updateMsg = "Es wurde ein Versionsunterschied der Datenbank-Tabelle ReadedNewsArray gefunden (alt: " + Version_ReadedNewsArray + " | aktuell: " + CurrentVersion_ReadedNewsArray + ")";
-			console.info(updateMsg);
-			alert(updateMsg + "\r\nOK drücken um den Updatevorgang zu starten.");
-
-			switch (Version_ReadedNewsArray) {
-				case 0:
-					// ### ReadedNewsArray ### LEGACY ###
-					var ReadedNewsArray = eval(GM_getValue("Readed-News") || null);
-
-					if (ReadedNewsArray !== null) {
-						GM_setValue("ReadedNewsArray", ReadedNewsArray.toSource());
-						GM_setValue("ReadedNewsArray-Version-0", ReadedNewsArray.toSource());
-
-						if (GM_listValues().indexOf("Readed-News") !== -1) {
-							GM_deleteValue("Readed-News");
-						}
-
-						GM_setValue("ReadedNewsArray-Version", 1);
-
-						updateMsg = "Die Version der Tabelle ReadedNewsArray wurde auf " + GM_getValue("ReadedNewsArray-Version") + " geändert";
-						console.log(updateMsg);
-						alert(updateMsg + "\r\nDataBase:'ReadedNewsArray' die alten Daten wurden erfolgreich importiert!\r\nDie Datenbank wurde von alten Daten bereinigt.");
-
-
-					//	console.log("Die Version der Tabelle VideoObjectDictionary ist " + GM_getValue("VideoObjectDictionary-Version"));
-					//	alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B)");
-					//	if (confirm("Sollen die Änderungen gespeichert werden?") === true) {
-					//		GM_setValue("VideoObjectDictionary-Version", 2);
-					//		console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + GM_getValue("VideoObjectDictionary-Version") + " geändert");
-					//		GM_setValue("VideoObjectDictionary", newStructure.toSource());
-					//	}
-					//	else {
-					//		throw "UserAbort";
-					//	}
-					}
-					else {
-						GM_setValue("ReadedNewsArray-Version", 1);
-
-						updateMsg = "Die Datenbank-Tabelle ReadedNewsArray wurde erfolgreich initialisiert (Version: " + GM_getValue("WatchedVideoArray-Version") + ")";
-						console.log(updateMsg);
-						alert(updateMsg);
-					}
-					break;
-
-				default:
-					throw("No Update Implemeneted!");
-					break;
+	/*
+	var TableUpdateObject = {
+		"ReadedNewsArray": {
+			"CheckInit": function () {
+				// code
+				// return true || false;
+			},
+			"InitTable": function () {
+				//code
+			},
+			1: function () {
+				var returnStats = {
+						ChangeCount: 0,
+						OldSize: 0,
+						NewSize: 0
+					};
+				// code
+				return {
+					Result: true,
+					Stats: returnStats,
+					Save: function () {}
+				};
 			}
-
 		}
-		// ### ReadedNewsArray ###
+	};
+	*/
 
-		// ### SeenNewsArray ###
-		if (Version_SeenNewsArray != CurrentVersion_SeenNewsArray) {
-			updateMsg = "Es wurde ein Versionsunterschied der Datenbank-Tabelle SeenNewsArray gefunden (alt: " + Version_SeenNewsArray + " | aktuell: " + CurrentVersion_SeenNewsArray + ")";
-			console.info(updateMsg);
-			alert(updateMsg + "\r\nOK drücken um den Updatevorgang zu starten.");
-
-			switch (Version_SeenNewsArray) {
-				case 0:
-					// ### SeenNewsArray ### LEGACY ###
-					var SeenNewsArray = eval(GM_getValue("Seen-News") || null);
-
-					if (SeenNewsArray !== null) {
-						GM_setValue("SeenNewsArray", SeenNewsArray.toSource());
-						GM_setValue("SeenNewsArray-Version-0", SeenNewsArray.toSource());
-
-						if (GM_listValues().indexOf("Seen-News") !== -1) {
-							GM_deleteValue("Seen-News");
-						}
-
-						GM_setValue("SeenNewsArray-Version", 1);
-
-						updateMsg = "Die Version der Tabelle SeenNewsArray wurde auf " + GM_getValue("SeenNewsArray-Version") + " geändert";
-						console.log(updateMsg);
-						alert(updateMsg + "\r\nDataBase:'SeenNewsArray' die alten Daten wurden erfolgreich importiert!\r\nDie Datenbank wurde von alten Daten bereinigt.");
-
-
-					//	console.log("Die Version der Tabelle VideoObjectDictionary ist " + GM_getValue("VideoObjectDictionary-Version"));
-					//	alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B)");
-					//	if (confirm("Sollen die Änderungen gespeichert werden?") === true) {
-					//		GM_setValue("VideoObjectDictionary-Version", 2);
-					//		console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + GM_getValue("VideoObjectDictionary-Version") + " geändert");
-					//		GM_setValue("VideoObjectDictionary", newStructure.toSource());
-					//	}
-					//	else {
-					//		throw "UserAbort";
-					//	}
-					}
-					else {
-						GM_setValue("SeenNewsArray-Version", 1);
-
-						updateMsg = "Die Datenbank-Tabelle SeenNewsArray wurde erfolgreich initialisiert (Version: " + GM_getValue("WatchedVideoArray-Version") + ")";
-						console.log(updateMsg);
-						alert(updateMsg);
-					}
-					break;
-
-				default:
-					throw("No Update Implemeneted!");
-					break;
-			}
-
+	function UpdateDatabaseTable(ExpectedVersionNumber, CurrentVersionNumber, TableName, TableUpdateObject) {
+		if (ExpectedVersionNumber == null) {
+			throw ("ArgumentNullException (ExpectedVersionNumber):\r\nDer Parameter ExpectedVersionNumber ist null");
 		}
-		// ### SeenNewsArray ###
+		if (typeof(ExpectedVersionNumber) != "number") {
+			throw ("ArgumentException (ExpectedVersionNumber):\r\nDer Parameter ExpectedVersionNumber hat das falsche Format, erwartet: number");
+		}
 
-		// ### ToReadNewsArray ###
-		if (Version_ToReadNewsArray != CurrentVersion_ToReadNewsArray) {
-			updateMsg = "Es wurde ein Versionsunterschied der Datenbank-Tabelle ToReadNewsArray gefunden (alt: " + Version_ToReadNewsArray + " | aktuell: " + CurrentVersion_ToReadNewsArray + ")";
+		if (CurrentVersionNumber == null) {
+			throw ("ArgumentNullException (CurrentVersionNumber):\r\nDer Parameter CurrentVersionNumber ist null");
+		}
+		if (typeof(CurrentVersionNumber) != "number") {
+			throw ("ArgumentException (CurrentVersionNumber):\r\nDer Parameter CurrentVersionNumber hat das falsche Format, erwartet: number");
+		}
+
+		if (TableName == null) {
+			throw ("ArgumentNullException (TableName):\r\nDer Parameter TableName ist null");
+		}
+		if (typeof(TableName) != "string") {
+			throw ("ArgumentException (TableName):\r\nDer Parameter TableName hat das falsche Format, erwartet: string");
+		}
+
+		if (TableUpdateObject == null) {
+			throw ("ArgumentNullException (TableUpdateObject):\r\nDer Parameter TableUpdateObject ist null");
+		}
+		if (typeof(TableUpdateObject) != "object") {
+			throw ("ArgumentException (TableUpdateObject):\r\nDer Parameter TableUpdateObject hat das falsche Format, erwartet: object");
+		}
+
+		if (CurrentVersionNumber != ExpectedVersionNumber) {
+			let updateMsg = "Es wurde ein Versionsunterschied der Datenbank-Tabelle " + TableName + " gefunden (aktuell: " + CurrentVersionNumber + " | erwartet: " + ExpectedVersionNumber + ")";
 			console.info(updateMsg);
-			alert(updateMsg + "\r\nOK drücken um den Updatevorgang zu starten.");
+			if (TableUpdateObject.CheckInit() === false) {
+				alert(updateMsg + "\r\nOK drücken um den Updatevorgang zu starten.");
+				if (TableUpdateObject[TableName][CurrentVersionNumber] == null) {
+					throw ("NoUpdateImplemeneted:\r\nFür die Version " + CurrentVersionNumber + " der Tabelle " + TableName + " wurde kein Update definiert!");
+				}
+				let UpdateResult = TableUpdateObject[TableName][CurrentVersionNumber]();
 
-			switch (Version_ToReadNewsArray) {
-				case 0:
-					GM_setValue("ToReadNewsArray-Version", 1);
-
-					updateMsg = "Die Datenbank-Tabelle ToReadNewsArray wurde erfolgreich initialisiert (Version: " + GM_getValue("ToReadNewsArray-Version") + ")";
+				if (UpdateResult.Result === true) {
+					updateMsg = "Die Version der Tabelle " + TableName + " wurde auf " + GM_getValue(TableName + "-Version") + " geändert";
 					console.log(updateMsg);
-					alert(updateMsg);
+					alert(updateMsg + "\r\nDataBase:'" + TableName + "' die alten Daten wurden erfolgreich importiert!\r\nDie Datenbank wurde von alten Daten bereinigt.");
 
-					break;
-
-				default:
-					throw("No Update Implemeneted!");
+					alert("Es wurden " + UpdateResult.ChangeCount + " Elemente aktualisiert (alte Datenmenge: " + UpdateResult.OldSize + "B | neue Datenmenge: " + UpdateResult.NewSize + "B)");
+					if (confirm("Sollen die Änderungen gespeichert werden?") === true) {
+						UpdateResult.Save();
+						console.log("Die Version der Tabelle " + TableName + " wurde auf " + GM_getValue(TableName + "-Version") + " geändert");
+					}
+					else {
+						throw ("UserAbort:\r\nDer Update-Vorgang für Version " + CurrentVersionNumber + " der Tabelle " + TableName + " wurde durch den Benutzer abgebrochen!");
+					}
+				}
 			}
-
+			else {
+				TableUpdateObject.InitTable();
+				GM_setValue(TableName + "-Version", ExpectedVersionNumber);
+				let updateMsg = "Die Datenbank-Tabelle " + TableName + " wurde initialisiert (Version: " + GM_getValue(TableName + "-Version") + ")";
+				console.log(updateMsg);
+			}
+			return true;
 		}
-		// ### ToReadNewsArray ###
+		return false;
 	}
 
+
+
+	function UpdateDataBase() {
+		var ExpectedVersionNumber_ReadedNewsArray = 1;
+		var ExpectedVersionNumber_SeenNewsArray = 1;
+		var ExpectedVersionNumber_ToReadNewsArray = 1;
+
+		// ### ReadedNewsArray-Version ###
+		var CurrentVersionNumber_ReadedNewsArray = GetData("ReadedNewsArray-Version", 0, true);
+		// ### SeenNewsArray-Version ###
+		var CurrentVersionNumber_SeenNewsArray = GetData("SeenNewsArray-Version", 0, true);
+		// ### ToReadNewsArray-Version ###
+		var CurrentVersionNumber_ToReadNewsArray = GetData("ToReadNewsArray-Version", 0, true);
+
+		var TableUpdateObject = {
+			"ReadedNewsArray": {
+				"CheckInit": function () {
+					return GM_getValue("ReadedNewsArray") == undefined;
+				},
+				"InitTable": function () {},
+				0: function () {
+					var returnStats = {
+						ChangeCount: 0,
+						OldSize: 0,
+						NewSize: 0
+					};
+					return {
+						Result: true,
+						Stats: returnStats,
+						Save: function () {GM_setValue("ReadedNewsArray-Version", 1);}
+					};
+				}
+			},
+			"SeenNewsArray": {
+				"CheckInit": function () {
+					return GM_getValue("SeenNewsArray") == undefined;
+				},
+				"InitTable": function () {},
+				0: function () {
+					var returnStats = {
+						ChangeCount: 0,
+						OldSize: 0,
+						NewSize: 0
+					};
+					return {
+						Result: true,
+						Stats: returnStats,
+						Save: function () {GM_setValue("SeenNewsArray-Version", 1);}
+					};
+				}
+			},
+			"ToReadNewsArray": {
+				"CheckInit": function () {
+					return GM_getValue("ToReadNewsArray") == undefined;
+				},
+				"InitTable": function () {},
+				0: function () {
+					var returnStats = {
+						ChangeCount: 0,
+						OldSize: 0,
+						NewSize: 0
+					};
+					return {
+						Result: true,
+						Stats: returnStats,
+						Save: function () {GM_setValue("ToReadNewsArray-Version", 1);}
+					};
+				}
+			}
+		};
+
+		UpdateDatabaseTable(ExpectedVersionNumber_ReadedNewsArray, CurrentVersionNumber_ReadedNewsArray, "ReadedNewsArray", TableUpdateObject);
+		UpdateDatabaseTable(ExpectedVersionNumber_SeenNewsArray, CurrentVersionNumber_SeenNewsArray, "SeenNewsArray", TableUpdateObject);
+		UpdateDatabaseTable(ExpectedVersionNumber_ToReadNewsArray, CurrentVersionNumber_ToReadNewsArray, "ToReadNewsArray", TableUpdateObject);
+	}
+
+	// TODO: removeScriptName
 	function Syncronisieren(scriptName) {
 		var onAbort = (function (response) {
 			console.log("onabort");
@@ -876,21 +960,21 @@ try {
 	}
 
 	if (false) {
-// 		var Feedback = Feedback || null;
-// 		var GM_Unlock = GM_Unlock || null;
-// 		var GM_Locked = GM_Locked || null;
-// 		var SetData = SetData || null;
-// 		var GetData = GetData || null;
-// 		var versionCompare = versionCompare || null;
-// 		var ImportData = ImportData || null;
-// 		var $ = $ || null;
-// 		var returnExec = returnExec || null;
-// 		var TabNoc = TabNoc || null;
-// 		var GM_Lock = GM_Lock || null;
-// 		var setTabNoc = setTabNoc || null;
-// 		var exportFunction = exportFunction || null;
-// 		var CreateHistoryDialog = CreateHistoryDialog || null;
-// 		var execTime = execTime || null;
+/* 		var Feedback = Feedback || null;
+		var GM_Unlock = GM_Unlock || null;
+		var GM_Locked = GM_Locked || null;
+		var SetData = SetData || null;
+		var GetData = GetData || null;
+		var versionCompare = versionCompare || null;
+		var ImportData = ImportData || null;
+		var $ = $ || null;
+		var returnExec = returnExec || null;
+		var TabNoc = TabNoc || null;
+		var GM_Lock = GM_Lock || null;
+		var setTabNoc = setTabNoc || null;
+		var exportFunction = exportFunction || null;
+		var CreateHistoryDialog = CreateHistoryDialog || null;
+		var execTime = execTime || null; */
 	}
 
 	$(Main());
