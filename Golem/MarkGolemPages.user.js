@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.3.4_07052018
+// @version     1.3.5_14052018
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/TabNoc.js
@@ -80,6 +80,9 @@ Start Writing Script
 	- changed: Validating Element with CheckCurrentElementFunction
 	- added: ScanWithKeyPress at Page view to Scan Page etc.
 	- changed: replaced UpdateDataBase with a more generic version
+
+14.05.2018 - 1.3.5
+	- added: scrolling on NewsPage with < and >
 */
 
 try {
@@ -460,6 +463,18 @@ try {
 							}
 							finished = true;
 						}
+					}
+					else if (event.key == "<" ) {
+						window.scroll({
+						  top: window.scrollY + (19 * 3) * 3,
+						  behavior: "smooth"
+						});
+					}
+					else if (event.key == ">" ) {
+						window.scroll({
+						  top: window.scrollY - (19 * 3) * 3,
+						  behavior: "smooth"
+						});
 					}
 					if (finished == true) {
 						event.preventDefault();
