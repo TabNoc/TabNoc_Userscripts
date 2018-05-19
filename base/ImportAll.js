@@ -1,5 +1,5 @@
 function getImportAllVersion(){
-	return {Version: "1.0.3", Date: "25.02.2018"};
+	return {Version: "1.0.4", Date: "19.05.2018"};
 }
 
 /*
@@ -23,9 +23,9 @@ ImportData(responseData, ([{
 ]));
 */
 function ImportData(allData, entriesArray) {
-	var entryID = null;
-	var entry = null;
-	var element = null;
+	let entryID = null;
+	let entry = null;
+	let element = null;
 	if (typeof(GetData) != "function")
 		throw new Error("GetData is not Implemented but required for ImportData!");
 	if (typeof(SetData) != "function")
@@ -56,18 +56,18 @@ function ImportData(allData, entriesArray) {
 					})
 				}), true);
 
-			var errorList = ([]);
+			let errorList = ([]);
 
 			for (entryID in entriesArray) {
 				entry = entriesArray[entryID];
 				if (element[entry.Name + "-Version"] !== GetData(entry.Name + "-Version")) {
-					errorList.push("Die Version der Datenbanktabelle " + entry.Name + " passt nicht (importierte Version: " + element[entry.Name + "-Version"] + ", lokale Version: " + GetData(entry.Name + "-Version") + ")");
+					errorList.push("die Version der Datenbanktabelle " + entry.Name + " nicht überein stimmt (importierte Version: " + element[entry.Name + "-Version"] + ", lokale Version: " + GetData(entry.Name + "-Version") + ")");
 				}
 			}
 
 			if (errorList.length !== 0) {
-				var msg = "Das Importieren kann nicht durchgeführt werden, da:\r\n";
-				for (var i in errorList) {
+				let msg = "Das Importieren kann nicht durchgeführt werden, da:\r\n";
+				for (let i in errorList) {
 					msg = msg + "\r\n\t- " + errorList[i];
 				}
 				alert(msg);
@@ -109,7 +109,7 @@ function ImportData(allData, entriesArray) {
 			element.currentData[entry.Name + "Count"] = 0;
 		}
 
-		var newDataStorage = ({});
+		let newDataStorage = ({});
 
 		for (entryID in entriesArray) {
 			entry = entriesArray[entryID];
@@ -123,7 +123,7 @@ function ImportData(allData, entriesArray) {
 			if (TabNoc.Settings.Debug) {
 				console.info("Importing stored " + entry.Name);
 			}
-			for (var i in element.currentData[entry.Name]) {
+			for (let i in element.currentData[entry.Name]) {
 				entry.ImportAction(newDataStorage, entry, element.currentData[entry.Name][i], i);
 				element.count[entry.Name]++;
 			}
@@ -131,14 +131,14 @@ function ImportData(allData, entriesArray) {
 				console.info("Importing new " + entry.Name);
 				console.info(element[entry.Name]);
 			}
-			for (var i in element[entry.Name]) {
+			for (let i in element[entry.Name]) {
 				entry.ImportAction(newDataStorage, entry, element[entry.Name][i], i);
 				element.count[entry.Name]++;
 			}
 		}
 
-		var changes = false;
-		var msg = "Das Importieren wurde erfolgreich abgeschlossen!\r\n";
+		let changes = false;
+		let msg = "Das Importieren wurde erfolgreich abgeschlossen!\r\n";
 		for (entryID in entriesArray) {
 			entry = entriesArray[entryID];
 			msg += entry.Name + ":\r\n";
