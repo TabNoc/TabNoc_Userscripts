@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.3.6_17052018
+// @version     1.3.7_22052018
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/TabNoc.js
@@ -87,6 +87,10 @@ Start Writing Script
 17.05.2018 - 1.3.6
 	- added support for mobile Devices
 	- fixed: UpdateDatabaseTable CheckInit
+
+22.05.2018 - 1.3.7
+	- fixed: UpdateDatabase had not used functions object
+	- changed:  Updated to ImportAll v1.1.0
 */
 
 try {
@@ -611,120 +615,40 @@ try {
 	}
 	// ### http*://www.golem.de/news/* ###
 
-	/*
-	var TableUpdateObject = {
-		"ReadedNewsArray": {
-			"CheckInit": function () {
-				// code
-				// return true || false;
-			},
-			"InitTable": function () {
-				//code
-			},
-			1: function () {
-				var returnStats = {
-						ChangeCount: 0,
-						OldSize: 0,
-						NewSize: 0
-					};
-				// code
-				return {
-					Result: true,
-					Stats: returnStats,
-					Save: function () {}
-				};
-			}
+	function UpdateDataBase(functions, silent) {
+		silent = false;
+		if (functions == null) {
+			functions = ({
+				lock: GM_Lock,
+				unlock: GM_Unlock,
+				getValue: GetData,
+				setValue: SetData
+			});
+		} else {
+			functions.lock = functions.lock || GM_Lock;
+			functions.unlock = functions.unlock || GM_Unlock;
+			functions.getValue = functions.getValue || GetData;
+			functions.setValue = functions.setValue || SetData;
 		}
-	};
-	*/
-
-	function UpdateDatabaseTable(ExpectedVersionNumber, CurrentVersionNumber, TableName, TableUpdateObject) {
-		if (ExpectedVersionNumber == null) {
-			throw ("ArgumentNullException (ExpectedVersionNumber):\r\nDer Parameter ExpectedVersionNumber ist null");
-		}
-		if (typeof(ExpectedVersionNumber) != "number") {
-			throw ("ArgumentException (ExpectedVersionNumber):\r\nDer Parameter ExpectedVersionNumber hat das falsche Format, erwartet: number");
-		}
-
-		if (CurrentVersionNumber == null) {
-			throw ("ArgumentNullException (CurrentVersionNumber):\r\nDer Parameter CurrentVersionNumber ist null");
-		}
-		if (typeof(CurrentVersionNumber) != "number") {
-			throw ("ArgumentException (CurrentVersionNumber):\r\nDer Parameter CurrentVersionNumber hat das falsche Format, erwartet: number");
-		}
-
-		if (TableName == null) {
-			throw ("ArgumentNullException (TableName):\r\nDer Parameter TableName ist null");
-		}
-		if (typeof(TableName) != "string") {
-			throw ("ArgumentException (TableName):\r\nDer Parameter TableName hat das falsche Format, erwartet: string");
-		}
-
-		if (TableUpdateObject == null) {
-			throw ("ArgumentNullException (TableUpdateObject):\r\nDer Parameter TableUpdateObject ist null");
-		}
-		if (typeof(TableUpdateObject) != "object") {
-			throw ("ArgumentException (TableUpdateObject):\r\nDer Parameter TableUpdateObject hat das falsche Format, erwartet: object");
-		}
-
-		if (CurrentVersionNumber != ExpectedVersionNumber) {
-			let updateMsg = "Es wurde ein Versionsunterschied der Datenbank-Tabelle " + TableName + " gefunden (aktuell: " + CurrentVersionNumber + " | erwartet: " + ExpectedVersionNumber + ")";
-			console.info(updateMsg);
-			if (TableUpdateObject[TableName].CheckInit() === false) {
-				alert(updateMsg + "\r\nOK drücken um den Updatevorgang zu starten.");
-				if (TableUpdateObject[TableName][CurrentVersionNumber] == null) {
-					throw ("NoUpdateImplemeneted:\r\nFür die Version " + CurrentVersionNumber + " der Tabelle " + TableName + " wurde kein Update definiert!");
-				}
-				let UpdateResult = TableUpdateObject[TableName][CurrentVersionNumber]();
-
-				if (UpdateResult.Result === true) {
-					updateMsg = "Die Version der Tabelle " + TableName + " wurde auf " + GM_getValue(TableName + "-Version") + " geändert";
-					console.log(updateMsg);
-					alert(updateMsg + "\r\nDataBase:'" + TableName + "' die alten Daten wurden erfolgreich importiert!\r\nDie Datenbank wurde von alten Daten bereinigt.");
-
-					alert("Es wurden " + UpdateResult.ChangeCount + " Elemente aktualisiert (alte Datenmenge: " + UpdateResult.OldSize + "B | neue Datenmenge: " + UpdateResult.NewSize + "B)");
-					if (confirm("Sollen die Änderungen gespeichert werden?") === true) {
-						UpdateResult.Save();
-						console.log("Die Version der Tabelle " + TableName + " wurde auf " + GM_getValue(TableName + "-Version") + " geändert");
-					}
-					else {
-						throw ("UserAbort:\r\nDer Update-Vorgang für Version " + CurrentVersionNumber + " der Tabelle " + TableName + " wurde durch den Benutzer abgebrochen!");
-					}
-				}
-			}
-			else {
-				TableUpdateObject[TableName].InitTable();
-				GM_setValue(TableName + "-Version", ExpectedVersionNumber);
-				let updateMsg = "Die Datenbank-Tabelle " + TableName + " wurde initialisiert (Version: " + GM_getValue(TableName + "-Version") + ")";
-				console.log(updateMsg);
-			}
-			return true;
-		}
-		return false;
-	}
-
-
-
-	function UpdateDataBase() {
-		var ExpectedVersionNumber_ReadedNewsArray = 1;
-		var ExpectedVersionNumber_SeenNewsArray = 1;
-		var ExpectedVersionNumber_ToReadNewsArray = 1;
+		let ExpectedVersionNumber_ReadedNewsArray = 1;
+		let ExpectedVersionNumber_SeenNewsArray = 1;
+		let ExpectedVersionNumber_ToReadNewsArray = 1;
 
 		// ### ReadedNewsArray-Version ###
-		var CurrentVersionNumber_ReadedNewsArray = GetData("ReadedNewsArray-Version", 0, true);
+		let CurrentVersionNumber_ReadedNewsArray = functions.getValue("ReadedNewsArray-Version", 0, true);
 		// ### SeenNewsArray-Version ###
-		var CurrentVersionNumber_SeenNewsArray = GetData("SeenNewsArray-Version", 0, true);
+		let CurrentVersionNumber_SeenNewsArray = functions.getValue("SeenNewsArray-Version", 0, true);
 		// ### ToReadNewsArray-Version ###
-		var CurrentVersionNumber_ToReadNewsArray = GetData("ToReadNewsArray-Version", 0, true);
+		let CurrentVersionNumber_ToReadNewsArray = functions.getValue("ToReadNewsArray-Version", 0, true);
 
-		var TableUpdateObject = {
+		let TableUpdateObject = {
 			"ReadedNewsArray": {
-				"CheckInit": function () {
-					return GM_getValue("ReadedNewsArray") == undefined;
+				"CheckInit": function (functions, silent) {
+					return functions.getValue("ReadedNewsArray") == undefined;
 				},
-				"InitTable": function () {},
-				0: function () {
-					var returnStats = {
+				"InitTable": function (functions, silent) {},
+				0: function (functions, silent) {
+					let returnStats = {
 						ChangeCount: 0,
 						OldSize: 0,
 						NewSize: 0
@@ -732,17 +656,17 @@ try {
 					return {
 						Result: true,
 						Stats: returnStats,
-						Save: function () {GM_setValue("ReadedNewsArray-Version", 1);}
+						Save: function (functions, silent) {functions.setValue("ReadedNewsArray-Version", 1);}
 					};
 				}
 			},
 			"SeenNewsArray": {
-				"CheckInit": function () {
-					return GM_getValue("SeenNewsArray") == undefined;
+				"CheckInit": function (functions, silent) {
+					return functions.getValue("SeenNewsArray") == undefined;
 				},
-				"InitTable": function () {},
-				0: function () {
-					var returnStats = {
+				"InitTable": function (functions, silent) {},
+				0: function (functions, silent) {
+					let returnStats = {
 						ChangeCount: 0,
 						OldSize: 0,
 						NewSize: 0
@@ -750,17 +674,17 @@ try {
 					return {
 						Result: true,
 						Stats: returnStats,
-						Save: function () {GM_setValue("SeenNewsArray-Version", 1);}
+						Save: function (functions, silent) {functions.setValue("SeenNewsArray-Version", 1);}
 					};
 				}
 			},
 			"ToReadNewsArray": {
-				"CheckInit": function () {
-					return GM_getValue("ToReadNewsArray") == undefined;
+				"CheckInit": function (functions, silent) {
+					return functions.getValue("ToReadNewsArray") == undefined;
 				},
-				"InitTable": function () {},
-				0: function () {
-					var returnStats = {
+				"InitTable": function (functions, silent) {},
+				0: function (functions, silent) {
+					let returnStats = {
 						ChangeCount: 0,
 						OldSize: 0,
 						NewSize: 0
@@ -768,15 +692,15 @@ try {
 					return {
 						Result: true,
 						Stats: returnStats,
-						Save: function () {GM_setValue("ToReadNewsArray-Version", 1);}
+						Save: function (functions, silent) {functions.setValue("ToReadNewsArray-Version", 1);}
 					};
 				}
 			}
 		};
 
-		UpdateDatabaseTable(ExpectedVersionNumber_ReadedNewsArray, CurrentVersionNumber_ReadedNewsArray, "ReadedNewsArray", TableUpdateObject);
-		UpdateDatabaseTable(ExpectedVersionNumber_SeenNewsArray, CurrentVersionNumber_SeenNewsArray, "SeenNewsArray", TableUpdateObject);
-		UpdateDatabaseTable(ExpectedVersionNumber_ToReadNewsArray, CurrentVersionNumber_ToReadNewsArray, "ToReadNewsArray", TableUpdateObject);
+		UpdateDatabaseTable(ExpectedVersionNumber_ReadedNewsArray, CurrentVersionNumber_ReadedNewsArray, "ReadedNewsArray", TableUpdateObject, functions, silent);
+		UpdateDatabaseTable(ExpectedVersionNumber_SeenNewsArray, CurrentVersionNumber_SeenNewsArray, "SeenNewsArray", TableUpdateObject, functions, silent);
+		UpdateDatabaseTable(ExpectedVersionNumber_ToReadNewsArray, CurrentVersionNumber_ToReadNewsArray, "ToReadNewsArray", TableUpdateObject, functions, silent);
 	}
 
 	// TODO: removeScriptName
@@ -959,7 +883,7 @@ try {
 		ModuleImport("States", getStatesVersion, "1.2.8");
 		ModuleImport("TabNoc_GM", getTabNoc_GMVersion, "2.0.2");
 		ModuleImport("TabNoc", getTabNocVersion, "1.2.2");
-		ModuleImport("ImportAll", getImportAllVersion, "1.0.3");
+		ModuleImport("ImportAll", getImportAllVersion, "1.1.0");
 
 		var count = 0;
 		while (GM_Locked() == true) {
