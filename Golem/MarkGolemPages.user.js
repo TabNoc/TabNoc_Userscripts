@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.3.7_22052018
+// @version     1.3.8_02062018
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/TabNoc.js
@@ -90,7 +90,12 @@ Start Writing Script
 
 22.05.2018 - 1.3.7
 	- fixed: UpdateDatabase had not used functions object
-	- changed:  Updated to ImportAll v1.1.0
+	- changed:  Updated to ImportAll v 1.1.0
+
+02.06.2018 - 1.3.8
+	- fixed: errors on mobile Sites
+	- changed:  Elements with the wrong structure are now unknown Elements
+	- changed: Improved message after marking elements
 */
 
 try {
@@ -135,9 +140,10 @@ try {
 			NameOfElement: "Newspage",
 			GetIDFunction: function(element) {return $(element).children("a")[0].getAttribute("href");},
 			GetCurrentSiteIDFunction: function() {return document.URL;},
-			CheckCurrentElementFunction: function(element) {return $(element).children("a").length === 1 && ($(element).children("a")[0].getAttribute("id").includes("hpal" + (MobileCheck() === false ? "t" : "")) ||
+			CheckCurrentElementFunction: function(element) {return $(element).children("a").length === 1 && (element.className.contains("media__teaser--articles") ||
+														  ($(element).children("a")[0].getAttribute("id").includes("hpal" + (MobileCheck() === false ? "t" : "")) ||
 														  $(element).children("a")[0].getAttribute("id").includes("bigalt") ||
-														  $(element).children("a")[0].getAttribute("id").includes("msalt"));}
+														  $(element).children("a")[0].getAttribute("id").includes("msalt")));}
 		},
 
 		HTML: {
@@ -268,7 +274,8 @@ try {
 	}
 
 	function checkElements(ReadedNewsArray, elements, ToggleState, SeenNewsArray, ToReadNewsArray) {
-		var UnScannedElements = 0;
+		let UnScannedElements = 0;
+		let UnknownElements = 0;
 		Feedback.showProgress(0, "Initialised Scan");
 
 		if (ToggleState == null) {
@@ -283,15 +290,21 @@ try {
 				UnScannedElements = checkElement(element, ReadedNewsArray, ToggleState, SeenNewsArray, ToReadNewsArray) == true ? UnScannedElements : UnScannedElements + 1;
 			} else {
 				console.error("CheckCurrentElementFunction: Folgendes Element entspricht nicht den Vorgaben", element);
+				UnknownElements++;
 			}
 		}
 		TabNoc.Variables.MarkToggleState = ToggleState;
 
-		Feedback.showProgress(100, "Finished " + (elements.length - UnScannedElements) + " elements marked");
+		let markedElementsMessage = (elements.length - UnScannedElements - UnknownElements) + " von " + elements.length + " " + TabNoc.Settings.NameOfElements + " markiert";
+		if (UnknownElements > 0) {
+			markedElementsMessage += " (" + UnknownElements + " unbekannte " + (UnknownElements > 1 ? TabNoc.Settings.NameOfElements : TabNoc.Settings.NameOfElement) + ")";
+			console.error("Es wurden " + UnknownElements + " unspezifizierte Elemente gefunden");
+		}
+		Feedback.showProgress(100, markedElementsMessage);
 		console.log((elements.length - UnScannedElements) + " Marked Elements | " + UnScannedElements + " UnMarked Elements | Total " + elements.length + " Elements (" + ReadedNewsArray.length + " " + TabNoc.Settings.NameOfElements + " readed, " + ToReadNewsArray.length + " " + TabNoc.Settings.NameOfElements + " to read, " + SeenNewsArray.length + " " + TabNoc.Settings.NameOfElements + " marked)");
 
 		if (TabNoc.Settings.HideAlreadyWatchedNews === false) {
-			Feedback.notify(UnScannedElements + " UnMarked Elements", 10000, function(){TabNoc.Settings.HideAlreadyWatchedNews = !TabNoc.Settings.HideAlreadyWatchedNews; startCheckElements(true, true);Feedback.hideMessage();});
+			Feedback.notify(markedElementsMessage, 10000, function(){TabNoc.Settings.HideAlreadyWatchedNews = !TabNoc.Settings.HideAlreadyWatchedNews; startCheckElements(true, true); Feedback.hideMessage();});
 		}
 	}
 
@@ -325,30 +338,30 @@ try {
 			if (ReadedID !== -1) {
 				$(checkElement).addClass("MyMarkedReadedElement").removeClass("MyMarkedSeenElement").removeClass("MyMarkedToReadElement").find(".MyScanButton,.MyReadButton").remove();
 				if (TabNoc.Settings.HideAlreadyWatchedNews === true) {
-					$(checkElement).hide();
+					$(checkElement.parentNode).hide();
 				}
 				else {
-					$(checkElement).show();
+					$(checkElement.parentNode).show();
 				}
 				return true;
 			}
 			else if (SeenID !== -1) {
 				$(checkElement).removeClass("MyMarkedReadedElement").addClass("MyMarkedSeenElement").removeClass("MyMarkedToReadElement").find(".MyScanButton").remove();
 				if (TabNoc.Settings.HideAlreadyWatchedNews === true) {
-					$(checkElement).hide();
+					$(checkElement.parentNode).hide();
 				}
 				else {
-					$(checkElement).show();
+					$(checkElement.parentNode).show();
 				}
 				return true;
 			}
 			else if (ToReadID !== -1) {
 				$(checkElement).removeClass("MyMarkedReadedElement").removeClass("MyMarkedSeenElement").addClass("MyMarkedToReadElement").find(".MyScanButton,.MyReadButton").remove();
 				if (TabNoc.Settings.HideAlreadyWatchedNews === true) {
-					$(checkElement).hide();
+					$(checkElement.parentNode).hide();
 				}
 				else {
-					$(checkElement).show();
+					$(checkElement.parentNode).show();
 				}
 				return true;
 			}
@@ -462,19 +475,12 @@ try {
 						if (KeyPressActivated && TabNoc.Variables.PageReaded == false && confirm("Soll die Seite als Gelesen markiert werden?") == true) {
 							ReadingNewspage();
 							finished = true;
-							if ($("#jtocb_next").length == 1 && confirm("Soll die nächste Siete geöffnet werden?") == true) {
-								$("#jtocb_next")[0].click();
-							}
-						}
-						if (KeyPressActivated && TabNoc.Variables.PageReaded == true && confirm("Soll die Seite geschlossen werden?") == true) {
-							window.open('', '_self').close();
-							alert("If you can see this you have to set 'dom.allow_scripts_to_close_windows' to 'true' in about:config.");
 						}
 					}
 					else if (event.key == "ArrowRight" && event.ctrlKey == true) {
 						if (KeyPressActivated) {
-							if ($("#jtocb_next").length == 1) {
-								$("#jtocb_next")[0].click();
+							if ($("#jtocb_next,#atoc_next").length == 1) {
+								$("#jtocb_next,#atoc_next")[0].click();
 							}
 							finished = true;
 						}
@@ -542,6 +548,7 @@ try {
 			if (ReadedNewsArray.indexOf(currentID) !== -1) {
 				setTimeout(function(){alert("readed");}, 100);
 				console.info("OpenNewspage: " + TabNoc.Settings.NameOfElement + " already readed!");
+				TabNoc.Variables.promptOnClose = false;
 				TabNoc.Variables.PageReaded = true;
 			}
 			else {
@@ -550,6 +557,7 @@ try {
 			}
 
 			GM_Unlock();
+			console.log("TabNoc.Variables.promptOnClose", TabNoc.Variables.promptOnClose);
 		} catch (exc) {
 			console.error(exc);
 			alert(exc);
@@ -597,17 +605,29 @@ try {
 					ReadedNewsArray.splice(SeenNewsArray.indexOf(currentID), 1);
 					SetData("ReadedNewsArray", ReadedNewsArray.toSource(), true);
 					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " removed from ReadedNewsArray!!!");
+					TabNoc.Variables.promptOnClose = true;
+					TabNoc.Variables.PageReaded = false;
 				}
 				else {
 					setTimeout(function(){alert("readed");}, 100);
 					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " already readed!");
+					TabNoc.Variables.promptOnClose = false;
+					TabNoc.Variables.PageReaded = true;
 				}
 				$("#reading").remove();
-				TabNoc.Variables.promptOnClose = false;
-				TabNoc.Variables.PageReaded = true;
 			}
 			GM_Unlock();
 			console.log("TabNoc.Variables.promptOnClose", TabNoc.Variables.promptOnClose);
+
+			if (TabNoc.Variables.PageReaded == true){
+				if ($("#jtocb_next,#atoc_next").length == 1 && confirm("Soll die nächste Seite geöffnet werden?") == true) {
+					$("#jtocb_next,#atoc_next")[0].click();
+				}
+				if (confirm("Soll die Seite geschlossen werden?") == true) {
+					window.open('', '_self').close();
+					alert("If you can see this you have to set 'dom.allow_scripts_to_close_windows' to 'true' in about:config.");
+				}
+			}
 		} catch (exc) {
 			console.error(exc);
 			alert(exc);
