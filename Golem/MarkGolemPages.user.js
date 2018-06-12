@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.3.8_02062018
+// @version     1.3.9_12062018
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/TabNoc.js
@@ -90,12 +90,15 @@ Start Writing Script
 
 22.05.2018 - 1.3.7
 	- fixed: UpdateDatabase had not used functions object
-	- changed:  Updated to ImportAll v 1.1.0
+	- changed:  Updated to ImportAll v1.1.0
 
 02.06.2018 - 1.3.8
 	- fixed: errors on mobile Sites
 	- changed:  Elements with the wrong structure are now unknown Elements
 	- changed: Improved message after marking elements
+
+12.06.2018 - 1.3.9
+	- added: Ticker Support
 */
 
 try {
@@ -135,15 +138,12 @@ try {
 			ShowOpenInNewTabButton: false,
 
 			ScanButtonDomParent: "#grandwrapper",
-			ElementsSearchString: (MobileCheck() ? ".leader, .media__teaser-list>li>div" : "#index-promo, .list-articles>li"),
+			ElementsSearchString: CurrentUrlIsTicker() ? ".list-tickers>li" : (MobileCheck() ? ".leader, .media__teaser-list>li>div" : "#index-promo, .list-articles>li"),
 			NameOfElements: "Newspages",
 			NameOfElement: "Newspage",
-			GetIDFunction: function(element) {return $(element).children("a")[0].getAttribute("href");},
+			GetIDFunction: function(element) {return CurrentUrlIsTicker() ? $(element).children("h3").eq(0).children("a")[0].getAttribute("href") : $(element).children("a")[0].getAttribute("href");},
 			GetCurrentSiteIDFunction: function() {return document.URL;},
-			CheckCurrentElementFunction: function(element) {return $(element).children("a").length === 1 && (element.className.contains("media__teaser--articles") ||
-														  ($(element).children("a")[0].getAttribute("id").includes("hpal" + (MobileCheck() === false ? "t" : "")) ||
-														  $(element).children("a")[0].getAttribute("id").includes("bigalt") ||
-														  $(element).children("a")[0].getAttribute("id").includes("msalt")));}
+			CheckCurrentElementFunction: CheckCurrentElementFunction
 		},
 
 		HTML: {
@@ -165,11 +165,28 @@ try {
 		return check;
 	};
 
+	function CurrentUrlIsTicker() {
+		return document.URL == "https://www.golem.de/ticker/" || document.URL.contains("https://www.golem.de/aa-");
+	}
+
+	function CheckCurrentElementFunction(element) {
+		if (CurrentUrlIsTicker() == true) {
+			return $(element).children("h3").length === 1  && $(element).children("h3").eq(0).children("a").length === 1 && $(element).children("h3").eq(0).children("a")[0].hasAttribute("href");
+		} else {
+			return $(element).children("a").length === 1  && (element.className.contains("media__teaser--articles") || $(element).children("a")[0].getAttribute("id").includes("hpal" + (MobileCheck() === false ? "t" : "")) ||
+				$(element).children("a")[0].getAttribute("id").includes("bigalt") ||
+				$(element).children("a")[0].getAttribute("id").includes("msalt"));
+		}
+	}
+
 	// ### http*://www.golem.de ###
 	function StartPageLoader() {
 		console.log("MarkGolemPages.user.js loading");
 		try {
 			registerTabNoc();
+			if (TabNoc.Variables.Debug === true) {
+				TabNoc.Variables.lastCheckItemCount = -1;
+			}
 
 			// ############# Golem Code #############
 
@@ -251,6 +268,10 @@ try {
 	function startCheckElements(ToggleState, force) {
 		if (document.hidden === false || force === true) {
 			var elements = $(TabNoc.Settings.ElementsSearchString);
+			if (TabNoc.Variables.Debug === true && TabNoc.Variables.lastCheckItemCount !== elements.length) {
+				console.log("startCheckElements()", "elements:", elements);
+			}
+
 			if (force === true || TabNoc.Variables.lastCheckItemCount !== elements.length) {
 				// ### ReadedNewsArray ###
 				var ReadedNewsArray = GetData("ReadedNewsArray", "([])", true);
@@ -557,7 +578,6 @@ try {
 			}
 
 			GM_Unlock();
-			console.log("TabNoc.Variables.promptOnClose", TabNoc.Variables.promptOnClose);
 		} catch (exc) {
 			console.error(exc);
 			alert(exc);
@@ -611,14 +631,13 @@ try {
 				else {
 					setTimeout(function(){alert("readed");}, 100);
 					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " already readed!");
-					TabNoc.Variables.promptOnClose = false;
-					TabNoc.Variables.PageReaded = true;
-				}
+				TabNoc.Variables.promptOnClose = false;
+				TabNoc.Variables.PageReaded = true;
+			}
 				$("#reading").remove();
 			}
 			GM_Unlock();
 			console.log("TabNoc.Variables.promptOnClose", TabNoc.Variables.promptOnClose);
-
 			if (TabNoc.Variables.PageReaded == true){
 				if ($("#jtocb_next,#atoc_next").length == 1 && confirm("Soll die nächste Seite geöffnet werden?") == true) {
 					$("#jtocb_next,#atoc_next")[0].click();
