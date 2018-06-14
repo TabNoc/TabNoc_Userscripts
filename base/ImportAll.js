@@ -1,5 +1,5 @@
 function getImportAllVersion(){
-	return {Version: "1.1.0", Date: "20.05.2018"};
+	return {Version: "1.1.1", Date: "14.06.2018"};
 }
 
 /*
@@ -42,7 +42,7 @@ function ImportData(allData, entriesArray) {
 	}
 
 	try {
-		if (typeof(allData) == "object") {
+		if (typeof(allData) == "object" && allData !== null) {
 			element = allData;
 		} else if (allData === true) {
 			element = eval(prompt("Bitte die exportierten Daten eintragen"));
