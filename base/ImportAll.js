@@ -1,5 +1,5 @@
 function getImportAllVersion(){
-	return {Version: "1.1.1", Date: "14.06.2018"};
+	return {Version: "1.1.2", Date: "03.07.2018"};
 }
 
 /*
@@ -269,6 +269,8 @@ function UpdateDatabaseTable(ExpectedVersionNumber, CurrentVersionNumber, TableN
 					alert("Der Updatevorgang von Tabelle " + TableName + " war erfolgreich\r\n\r\nEs wurden " + UpdateResult.Stats.ChangeCount + " Elemente aktualisiert (alte Datenmenge: " + UpdateResult.Stats.OldSize + "B | neue Datenmenge: " + UpdateResult.Stats.NewSize + "B)");
 					if (confirm("Sollen die Änderungen gespeichert werden?") === true) {
 						UpdateResult.Save(functions, silent);
+						functions.setValue(TableName + "-Version", UpdateResult.NewVersionNumber);
+						CurrentVersionNumber = UpdateResult.NewVersionNumber;
 						console.log("Die Version der Tabelle " + TableName + " wurde auf " + functions.getValue(TableName + "-Version") + " geändert");
 					}
 					else {
@@ -283,6 +285,7 @@ function UpdateDatabaseTable(ExpectedVersionNumber, CurrentVersionNumber, TableN
 			else {
 				TableUpdateObject[TableName].InitTable(functions, silent);
 				functions.setValue(TableName + "-Version", ExpectedVersionNumber);
+				CurrentVersionNumber = ExpectedVersionNumber;
 				let updateMsg = "Die Datenbank-Tabelle " + TableName + " wurde initialisiert (Version: " + functions.getValue(TableName + "-Version") + ")";
 				console.log(updateMsg);
 			}
