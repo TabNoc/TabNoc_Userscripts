@@ -8,19 +8,19 @@
 	padding-bottom: 15px !important;
 }
 .MyMarkedReadedElement {
-	background-color: rgb(151, 255, 139);
+	background: rgb(151, 255, 139)  !important;
 }
 
 .MyMarkedSeenElement {
-	background-color: rgb(216, 246, 225);
+	background: rgb(216, 246, 225)  !important;
 }
 
 .MyMarkedToReadElement {
-	background-color: rgb(200, 244, 80);
+	background: rgb(200, 244, 80)  !important;
 }
 
 .MyUninterestingElement {
-	background-color: rgb(255, 175, 175);
+	background: rgb(255, 175, 175)  !important;
 }
 
 .MyScanButton {
