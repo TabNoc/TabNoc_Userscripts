@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.3.9_12062018
+// @version     1.4.1_03072018
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/TabNoc.js
@@ -99,6 +99,12 @@ Start Writing Script
 
 12.06.2018 - 1.3.9
 	- added: Ticker Support
+
+30.06.2018 - 1.4.0
+	- changed: Changed Code to 2 different Clusters, one SiteSpecific and one abstract base Code
+
+03.07.2018 - 1.4.1
+	- fixed: UpdateDatabase get stuck
 */
 
 try {
@@ -143,7 +149,8 @@ try {
 			NameOfElement: "Newspage",
 			GetIDFunction: function(element) {return CurrentUrlIsTicker() ? $(element).children("h3").eq(0).children("a")[0].getAttribute("href") : $(element).children("a")[0].getAttribute("href");},
 			GetCurrentSiteIDFunction: function() {return document.URL;},
-			CheckCurrentElementFunction: CheckCurrentElementFunction
+			CheckCurrentElementFunction: CheckCurrentElementFunction,
+			GetHidingNode: function (element){return element.parentNode.nodeName == "li" ? element.parentNode : element;}
 		},
 
 		HTML: {
@@ -153,17 +160,9 @@ try {
 		}
 	});
 
-	function MobileCheck() {
-		var check = false;
-		(function(a){if(/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino/i.test(a)||/1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(a.substr(0,4))) check = true;})(navigator.userAgent||navigator.vendor||window.opera);
-		return check;
-	};
-
-	function MobileAndTabletCheck() {
-		var check = false;
-		(function(a){if(/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino|android|ipad|playbook|silk/i.test(a)||/1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(a.substr(0,4))) check = true;})(navigator.userAgent||navigator.vendor||window.opera);
-		return check;
-	};
+	// ##########-##########-##########-##########-##########-########-########-##########-##########-##########-##########-##########
+	// ##########-##########-##########-##########-####### Site specific Functions #######-##########-##########-##########-##########
+	// ##########-##########-##########-##########-##########-########-########-##########-##########-##########-##########-##########
 
 	function CurrentUrlIsTicker() {
 		return document.URL == "https://www.golem.de/ticker/" || document.URL.contains("https://www.golem.de/aa-");
@@ -179,24 +178,206 @@ try {
 		}
 	}
 
+	function StartPageLoader_SiteSpecific() {
+		$("#index-vica2").remove();
+
+		$(".list-articles>li").detach().appendTo($(".list-articles").first());
+
+		$(".iqadlinetop>div").css("border-color", "transparent");
+
+		var removeAdsInterval = setInterval(function() {
+			if ($("div>img[src*='//www.golem.de']").length == 4) {
+				// header
+				$("div>img[src*='//www.golem.de']:nth(1)").first().parent().parent().remove();
+				// footer
+				$("div>img[src*='//www.golem.de']").last().parent().parent().find(":lt(6)").remove();
+				// side
+				$("div>img[src*='//www.golem.de']").first().parent().remove();
+				// under Jobs
+				$("div>img[src*='//www.golem.de']").first().parent().parent().children().slice(2, 6).remove();
+				clearInterval(removeAdsInterval);
+			}
+		}, 1000);
+
+		// Alle Nachrichten untereinander hängen
+		let elements = $("div").filter(".g:gt(1).g4").detach();
+		elements.insertAfter($("div").filter(".g.g4"));
+	}
+
+	function PageLoaderKeyListener(KeyPressActivated, event) {
+		// return true sets finished to true
+		if (event.key == "ArrowRight" && event.ctrlKey == true) {
+			if (KeyPressActivated) {
+				if ($("#jtoc_next,#atoc_next").length == 1) {
+					$("#jtoc_next,#atoc_next")[0].click();
+				}
+				return true;
+			}
+		}
+		else if (event.key == "ArrowLeft" && event.ctrlKey == true) {
+			if (KeyPressActivated) {
+				if ($("#atoc_prev").length == 1) {
+					$("#atoc_prev")[0].click();
+				}
+				return true;
+			}
+		}
+	}
+
+	function ReadingNewspageFinishAction(){
+		if (TabNoc.Variables.PageReaded == true){
+			if ($("#jtoc_next,#atoc_next").length >= 1 && confirm("Soll die nächste Seite geöffnet werden?") == true) {
+				$("#jtoc_next,#atoc_next")[0].click();
+			}
+			if (confirm("Soll die Seite geschlossen werden?") == true) {
+				window.open('', '_self').close();
+				alert("If you can see this you have to set 'dom.allow_scripts_to_close_windows' to 'true' in about:config.");
+			}
+		}
+	}
+
+	function UpdateDataBase(functions, silent) {
+		silent = false;
+		if (functions == null) {
+			functions = ({
+				lock: GM_Lock,
+				unlock: GM_Unlock,
+				getValue: GetData,
+				setValue: GM_setValue
+			});
+		} else {
+			functions.lock = functions.lock || GM_Lock;
+			functions.unlock = functions.unlock || GM_Unlock;
+			functions.getValue = functions.getValue || GetData;
+			functions.setValue = functions.setValue || GM_setValue;
+		}
+		let ExpectedVersionNumber_ReadedNewsArray = 1;
+		let ExpectedVersionNumber_SeenNewsArray = 1;
+		let ExpectedVersionNumber_ToReadNewsArray = 1;
+
+		// ### ReadedNewsArray-Version ###
+		let CurrentVersionNumber_ReadedNewsArray = functions.getValue("ReadedNewsArray-Version", 0, true);
+		// ### SeenNewsArray-Version ###
+		let CurrentVersionNumber_SeenNewsArray = functions.getValue("SeenNewsArray-Version", 0, true);
+		// ### ToReadNewsArray-Version ###
+		let CurrentVersionNumber_ToReadNewsArray = functions.getValue("ToReadNewsArray-Version", 0, true);
+
+		let TableUpdateObject = {
+			"ReadedNewsArray": {
+				"CheckInit": function (functions, silent) {
+					return functions.getValue("ReadedNewsArray") == undefined;
+				},
+				"InitTable": function (functions, silent) {},
+				0: function (functions, silent) {
+					let returnStats = {
+						ChangeCount: 0,
+						OldSize: 0,
+						NewSize: 0
+					};
+					return {
+						Result: true,
+						Stats: returnStats,
+						NewVersionNumber: 1,
+						Save: function (functions, silent) {}
+					};
+				}
+			},
+			"SeenNewsArray": {
+				"CheckInit": function (functions, silent) {
+					return functions.getValue("SeenNewsArray") == undefined;
+				},
+				"InitTable": function (functions, silent) {},
+				0: function (functions, silent) {
+					let returnStats = {
+						ChangeCount: 0,
+						OldSize: 0,
+						NewSize: 0
+					};
+					return {
+						Result: true,
+						Stats: returnStats,
+						NewVersionNumber: 1,
+						Save: function (functions, silent) {}
+					};
+				}
+			},
+			"ToReadNewsArray": {
+				"CheckInit": function (functions, silent) {
+					return functions.getValue("ToReadNewsArray") == undefined;
+				},
+				"InitTable": function (functions, silent) {},
+				0: function (functions, silent) {
+					let returnStats = {
+						ChangeCount: 0,
+						OldSize: 0,
+						NewSize: 0
+					};
+					return {
+						Result: true,
+						Stats: returnStats,
+						NewVersionNumber: 1,
+						Save: function (functions, silent) {}
+					};
+				}
+			}
+		};
+
+		UpdateDatabaseTable(ExpectedVersionNumber_ReadedNewsArray, CurrentVersionNumber_ReadedNewsArray, "ReadedNewsArray", TableUpdateObject, functions, silent);
+		UpdateDatabaseTable(ExpectedVersionNumber_SeenNewsArray, CurrentVersionNumber_SeenNewsArray, "SeenNewsArray", TableUpdateObject, functions, silent);
+		UpdateDatabaseTable(ExpectedVersionNumber_ToReadNewsArray, CurrentVersionNumber_ToReadNewsArray, "ToReadNewsArray", TableUpdateObject, functions, silent);
+	}
+
+	function Distribute() {
+		// if return == false a message will be show, than no LoadObject was found
+		// Startseite
+		if (document.URL.includes("news") == false) {
+			StartPageLoader();
+			return true;
+		}
+		// Nachrichtenseite
+		else if (document.URL.includes("news") == true) {
+			NewsPageLoader();
+
+		var removeAdsInterval = setInterval(function() {
+			if ($("div>img[src*='//www.golem.de']").length == 4) {
+				$("div>img[src*='//www.golem.de']").remove();
+				clearInterval(removeAdsInterval);
+			}
+		}, 1000);
+
+			return true;
+		}
+		return false;
+	}
+
+	//TODO: Rename NewsArrays to PageArrays
+	// ##########-##########-##########-##########-##########-########-########-##########-##########-##########-##########-##########
+	// ##########-##########-##########-##########-########## general Functions ##########-##########-##########-##########-##########
+	// ##########-##########-##########-###### Changes Down here will be applied to all Sites #######-##########-##########-##########
+	// ##########-##########-##########-##########-##########-########-########-##########-##########-##########-##########-##########
+
+	function MobileCheck() {
+		var check = false;
+		(function(a){if(/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino/i.test(a)||/1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(a.substr(0,4))) check = true;})(navigator.userAgent||navigator.vendor||window.opera);
+		return check;
+	};
+
+	function MobileAndTabletCheck() {
+		var check = false;
+		(function(a){if(/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino|android|ipad|playbook|silk/i.test(a)||/1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(a.substr(0,4))) check = true;})(navigator.userAgent||navigator.vendor||window.opera);
+		return check;
+	};
+
 	// ### http*://www.golem.de ###
 	function StartPageLoader() {
-		console.log("MarkGolemPages.user.js loading");
+		console.log(GM_info.script.name + ".user.js loading");
 		try {
 			registerTabNoc();
 			if (TabNoc.Variables.Debug === true) {
 				TabNoc.Variables.lastCheckItemCount = -1;
 			}
 
-			// ############# Golem Code #############
-
-			$("#index-vica2").remove();
-
-			$(".list-articles>li").detach().appendTo($(".list-articles").first());
-
-			$(".iqadlinetop>div").css("border-color", "transparent");
-
-			// ############# Golem Code #############
+			StartPageLoader_SiteSpecific();
 
 			// ## ScanWithKeyPress ##
 
@@ -222,11 +403,7 @@ try {
 			}
 
 			// ## ScanWithKeyPress ##
-			if (MobileCheck() === false) {
-				var ScanButton = $(TabNoc.HTML.ScanButton);
-				ScanButton.click(function(){getAllElements();$(TabNoc.Settings.ScanButtonDomParent + ">.MyScanButton").remove();});
-				$(TabNoc.Settings.ScanButtonDomParent).append(ScanButton);
-			}
+
 			var ValueChangeCallback = function(name, old_value, new_value, remote) {
 				startCheckElements(TabNoc.Variables.MarkToggleState, true);
 			};
@@ -237,9 +414,9 @@ try {
 			TabNoc.Variables.checkElementsInterval = setInterval(returnExec(function () {
 				startCheckElements(TabNoc.Variables.MarkToggleState);
 			}), TabNoc.Settings.Personal.TimerInterval);
-			console.log("MarkGolemPages.user.js executed");
+			console.log(GM_info.script.name + ".user.js executed");
 
-			console.log("MarkGolemPages.user.js done");
+			console.log(GM_info.script.name + ".user.js done");
 		} catch (exc) {
 			console.error(exc);
 			alert(exc);
@@ -247,11 +424,6 @@ try {
 	}
 
 	function registerTabNoc() {
-		// Scannen
-		exportFunction(getAllElements, unsafeWindow, {
-			defineAs: "getAllElements"
-		});
-
 		GM_registerMenuCommand("Einlesen", returnExec(getAllElements));
 
 		GM_registerMenuCommand("CreateHistoryDialog", function() {CreateHistoryDialog(GetData("changes", "([])", true));});
@@ -337,7 +509,51 @@ try {
 		var SeenID = SeenNewsArray.indexOf(SearchString);
 		var ToReadID = ToReadNewsArray.indexOf(SearchString);
 
-		if ($(checkElement).find(".MyScanButton").length === 0 && $(checkElement).find(".MyMarkedReadedElement").length === 0 && $(checkElement).find(".MyOpenTabButton").length === 0 && $(checkElement).find(".MyMarkedSeenElement").length === 0) {
+		if (ToggleState === true) {
+			$(checkElement).addClass("MyPageElement");
+			if (ReadedID !== -1) {
+				$(checkElement).addClass("MyMarkedReadedElement").removeClass("MyMarkedSeenElement").removeClass("MyMarkedToReadElement").find(".MyScanButton,.MyReadButton").remove();
+				if (TabNoc.Settings.HideAlreadyWatchedNews === true) {
+					$(TabNoc.Settings.GetHidingNode(checkElement)).hide();
+				}
+				else {
+					$(TabNoc.Settings.GetHidingNode(checkElement)).show();
+				}
+				return true;
+			}
+			else if (SeenID !== -1) {
+				$(checkElement).removeClass("MyMarkedReadedElement").addClass("MyMarkedSeenElement").removeClass("MyMarkedToReadElement").find(".MyScanButton").remove();
+				if (TabNoc.Settings.HideAlreadyWatchedNews === true) {
+					$(TabNoc.Settings.GetHidingNode(checkElement)).hide();
+				}
+				else {
+					$(TabNoc.Settings.GetHidingNode(checkElement)).show();
+				}
+				return true;
+			}
+			else if (ToReadID !== -1) {
+				$(checkElement).removeClass("MyMarkedReadedElement").removeClass("MyMarkedSeenElement").addClass("MyMarkedToReadElement").find(".MyScanButton,.MyReadButton").remove();
+				if (TabNoc.Settings.HideAlreadyWatchedNews === true) {
+					$(TabNoc.Settings.GetHidingNode(checkElement)).hide();
+				}
+				else {
+					$(TabNoc.Settings.GetHidingNode(checkElement)).show();
+				}
+				return true;
+			}
+			else {
+				$(checkElement).removeClass("MyMarkedReadedElement").removeClass("MyMarkedSeenElement").removeClass("MyToReadElement").show();
+			}
+		}
+		else {
+			$(checkElement).removeClass("MyMarkedReadedElement").removeClass("MyMarkedSeenElement").removeClass("MyToReadElement").removeClass("MyPageElement").show().find(".MyScanButton,.MyReadButton").remove();
+		}
+
+		if ($(checkElement).find(".MyScanButton").length === 0 &&
+			$(checkElement).find(".MyMarkedReadedElement").length === 0 &&
+			$(checkElement).find(".MyOpenTabButton").length === 0 &&
+			$(checkElement).find(".MyReadButton").length === 0 &&
+			$(checkElement).find(".MyMarkedSeenElement").length === 0) {
 			let ScanButton = $(TabNoc.HTML.ScanButton);
 			ScanButton.click(function(){getAllElements(SearchString, SearchString);});
 			$(checkElement).append(ScanButton);
@@ -353,44 +569,6 @@ try {
 				$(checkElement).append(OpenTabButton);
 			}
 		}
-
-		if (ToggleState === true) {
-			$(checkElement).addClass("MyPageElement");
-			if (ReadedID !== -1) {
-				$(checkElement).addClass("MyMarkedReadedElement").removeClass("MyMarkedSeenElement").removeClass("MyMarkedToReadElement").find(".MyScanButton,.MyReadButton").remove();
-				if (TabNoc.Settings.HideAlreadyWatchedNews === true) {
-					$(checkElement.parentNode).hide();
-				}
-				else {
-					$(checkElement.parentNode).show();
-				}
-				return true;
-			}
-			else if (SeenID !== -1) {
-				$(checkElement).removeClass("MyMarkedReadedElement").addClass("MyMarkedSeenElement").removeClass("MyMarkedToReadElement").find(".MyScanButton").remove();
-				if (TabNoc.Settings.HideAlreadyWatchedNews === true) {
-					$(checkElement.parentNode).hide();
-				}
-				else {
-					$(checkElement.parentNode).show();
-				}
-				return true;
-			}
-			else if (ToReadID !== -1) {
-				$(checkElement).removeClass("MyMarkedReadedElement").removeClass("MyMarkedSeenElement").addClass("MyMarkedToReadElement").find(".MyScanButton,.MyReadButton").remove();
-				if (TabNoc.Settings.HideAlreadyWatchedNews === true) {
-					$(checkElement.parentNode).hide();
-				}
-				else {
-					$(checkElement.parentNode).show();
-				}
-				return true;
-			}
-		}
-		else {
-			$(checkElement).removeClass("MyMarkedReadedElement").removeClass("MyMarkedSeenElement").removeClass("MyToReadElement").removeClass("MyPageElement").show().find(".MyScanButton .MyReadButton").remove();
-		}
-
 		return false;
 	}
 
@@ -453,18 +631,11 @@ try {
 		}
 	}
 
-	function createToReadDialog(){
-		throw "NotImplementedException";
-		bla +="<ul style='list-style-type:none'>";
-		foreach();{bla +="<li>" + Coffee  + "</li>";}
-		bla +="</ul>";
-	}
-
 	// ### http*://www.golem.de ###
 
 	// ### http*://www.golem.de/news/* ###
 	function NewsPageLoader(){
-		console.log("MarkGolemPages.user.js loading");
+		console.log(GM_info.script.name + ".user.js loading");
 		try {
 			OpenNewspage();
 
@@ -498,21 +669,8 @@ try {
 							finished = true;
 						}
 					}
-					else if (event.key == "ArrowRight" && event.ctrlKey == true) {
-						if (KeyPressActivated) {
-							if ($("#jtocb_next,#atoc_next").length == 1) {
-								$("#jtocb_next,#atoc_next")[0].click();
-							}
-							finished = true;
-						}
-					}
-					else if (event.key == "ArrowLeft" && event.ctrlKey == true) {
-						if (KeyPressActivated) {
-							if ($("#atoc_prev").length == 1) {
-								$("#atoc_prev")[0].click();
-							}
-							finished = true;
-						}
+					else if (PageLoaderKeyListener(KeyPressActivated, event)) {
+						finished = true;
 					}
 					else if (event.key == "<" ) {
 						window.scroll({
@@ -534,7 +692,7 @@ try {
 			}
 			// ## ScanWithKeyPress ##
 
-			console.log("MarkGolemPages.user.js done");
+			console.log(GM_info.script.name + ".user.js done");
 		} catch (exc) {
 			console.error(exc);
 			alert(exc);
@@ -575,6 +733,7 @@ try {
 			else {
 				$("body").append('<div id="reading" style="position: fixed;top: 20px;right: 20px;">Gelesen</div>');
 				$("#reading").button().on("click", (function(){ReadingNewspage();}));
+				console.info("OpenNewspage: " + TabNoc.Settings.NameOfElement + " not readed!");
 			}
 
 			GM_Unlock();
@@ -605,7 +764,7 @@ try {
 				console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " removed from SeenNewsArray");
 			}
 
-			if (ToReadNewsArray.indexOf(currentID) !== -1 && deleteEntry === false) {
+			if ((ToReadNewsArray.indexOf(currentID) !== -1 && deleteEntry === false) || deleteEntry === true) {
 				ToReadNewsArray.splice(ToReadNewsArray.indexOf(currentID), 1);
 				SetData("ToReadNewsArray", ToReadNewsArray.toSource(), true);
 				console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " removed from ToReadNewspage");
@@ -622,125 +781,30 @@ try {
 			}
 			else {
 				if (deleteEntry === true) {
+					if (ReadedNewsArray.indexOf(currentID) !== -1) {
 					ReadedNewsArray.splice(SeenNewsArray.indexOf(currentID), 1);
 					SetData("ReadedNewsArray", ReadedNewsArray.toSource(), true);
 					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " removed from ReadedNewsArray!!!");
+					}
 					TabNoc.Variables.promptOnClose = true;
 					TabNoc.Variables.PageReaded = false;
 				}
 				else {
 					setTimeout(function(){alert("readed");}, 100);
 					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " already readed!");
-				TabNoc.Variables.promptOnClose = false;
-				TabNoc.Variables.PageReaded = true;
-			}
+					TabNoc.Variables.promptOnClose = false;
+					TabNoc.Variables.PageReaded = true;
+				}
 				$("#reading").remove();
 			}
 			GM_Unlock();
-			console.log("TabNoc.Variables.promptOnClose", TabNoc.Variables.promptOnClose);
-			if (TabNoc.Variables.PageReaded == true){
-				if ($("#jtocb_next,#atoc_next").length == 1 && confirm("Soll die nächste Seite geöffnet werden?") == true) {
-					$("#jtocb_next,#atoc_next")[0].click();
-				}
-				if (confirm("Soll die Seite geschlossen werden?") == true) {
-					window.open('', '_self').close();
-					alert("If you can see this you have to set 'dom.allow_scripts_to_close_windows' to 'true' in about:config.");
-				}
-			}
+			ReadingNewspageFinishAction();
 		} catch (exc) {
 			console.error(exc);
 			alert(exc);
 		}
 	}
 	// ### http*://www.golem.de/news/* ###
-
-	function UpdateDataBase(functions, silent) {
-		silent = false;
-		if (functions == null) {
-			functions = ({
-				lock: GM_Lock,
-				unlock: GM_Unlock,
-				getValue: GetData,
-				setValue: SetData
-			});
-		} else {
-			functions.lock = functions.lock || GM_Lock;
-			functions.unlock = functions.unlock || GM_Unlock;
-			functions.getValue = functions.getValue || GetData;
-			functions.setValue = functions.setValue || SetData;
-		}
-		let ExpectedVersionNumber_ReadedNewsArray = 1;
-		let ExpectedVersionNumber_SeenNewsArray = 1;
-		let ExpectedVersionNumber_ToReadNewsArray = 1;
-
-		// ### ReadedNewsArray-Version ###
-		let CurrentVersionNumber_ReadedNewsArray = functions.getValue("ReadedNewsArray-Version", 0, true);
-		// ### SeenNewsArray-Version ###
-		let CurrentVersionNumber_SeenNewsArray = functions.getValue("SeenNewsArray-Version", 0, true);
-		// ### ToReadNewsArray-Version ###
-		let CurrentVersionNumber_ToReadNewsArray = functions.getValue("ToReadNewsArray-Version", 0, true);
-
-		let TableUpdateObject = {
-			"ReadedNewsArray": {
-				"CheckInit": function (functions, silent) {
-					return functions.getValue("ReadedNewsArray") == undefined;
-				},
-				"InitTable": function (functions, silent) {},
-				0: function (functions, silent) {
-					let returnStats = {
-						ChangeCount: 0,
-						OldSize: 0,
-						NewSize: 0
-					};
-					return {
-						Result: true,
-						Stats: returnStats,
-						Save: function (functions, silent) {functions.setValue("ReadedNewsArray-Version", 1);}
-					};
-				}
-			},
-			"SeenNewsArray": {
-				"CheckInit": function (functions, silent) {
-					return functions.getValue("SeenNewsArray") == undefined;
-				},
-				"InitTable": function (functions, silent) {},
-				0: function (functions, silent) {
-					let returnStats = {
-						ChangeCount: 0,
-						OldSize: 0,
-						NewSize: 0
-					};
-					return {
-						Result: true,
-						Stats: returnStats,
-						Save: function (functions, silent) {functions.setValue("SeenNewsArray-Version", 1);}
-					};
-				}
-			},
-			"ToReadNewsArray": {
-				"CheckInit": function (functions, silent) {
-					return functions.getValue("ToReadNewsArray") == undefined;
-				},
-				"InitTable": function (functions, silent) {},
-				0: function (functions, silent) {
-					let returnStats = {
-						ChangeCount: 0,
-						OldSize: 0,
-						NewSize: 0
-					};
-					return {
-						Result: true,
-						Stats: returnStats,
-						Save: function (functions, silent) {functions.setValue("ToReadNewsArray-Version", 1);}
-					};
-				}
-			}
-		};
-
-		UpdateDatabaseTable(ExpectedVersionNumber_ReadedNewsArray, CurrentVersionNumber_ReadedNewsArray, "ReadedNewsArray", TableUpdateObject, functions, silent);
-		UpdateDatabaseTable(ExpectedVersionNumber_SeenNewsArray, CurrentVersionNumber_SeenNewsArray, "SeenNewsArray", TableUpdateObject, functions, silent);
-		UpdateDatabaseTable(ExpectedVersionNumber_ToReadNewsArray, CurrentVersionNumber_ToReadNewsArray, "ToReadNewsArray", TableUpdateObject, functions, silent);
-	}
 
 	// TODO: removeScriptName
 	function Syncronisieren(scriptName) {
@@ -808,36 +872,36 @@ try {
 					if (responseData.ReadedNewsArray != null && responseData.SeenNewsArray != null) {
 						Feedback.lockProgress();
 						ImportData(responseData, ([{
-										Name: "ReadedNewsArray",
-										defaultVersion: 0,
-										defaultValue: "([])",
-										ImportAction: function (dataStorage, currentEntry, importElement) {
+									Name: "ReadedNewsArray",
+									defaultVersion: 0,
+									defaultValue: "([])",
+									ImportAction: function (dataStorage, currentEntry, importElement) {
+										if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
+											dataStorage[currentEntry.Name].push(importElement);
+										}
+									}
+								}, {
+									Name: "ToReadNewsArray",
+									defaultVersion: 0,
+									defaultValue: "([])",
+									ImportAction: function (dataStorage, currentEntry, importElement) {
+										if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
+											dataStorage[currentEntry.Name].push(importElement);
+										}
+									}
+								}, {
+									Name: "SeenNewsArray",
+									defaultVersion: 0,
+									defaultValue: "([])",
+									ImportAction: function (dataStorage, currentEntry, importElement) {
+										if (dataStorage.ReadedNewsArray.indexOf(importElement) == -1 && dataStorage.ToReadNewsArray.indexOf(importElement) == -1) {
 											if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
 												dataStorage[currentEntry.Name].push(importElement);
-											}
-										}
-									}, {
-										Name: "ToReadNewsArray",
-										defaultVersion: 0,
-										defaultValue: "([])",
-										ImportAction: function (dataStorage, currentEntry, importElement) {
-											if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
-												dataStorage[currentEntry.Name].push(importElement);
-											}
-										}
-									}, {
-										Name: "SeenNewsArray",
-										defaultVersion: 0,
-										defaultValue: "([])",
-										ImportAction: function (dataStorage, currentEntry, importElement) {
-											if (dataStorage.ReadedNewsArray.indexOf(importElement) == -1 && dataStorage.ToReadNewsArray.indexOf(importElement) == -1) {
-												if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
-													dataStorage[currentEntry.Name].push(importElement);
-												}
 											}
 										}
 									}
-								]));
+								}
+												  ]));
 						Feedback.unlockProgress();
 					} else {
 						alert("Der Wert des Response des Servers war ungültig!");
@@ -922,7 +986,7 @@ try {
 		ModuleImport("States", getStatesVersion, "1.2.8");
 		ModuleImport("TabNoc_GM", getTabNoc_GMVersion, "2.0.2");
 		ModuleImport("TabNoc", getTabNocVersion, "1.2.2");
-		ModuleImport("ImportAll", getImportAllVersion, "1.1.0");
+		ModuleImport("ImportAll", getImportAllVersion, "1.1.2");
 
 		var count = 0;
 		while (GM_Locked() == true) {
@@ -942,16 +1006,8 @@ try {
 		GM_addStyle(GM_getResourceText("JDiffAnno"));
 		GM_addStyle(GM_getResourceText("JDiffHtml"));
 
-		// Startseite
-		if (document.URL.includes("news") == false) {
-			StartPageLoader();
-		}
-		// Nachrichtenseite
-		else if (document.URL.includes("news") == true) {
-			NewsPageLoader();
-		}
-		else {
-			alert("MarkGolemPages.user.js:Main()->No LoadObject found!");
+		if (Distribute() == false) {
+			alert(GM_info.script.name + ".user.js:Main()->No LoadObject found!");
 			console.info("No LoadObject found!");
 		}
 	}
@@ -976,7 +1032,7 @@ try {
 
 	$(Main());
 
-	console.info("MarkGolemPages.user.js [v" + GM_info.script.version + ", Autoupdate: " + GM_info.scriptWillUpdate + "] readed");
+	console.info(GM_info.script.name + ".user.js [v" + GM_info.script.version + ", Autoupdate: " + GM_info.scriptWillUpdate + "] readed");
 } catch (exc) {
 	console.error(exc);
 	alert(exc);
