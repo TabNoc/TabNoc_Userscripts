@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.5.0_03082019
+// @version     1.5.1_07092019
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/TabNoc.js
@@ -114,6 +114,9 @@ Start Writing Script
 
 03.08.2019 - 1.5.0
 	- added: DeletedNewsArray
+
+07.09.2019 - 1.5.1
+	- fixed: new mobile Ticker format
 */
 
 try {
@@ -153,7 +156,7 @@ try {
 			ShowOpenInNewTabButton: false,
 
 			ScanButtonDomParent: "#grandwrapper",
-			ElementsSearchString: CurrentUrlIsTicker() ? ".list-tickers>li" : (MobileCheck() ? ".leader, .media__teaser-list>li>div" : "#index-promo, .list-articles>li"),
+			ElementsSearchString: GetElementsSearchString(),
 			NameOfElements: "Newspages",
 			NameOfElement: "Newspage",
 			GetIDFunction: function(element) {return CurrentUrlIsTicker() ? $(element).children("h3").eq(0).children("a")[0].getAttribute("href") : $(element).children("a")[0].getAttribute("href");},
@@ -184,6 +187,25 @@ try {
 			return $(element).children("a").length === 1  && (element.className.contains("media__teaser--articles") || $(element).children("a")[0].getAttribute("id").includes("hpal" + (MobileCheck() === false ? "t" : "")) ||
 				$(element).children("a")[0].getAttribute("id").includes("bigalt") ||
 				$(element).children("a")[0].getAttribute("id").includes("msalt"));
+		}
+	}
+
+	function GetElementsSearchString(){
+		if (CurrentUrlIsTicker()) {
+			if (MobileCheck()) {
+				return ".list-ticker>li";
+			}
+			else {
+				return ".list-tickers>li";
+			}
+		}
+		else {
+			if (MobileCheck()) {
+				return ".leader, .media__teaser-list>li>div";
+			}
+			else {
+				return "#index-promo, .list-articles>li";
+			}
 		}
 	}
 
@@ -525,6 +547,13 @@ try {
 				// ### ToReadNewsArray ###
 				var ToReadNewsArray = GetData("ToReadNewsArray", "([])", true);
 
+				//TODO. revert this Hack and create Real Implementation!!!
+				if (MobileCheck()) {
+					ReadedNewsArray = ReadedNewsArray.map((element) => "/" + element.substring(element.lastIndexOf("-") - 4).replace("-", "/"));
+					SeenNewsArray = SeenNewsArray.map((element) => "/" + element.substring(element.lastIndexOf("-") - 4).replace("-", "/"));
+					ToReadNewsArray = ToReadNewsArray.map((element) => "/" + element.substring(element.lastIndexOf("-") - 4).replace("-", "/"));
+				}
+
 				if (TabNoc.Variables.Debug === true) {
 					console.log(force === true, TabNoc.Variables.lastCheckItemCount !== elements.length);
 				}
@@ -578,9 +607,9 @@ try {
 		//return true if checkedElement is already Scanned
 		var SearchString = TabNoc.Settings.GetIDFunction(checkElement);
 
-		var ReadedID = ReadedNewsArray.indexOf(SearchString);
-		var SeenID = SeenNewsArray.indexOf(SearchString);
-		var ToReadID = ToReadNewsArray.indexOf(SearchString);
+		let ReadedID = ReadedNewsArray.indexOf(SearchString);
+		let SeenID = SeenNewsArray.indexOf(SearchString);
+		let ToReadID = ToReadNewsArray.indexOf(SearchString);
 
 		if (ToggleState === true) {
 			$(checkElement).addClass("MyPageElement");
