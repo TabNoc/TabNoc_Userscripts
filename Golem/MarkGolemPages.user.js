@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.4.1_03072018
+// @version     1.5.0_03082019
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/TabNoc.js
@@ -105,6 +105,15 @@ Start Writing Script
 
 03.07.2018 - 1.4.1
 	- fixed: UpdateDatabase get stuck
+
+16.03.2019 - 1.4.2
+	- added: basic Spritz Support
+
+03.05.2019 - 1.4.3
+	- added: ActRemover Command
+
+03.08.2019 - 1.5.0
+	- added: DeletedNewsArray
 */
 
 try {
@@ -179,25 +188,12 @@ try {
 	}
 
 	function StartPageLoader_SiteSpecific() {
+		console.log("StartPageLoader_SiteSpecific");
 		$("#index-vica2").remove();
 
 		$(".list-articles>li").detach().appendTo($(".list-articles").first());
 
 		$(".iqadlinetop>div").css("border-color", "transparent");
-
-		var removeAdsInterval = setInterval(function() {
-			if ($("div>img[src*='//www.golem.de']").length == 4) {
-				// header
-				$("div>img[src*='//www.golem.de']:nth(1)").first().parent().parent().remove();
-				// footer
-				$("div>img[src*='//www.golem.de']").last().parent().parent().find(":lt(6)").remove();
-				// side
-				$("div>img[src*='//www.golem.de']").first().parent().remove();
-				// under Jobs
-				$("div>img[src*='//www.golem.de']").first().parent().parent().children().slice(2, 6).remove();
-				clearInterval(removeAdsInterval);
-			}
-		}, 1000);
 
 		// Alle Nachrichten untereinander hängen
 		let elements = $("div").filter(".g:gt(1).g4").detach();
@@ -228,6 +224,7 @@ try {
 		if (TabNoc.Variables.PageReaded == true){
 			if ($("#jtoc_next,#atoc_next").length >= 1 && confirm("Soll die nächste Seite geöffnet werden?") == true) {
 				$("#jtoc_next,#atoc_next")[0].click();
+				return;
 			}
 			if (confirm("Soll die Seite geschlossen werden?") == true) {
 				window.open('', '_self').close();
@@ -254,6 +251,7 @@ try {
 		let ExpectedVersionNumber_ReadedNewsArray = 1;
 		let ExpectedVersionNumber_SeenNewsArray = 1;
 		let ExpectedVersionNumber_ToReadNewsArray = 1;
+		let ExpectedVersionNumber_DeletedNewsArray = 1;
 
 		// ### ReadedNewsArray-Version ###
 		let CurrentVersionNumber_ReadedNewsArray = functions.getValue("ReadedNewsArray-Version", 0, true);
@@ -261,6 +259,8 @@ try {
 		let CurrentVersionNumber_SeenNewsArray = functions.getValue("SeenNewsArray-Version", 0, true);
 		// ### ToReadNewsArray-Version ###
 		let CurrentVersionNumber_ToReadNewsArray = functions.getValue("ToReadNewsArray-Version", 0, true);
+		// ### ToReadNewsArray-Version ###
+		let CurrentVersionNumber_DeletedNewsArray = functions.getValue("DeletedNewsArray-Version", 0, true);
 
 		let TableUpdateObject = {
 			"ReadedNewsArray": {
@@ -319,15 +319,56 @@ try {
 						Save: function (functions, silent) {}
 					};
 				}
+			},
+			"DeletedNewsArray": {
+				"CheckInit": function (functions, silent) {
+					return functions.getValue("DeletedNewsArray") == undefined;
+				},
+				"InitTable": function (functions, silent) {},
+				0: function (functions, silent) {
+					let returnStats = {
+						ChangeCount: 0,
+						OldSize: 0,
+						NewSize: 0
+					};
+					return {
+						Result: true,
+						Stats: returnStats,
+						NewVersionNumber: 1,
+						Save: function (functions, silent) {}
+					};
+				}
 			}
 		};
 
 		UpdateDatabaseTable(ExpectedVersionNumber_ReadedNewsArray, CurrentVersionNumber_ReadedNewsArray, "ReadedNewsArray", TableUpdateObject, functions, silent);
 		UpdateDatabaseTable(ExpectedVersionNumber_SeenNewsArray, CurrentVersionNumber_SeenNewsArray, "SeenNewsArray", TableUpdateObject, functions, silent);
 		UpdateDatabaseTable(ExpectedVersionNumber_ToReadNewsArray, CurrentVersionNumber_ToReadNewsArray, "ToReadNewsArray", TableUpdateObject, functions, silent);
+		UpdateDatabaseTable(ExpectedVersionNumber_DeletedNewsArray, CurrentVersionNumber_DeletedNewsArray, "DeletedNewsArray", TableUpdateObject, functions, silent);
 	}
 
 	function Distribute() {
+		var removeAdsInterval = setInterval(function() {
+			if ($("div>img[src*='//www.golem.de']").length >= 5) {
+				// header
+				$("div>img[src*='//www.golem.de']:nth(1)").first().parent().parent().remove();
+				// footer
+				$("div>img[src*='//www.golem.de']").last().parent().parent().find(":lt(6)").remove();
+				// side
+				$("div>img[src*='//www.golem.de']").first().parent().remove();
+				// under Jobs
+				$("div>img[src*='//www.golem.de']").first().parent().parent().children().slice(2, 6).remove();
+
+				$("div>img[src*='//www.golem.de']").first().parent().parent().remove();
+				$("div>img[src*='//www.golem.de']").first().parent().parent().remove();
+				// under Jobs
+				$("div>img[src*='//www.golem.de']").first().parent().parent().children().slice(2, 6).remove();
+
+				$(".supplementary").remove();
+				clearInterval(removeAdsInterval);
+			}
+		}, 100);
+
 		// if return == false a message will be show, than no LoadObject was found
 		// Startseite
 		if (document.URL.includes("news") == false) {
@@ -338,12 +379,44 @@ try {
 		else if (document.URL.includes("news") == true) {
 			NewsPageLoader();
 
-		var removeAdsInterval = setInterval(function() {
-			if ($("div>img[src*='//www.golem.de']").length == 4) {
-				$("div>img[src*='//www.golem.de']").remove();
-				clearInterval(removeAdsInterval);
-			}
-		}, 1000);
+
+			GM_registerMenuCommand("Spritz", function() {
+				// überschriften anpassen
+				$(".formatted,.paged-cluster-header").children(":header").text(function (index, value) {
+					return ". >>> " + value + " <<<.";
+				})
+				$(".formatted>p").text(function (index, value) {
+					return value + " - .";
+				})
+				$("#job-market").remove();
+
+				var lastMessage = "";
+				function MyKeyEvent(e) {
+					try{
+						var currentMessage = "TabNoc:" + e.type + ";" + e.keyCode;
+						if (currentMessage != lastMessage) {
+							// $("[src='https://sdk.spritzinc.com/js/1.2/bookmarklet/html/spritzlet.html?1.1.2']")[0].contentWindow.postMessage(currentMessage, "*"); //"http://www.golem.de");//"https://sdk.spritzinc.com");
+							//TODO: adjust src link, possibly outdated and adjust spritz script
+							//$("[src='https://sdk.spritzinc.com/bookmarklet/latest/js/SpritzletOuter.js']")[0].contentWindow.postMessage(currentMessage, "*");
+							$("[src^='https://sdk.spritzinc.com/bookmarklet/']")[0].contentWindow.postMessage(currentMessage, "*"); //"http://www.golem.de");//"https://sdk.spritzinc.com");
+							lastMessage = currentMessage;
+						}
+						e.preventDefault = true;
+						return true;
+					}
+					catch(exc) {
+						console.log(exc);
+						alert(exc)
+					}
+				}
+
+				$(document).keydown(MyKeyEvent);
+				$(document).keyup(MyKeyEvent);
+			});
+			GM_registerMenuCommand("ActRemover", function() {
+				$(".popup-visible").removeClass("popup-visible");
+				document.body.style.overflow = "";
+			});
 
 			return true;
 		}
@@ -582,6 +655,8 @@ try {
 			var SeenNewsArray = GetData("SeenNewsArray", "([])", true);
 			// ### ToReadNewsArray ###
 			var ToReadNewsArray = GetData("ToReadNewsArray", "([])", true);
+			// ### DeletedNewsArray ###
+			var DeletedNewsArray = GetData("DeletedNewsArray", "([])", true);
 
 			var elements = $(TabNoc.Settings.ElementsSearchString);
 
@@ -597,16 +672,18 @@ try {
 				var currentElementId = TabNoc.Settings.GetIDFunction(element);
 
 				if (TabNoc.Settings.CheckCurrentElementFunction(element) == true) {
-					if (asToRead == true) {
-						if (ReadedNewsArray.indexOf(currentElementId) == -1 && ToReadNewsArray.indexOf(currentElementId) == -1) {
-							ToReadNewsArray.push(currentElementId);
-							if (SeenNewsArray.indexOf(currentElementId) != -1) {
-								SeenNewsArray.splice(SeenNewsArray.indexOf(currentElementId), 1);
+					if (DeletedNewsArray.indexOf(currentElementId) === -1) {
+						if (asToRead == true) {
+							if (ReadedNewsArray.indexOf(currentElementId) == -1 && ToReadNewsArray.indexOf(currentElementId) == -1) {
+								ToReadNewsArray.push(currentElementId);
+								if (SeenNewsArray.indexOf(currentElementId) != -1) {
+									SeenNewsArray.splice(SeenNewsArray.indexOf(currentElementId), 1);
+								}
 							}
-						}
-					} else {
-						if (SeenNewsArray.indexOf(currentElementId) == -1 && ReadedNewsArray.indexOf(currentElementId) == -1 && ToReadNewsArray.indexOf(currentElementId) == -1) {
-							SeenNewsArray.push(currentElementId);
+						} else {
+							if (SeenNewsArray.indexOf(currentElementId) == -1 && ReadedNewsArray.indexOf(currentElementId) == -1 && ToReadNewsArray.indexOf(currentElementId) == -1) {
+								SeenNewsArray.push(currentElementId);
+							}
 						}
 					}
 				} else {
@@ -707,6 +784,8 @@ try {
 			var SeenNewsArray = GetData("SeenNewsArray", "([])", true);
 			// ### ToReadNewsArray ###
 			var ToReadNewsArray = GetData("ToReadNewsArray", "([])", true);
+			// ### DeletedNewsArray ###
+			var DeletedNewsArray = GetData("DeletedNewsArray", "([])", true);
 
 			GM_Lock();
 
@@ -718,13 +797,19 @@ try {
 				console.info("OpenNewspage: " + TabNoc.Settings.NameOfElement + " removed from SeenNewsArray");
 			}
 
-			if (ToReadNewsArray.indexOf(currentID) === -1 && ReadedNewsArray.indexOf(currentID) === -1) {
+			if (ToReadNewsArray.indexOf(currentID) === -1 && ReadedNewsArray.indexOf(currentID) === -1 && DeletedNewsArray.indexOf(currentID) === -1) {
 				ToReadNewsArray.push(currentID);
 				SetData("ToReadNewsArray", ToReadNewsArray.toSource(), true);
 				console.info("OpenNewspage: " + TabNoc.Settings.NameOfElement + " added to ToReadNewsArray");
 			}
 
-			if (ReadedNewsArray.indexOf(currentID) !== -1) {
+			if (DeletedNewsArray.indexOf(currentID) !== -1) {
+				setTimeout(function(){alert("deleted!");}, 100);
+				console.info("OpenNewspage: " + TabNoc.Settings.NameOfElement + " already deleted!");
+				TabNoc.Variables.promptOnClose = false;
+				TabNoc.Variables.PageReaded = true;
+			}
+			else if (ReadedNewsArray.indexOf(currentID) !== -1) {
 				setTimeout(function(){alert("readed");}, 100);
 				console.info("OpenNewspage: " + TabNoc.Settings.NameOfElement + " already readed!");
 				TabNoc.Variables.promptOnClose = false;
@@ -755,47 +840,63 @@ try {
 			var SeenNewsArray = GetData("SeenNewsArray", "([])", true);
 			// ### ToReadNewsArray ###
 			var ToReadNewsArray = GetData("ToReadNewsArray", "([])", true);
+			// ### DeletedNewsArray ###
+			var DeletedNewsArray = GetData("DeletedNewsArray", "([])", true);
 
 			GM_Lock();
 
-			if (SeenNewsArray.indexOf(currentID) !== -1 && deleteEntry === false) {
-				SeenNewsArray.splice(SeenNewsArray.indexOf(currentID), 1);
-				SetData("SeenNewsArray", SeenNewsArray.toSource(), true);
-				console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " removed from SeenNewsArray");
-			}
+			if (deleteEntry === true) {
+				if (ToReadNewsArray.indexOf(currentID) !== -1) {
+					ToReadNewsArray.splice(ToReadNewsArray.indexOf(currentID), 1);
+					SetData("ToReadNewsArray", ToReadNewsArray.toSource(), true);
+					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " removed from ToReadNewspage");
+				}
 
-			if ((ToReadNewsArray.indexOf(currentID) !== -1 && deleteEntry === false) || deleteEntry === true) {
-				ToReadNewsArray.splice(ToReadNewsArray.indexOf(currentID), 1);
-				SetData("ToReadNewsArray", ToReadNewsArray.toSource(), true);
-				console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " removed from ToReadNewspage");
-			}
-
-			if (ReadedNewsArray.indexOf(currentID) === -1 && deleteEntry === false) {
-				ReadedNewsArray.push(currentID);
-				SetData("ReadedNewsArray", ReadedNewsArray.toSource(), true);
-				console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " added to ReadedNewsArray");
-
-				$("#reading").remove();
-				TabNoc.Variables.promptOnClose = false;
-				TabNoc.Variables.PageReaded = true;
-			}
-			else {
-				if (deleteEntry === true) {
-					if (ReadedNewsArray.indexOf(currentID) !== -1) {
+				if (ReadedNewsArray.indexOf(currentID) !== -1) {
 					ReadedNewsArray.splice(SeenNewsArray.indexOf(currentID), 1);
 					SetData("ReadedNewsArray", ReadedNewsArray.toSource(), true);
 					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " removed from ReadedNewsArray!!!");
-					}
-					TabNoc.Variables.promptOnClose = true;
-					TabNoc.Variables.PageReaded = false;
+				}
+
+				if (DeletedNewsArray.indexOf(currentID) === -1) {
+					DeletedNewsArray.push(currentID);
+					SetData("DeletedNewsArray", DeletedNewsArray.toSource(), true);
+					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " added to DeletedNewsArray!!!");
+				}
+				TabNoc.Variables.promptOnClose = false;
+				TabNoc.Variables.PageReaded = true;
+
+				$("#reading").remove();
+			}
+			else {
+				if (SeenNewsArray.indexOf(currentID) !== -1) {
+					SeenNewsArray.splice(SeenNewsArray.indexOf(currentID), 1);
+					SetData("SeenNewsArray", SeenNewsArray.toSource(), true);
+					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " removed from SeenNewsArray");
+				}
+
+				if (ToReadNewsArray.indexOf(currentID) !== -1) {
+					ToReadNewsArray.splice(ToReadNewsArray.indexOf(currentID), 1);
+					SetData("ToReadNewsArray", ToReadNewsArray.toSource(), true);
+					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " removed from ToReadNewspage");
+				}
+
+				if (ReadedNewsArray.indexOf(currentID) === -1 && DeletedNewsArray.indexOf(currentID) === -1) {
+					ReadedNewsArray.push(currentID);
+					SetData("ReadedNewsArray", ReadedNewsArray.toSource(), true);
+					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " added to ReadedNewsArray");
+
+					$("#reading").remove();
+					TabNoc.Variables.promptOnClose = false;
+					TabNoc.Variables.PageReaded = true;
 				}
 				else {
 					setTimeout(function(){alert("readed");}, 100);
 					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " already readed!");
 					TabNoc.Variables.promptOnClose = false;
 					TabNoc.Variables.PageReaded = true;
+					$("#reading").remove();
 				}
-				$("#reading").remove();
 			}
 			GM_Unlock();
 			ReadingNewspageFinishAction();
@@ -885,8 +986,10 @@ try {
 									defaultVersion: 0,
 									defaultValue: "([])",
 									ImportAction: function (dataStorage, currentEntry, importElement) {
-										if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
-											dataStorage[currentEntry.Name].push(importElement);
+										if (dataStorage.ReadedNewsArray.indexOf(importElement) == -1 && dataStorage.DeletedNewsArray.indexOf(importElement) == -1) {
+											if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
+												dataStorage[currentEntry.Name].push(importElement);
+											}
 										}
 									}
 								}, {
@@ -895,6 +998,17 @@ try {
 									defaultValue: "([])",
 									ImportAction: function (dataStorage, currentEntry, importElement) {
 										if (dataStorage.ReadedNewsArray.indexOf(importElement) == -1 && dataStorage.ToReadNewsArray.indexOf(importElement) == -1) {
+											if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
+												dataStorage[currentEntry.Name].push(importElement);
+											}
+										}
+									}
+								}, {
+									Name: "DeletedNewsArray",
+									defaultVersion: 0,
+									defaultValue: "([])",
+									ImportAction: function (dataStorage, currentEntry, importElement) {
+										if (dataStorage.DeletedNewsArray.indexOf(importElement) == -1) {
 											if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
 												dataStorage[currentEntry.Name].push(importElement);
 											}
@@ -917,9 +1031,11 @@ try {
 				element.ReadedNewsArray = eval(GM_getValue("ReadedNewsArray") || "([])");
 				element.SeenNewsArray = eval(GM_getValue("SeenNewsArray") || "([])");
 				element.ToReadNewsArray = eval(GM_getValue("ToReadNewsArray") || "([])");
+				element.DeletedNewsArray = eval(GM_getValue("DeletedNewsArray") || "([])");
 				element["ReadedNewsArray-Version"] = GetData("ReadedNewsArray-Version", 0, true);
 				element["SeenNewsArray-Version"] = GetData("SeenNewsArray-Version", 0, true);
 				element["ToReadNewsArray-Version"] = GetData("ToReadNewsArray-Version", 0, true);
+				element["DeletedNewsArray-Version"] = GetData("DeletedNewsArray-Version", 0, true);
 				GM_xmlhttpRequest({
 					data: {
 						Token: Token,
