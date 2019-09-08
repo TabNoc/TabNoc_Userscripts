@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.5.1_07092019
+// @version     1.5.2_08092019
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/TabNoc.js
@@ -117,6 +117,9 @@ Start Writing Script
 
 07.09.2019 - 1.5.1
 	- fixed: new mobile Ticker format
+
+07.09.2019 - 1.5.1
+	- fixed: new mobile Ticker format - bugfix
 */
 
 try {
@@ -548,10 +551,10 @@ try {
 				var ToReadNewsArray = GetData("ToReadNewsArray", "([])", true);
 
 				//TODO. revert this Hack and create Real Implementation!!!
-				if (MobileCheck()) {
-					ReadedNewsArray = ReadedNewsArray.map((element) => "/" + element.substring(element.lastIndexOf("-") - 4).replace("-", "/"));
-					SeenNewsArray = SeenNewsArray.map((element) => "/" + element.substring(element.lastIndexOf("-") - 4).replace("-", "/"));
-					ToReadNewsArray = ToReadNewsArray.map((element) => "/" + element.substring(element.lastIndexOf("-") - 4).replace("-", "/"));
+				if (MobileCheck() && CurrentUrlIsTicker()) {
+					ReadedNewsArray = ReadedNewsArray.map((element) => 	element.includes("-") ? "/" + element.substring(element.lastIndexOf("-") - 4).replace("-", "/") : element);
+					SeenNewsArray = SeenNewsArray.map((element) => 		element.includes("-") ? "/" + element.substring(element.lastIndexOf("-") - 4).replace("-", "/") : element);
+					ToReadNewsArray = ToReadNewsArray.map((element) => 	element.includes("-") ? "/" + element.substring(element.lastIndexOf("-") - 4).replace("-", "/") : element);
 				}
 
 				if (TabNoc.Variables.Debug === true) {
