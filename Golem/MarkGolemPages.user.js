@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.5.2_08092019
+// @version     1.5.3_23092019
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/TabNoc.js
@@ -16,7 +16,7 @@
 // @require     https://gist.githubusercontent.com/TheDistantSea/8021359/raw/89d9c3250fd049deb23541b13faaa15239bd9d05/version_compare.js
 // @resource	JqueryUI https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/jquery_ui/jquery-ui.min.css
 // @resource	MyCss https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/Golem/MarkGolemPages.css
-// updateURL   https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Golem/MarkGolemPages.user.js
+// updateURL	https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/Golem/MarkGolemPages.user.js
 // @grant       GM_setValue
 // @grant       GM_getValue
 // @grant       GM_deleteValue
@@ -118,8 +118,11 @@ Start Writing Script
 07.09.2019 - 1.5.1
 	- fixed: new mobile Ticker format
 
-07.09.2019 - 1.5.1
+07.09.2019 - 1.5.2
 	- fixed: new mobile Ticker format - bugfix
+
+23.09.2019 - 1.5.3
+	- mobile optimizations
 */
 
 try {
@@ -162,7 +165,7 @@ try {
 			ElementsSearchString: GetElementsSearchString(),
 			NameOfElements: "Newspages",
 			NameOfElement: "Newspage",
-			GetIDFunction: function(element) {return CurrentUrlIsTicker() ? $(element).children("h3").eq(0).children("a")[0].getAttribute("href") : $(element).children("a")[0].getAttribute("href");},
+			GetIDFunction: function(element) {return (CurrentUrlIsTicker() || CurrentUrlIsArchive()) ? $(element).children("h3").eq(0).children("a")[0].getAttribute("href") : $(element).children("a")[0].getAttribute("href");},
 			GetCurrentSiteIDFunction: function() {return document.URL;},
 			CheckCurrentElementFunction: CheckCurrentElementFunction,
 			GetHidingNode: function (element){return element.parentNode.nodeName == "li" ? element.parentNode : element;}
@@ -180,11 +183,15 @@ try {
 	// ##########-##########-##########-##########-##########-########-########-##########-##########-##########-##########-##########
 
 	function CurrentUrlIsTicker() {
-		return document.URL == "https://www.golem.de/ticker/" || document.URL.contains("https://www.golem.de/aa-");
+		return document.URL == "https://www.golem.de/ticker/";
+	}
+
+	function CurrentUrlIsArchive() {
+		return document.URL.contains("https://www.golem.de/aa-");
 	}
 
 	function CheckCurrentElementFunction(element) {
-		if (CurrentUrlIsTicker() == true) {
+		if (CurrentUrlIsTicker() == true || CurrentUrlIsArchive ()) {
 			return $(element).children("h3").length === 1  && $(element).children("h3").eq(0).children("a").length === 1 && $(element).children("h3").eq(0).children("a")[0].hasAttribute("href");
 		} else {
 			return $(element).children("a").length === 1  && (element.className.contains("media__teaser--articles") || $(element).children("a")[0].getAttribute("id").includes("hpal" + (MobileCheck() === false ? "t" : "")) ||
@@ -194,8 +201,8 @@ try {
 	}
 
 	function GetElementsSearchString(){
-		if (CurrentUrlIsTicker()) {
-			if (MobileCheck()) {
+		if (CurrentUrlIsTicker() || CurrentUrlIsArchive ()) {
+			if (MobileCheck()) { // && !CurrentUrlIsArchive ()) {
 				return ".list-ticker>li";
 			}
 			else {
@@ -530,17 +537,17 @@ try {
 	}
 
 	/**
-	 * [startCheckElements description]
-	 * @param  {bool} ToggleState Overwirtes ToggleState
-	 * @param  {bool} force       foreces Execution when true
-	 * @return {void}
-	 */
+	* [startCheckElements description]
+	* @param  {bool} ToggleState Overwirtes ToggleState
+	* @param  {bool} force       foreces Execution when true
+	* @return {void}
+	*/
 	function startCheckElements(ToggleState, force) {
 		if (document.hidden === false || force === true) {
 			var elements = $(TabNoc.Settings.ElementsSearchString);
 			if (TabNoc.Variables.Debug === true && TabNoc.Variables.lastCheckItemCount !== elements.length) {
 				console.log("startCheckElements()", "elements:", elements);
-			}
+            }
 
 			if (force === true || TabNoc.Variables.lastCheckItemCount !== elements.length) {
 				// ### ReadedNewsArray ###
@@ -593,12 +600,12 @@ try {
 		}
 		TabNoc.Variables.MarkToggleState = ToggleState;
 
-		let markedElementsMessage = (elements.length - UnScannedElements - UnknownElements) + " von " + elements.length + " " + TabNoc.Settings.NameOfElements + " markiert";
+		let markedElementsMessage = (elements.length - UnScannedElements - UnknownElements) + " von " + (elements.length - UnknownElements) + " " + TabNoc.Settings.NameOfElements + " markiert";
 		if (UnknownElements > 0) {
 			markedElementsMessage += " (" + UnknownElements + " unbekannte " + (UnknownElements > 1 ? TabNoc.Settings.NameOfElements : TabNoc.Settings.NameOfElement) + ")";
 			console.error("Es wurden " + UnknownElements + " unspezifizierte Elemente gefunden");
 		}
-		Feedback.showProgress(100, markedElementsMessage);
+		Feedback.showProgress(100, markedElementsMessage, 3000);
 		console.log((elements.length - UnScannedElements) + " Marked Elements | " + UnScannedElements + " UnMarked Elements | Total " + elements.length + " Elements (" + ReadedNewsArray.length + " " + TabNoc.Settings.NameOfElements + " readed, " + ToReadNewsArray.length + " " + TabNoc.Settings.NameOfElements + " to read, " + SeenNewsArray.length + " " + TabNoc.Settings.NameOfElements + " marked)");
 
 		if (TabNoc.Settings.HideAlreadyWatchedNews === false) {
