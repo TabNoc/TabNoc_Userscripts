@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.5.3_23092019
+// @version     1.5.4_13122019
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/TabNoc.js
@@ -123,6 +123,10 @@ Start Writing Script
 
 23.09.2019 - 1.5.3
 	- mobile optimizations
+
+13.12.2019 - 1.5.4
+	- added: Open Random NewsPage from ToReadArray
+	- added: ToggleButton to close Page if Newspage is element of ToReadArray
 */
 
 try {
@@ -219,8 +223,27 @@ try {
 		}
 	}
 
+	function getRandomInt(min, max) {
+		min = Math.ceil(min);
+		max = Math.floor(max);
+		return Math.floor(Math.random() * (max - min)) + min;
+	}
+
 	function StartPageLoader_SiteSpecific() {
 		console.log("StartPageLoader_SiteSpecific");
+
+
+		GM_registerMenuCommand("Toggle CloseToReadNewsPage", function() {
+			SetData("CloseToReadNewsPage", !GetData("CloseToReadNewsPage", false, false), false, true);
+		});
+		GM_registerMenuCommand("Open Random ToReadNews", function() {
+			var ToReadNewsArray = GetData("ToReadNewsArray", "([])", true);
+			console.log(ToReadNewsArray.length + " ToReadNews availible!");
+			var win = window.open(ToReadNewsArray[getRandomInt(0, ToReadNewsArray.length)]);
+  			win.focus();
+		});
+
+
 		$("#index-vica2").remove();
 
 		$(".list-articles>li").detach().appendTo($(".list-articles").first());
@@ -860,6 +883,11 @@ try {
 				console.info("OpenNewspage: " + TabNoc.Settings.NameOfElement + " not readed!");
 			}
 
+			// CloseTab
+			if (ToReadNewsArray.indexOf(currentID) !== -1 && GetData("CloseToReadNewsPage", false, false) === true) {
+				window.open('', '_self').close();
+				alert("If you can see this you have to set 'dom.allow_scripts_to_close_windows' to 'true' in about:config.");
+			}
 			GM_Unlock();
 		} catch (exc) {
 			console.error(exc);
