@@ -2,7 +2,7 @@
 // @name        MarkGolemPages
 // @namespace   TabNoc
 // @include     http*://www.golem.de/*
-// @version     1.5.4_13122019
+// @version     1.5.5_20092020
 // @require     https://code.jquery.com/jquery-2.1.1.min.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/GM__.js
 // @require     https://raw.githubusercontent.com/mnpingpong/TabNoc_Userscripts/ImplementSync/base/TabNoc.js
@@ -127,6 +127,9 @@ Start Writing Script
 13.12.2019 - 1.5.4
 	- added: Open Random NewsPage from ToReadArray
 	- added: ToggleButton to close Page if Newspage is element of ToReadArray
+
+20.09.2020 - 1.5.5
+	- fixed: ScanWithKeyPress not working anymore
 */
 
 try {
@@ -514,7 +517,7 @@ try {
 					$(document).on("keydown", event => {
 						if (event.keyCode == 160) {
 							if (TabNoc.Variables.ScanWithKeyPressActiveTimeout > new Date() && TabNoc.Variables.WasHidden == false) {
-								let scanElement = $(TabNoc.Settings.ElementsSearchString).toArray().find(element => element.className == "MyPageElement");
+								let scanElement = $(TabNoc.Settings.ElementsSearchString).toArray().find(element => element.className.endsWith("MyPageElement"));
 								if (scanElement != null) {getAllElements(null, TabNoc.Settings.GetIDFunction(scanElement), false);}
 								event.preventDefault();
 								TabNoc.Variables.ScanWithKeyPressActiveTimeout = new Date(new Date().getTime() + 600000);
@@ -784,6 +787,7 @@ try {
 
 			$(window).on('beforeunload', function(e){
 				if (TabNoc.Variables.promptOnClose === true) {
+					console.log("on beforeunload()");
 					e.returnValue = 'Die Seite wurde nicht als gelsesen markiert, fortfahren?';
 					return 'Die Seite wurde nicht als gelsesen markiert, fortfahren?';
 				}
