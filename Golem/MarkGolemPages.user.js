@@ -130,6 +130,7 @@ Start Writing Script
 
 20.09.2020 - 1.5.5
 	- fixed: ScanWithKeyPress not working anymore
+	- added: logging when no element is found from ScanWithKeyPress
 */
 
 try {
@@ -517,8 +518,15 @@ try {
 					$(document).on("keydown", event => {
 						if (event.keyCode == 160) {
 							if (TabNoc.Variables.ScanWithKeyPressActiveTimeout > new Date() && TabNoc.Variables.WasHidden == false) {
-								let scanElement = $(TabNoc.Settings.ElementsSearchString).toArray().find(element => element.className.endsWith("MyPageElement"));
-								if (scanElement != null) {getAllElements(null, TabNoc.Settings.GetIDFunction(scanElement), false);}
+								let scanElement = $(TabNoc.Settings.ElementsSearchString)
+									.toArray()
+									.find(element => element.className.endsWith("MyPageElement"));
+								if (scanElement != null) {
+									getAllElements(null, TabNoc.Settings.GetIDFunction(scanElement), false);
+								}
+								else {
+									console.warn("no Element found from ScanWithKeyPress");
+								}
 								event.preventDefault();
 								TabNoc.Variables.ScanWithKeyPressActiveTimeout = new Date(new Date().getTime() + 600000);
 							}
