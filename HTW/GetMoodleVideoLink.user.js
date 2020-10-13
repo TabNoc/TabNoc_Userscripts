@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GetMoodleVideoLink
 // @namespace    https://github.com/mnpingpong/TabNoc_Userscripts
-// @version      0.1
+// @version      0.2
 // @updateURL    https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/HTW/GetMoodleVideoLink.user.js
 // @description  Opens a prompt with the Url of the Video File
 // @author       TabNoc
