@@ -22,6 +22,9 @@
 								"'; with data '" + event.data.data + "'" +
 								"'; from domain '" + event.data.domain + "'");
 			if (prompt("VideoUrl:", event.data.data) === event.data.data) {
+				if (confirm("Open Link in New Tab?") === true) {
+					window.open(event.data.data);
+				}
 				window.close();
 			}
 		}, false);
