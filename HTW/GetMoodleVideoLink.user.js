@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GetMoodleVideoLink
 // @namespace    https://github.com/mnpingpong/TabNoc_Userscripts
-// @version      0.2
+// @version      0.3
 // @updateURL    https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/HTW/GetMoodleVideoLink.user.js
 // @description  Opens a prompt with the Url of the Video File
 // @author       TabNoc
@@ -23,7 +23,7 @@
 								"'; from domain '" + event.data.domain + "'");
 			if (prompt("VideoUrl:", event.data.data) === event.data.data) {
 				if (confirm("Open Link in New Tab?") === true) {
-					window.open(event.data.data);
+					window.open(event.data.data, "_blank");
 				}
 				window.close();
 			}
