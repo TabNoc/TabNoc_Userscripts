@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         GetMoodleVideoLink
 // @namespace    https://github.com/mnpingpong/TabNoc_Userscripts
-// @version      0.3
+// @version      0.4
 // @updateURL    https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/HTW/GetMoodleVideoLink.user.js
 // @description  Opens a prompt with the Url of the Video File
 // @author       TabNoc
 // @match        https://moodle.htw-berlin.de/mod/vimp/view.php?id=*
 // @match        https://mediathek.htw-berlin.de/media/embed?*
 // @grant        window.close
+// @grant        GM_setClipboard
 // ==/UserScript==
 
 // @run-at       context-menu
@@ -21,11 +22,45 @@
 								"'; with message '" + event.data.message +
 								"'; with data '" + event.data.data + "'" +
 								"'; from domain '" + event.data.domain + "'");
-			if (prompt("VideoUrl:", event.data.data) === event.data.data) {
-				if (confirm("Open Link in New Tab?") === true) {
-					window.open(event.data.data, "_blank");
+
+			let title = document
+				.querySelector("#region-main")
+				.querySelector("h2")
+				.innerText
+				.replaceAll(":", " - ")
+				.replaceAll("  ", " ");
+
+			while(true) {
+				let result = prompt("1: Copy VideoUrl\r\n2: Open Video in new Tab and close current\r\n3: Copy modified Video-Title\r\n4: Open Video in new Tab\r\n5: Close Tab", "2");
+				console.log(result);
+				switch (result){
+					case "1":
+						GM_setClipboard(event.data.data, "text");
+						break;
+
+					case "2":
+						window.open(event.data.data);
+						window.close();
+						return;
+
+					case "3":
+						GM_setClipboard(title, "text");
+						break;
+
+					case "4":
+						window.open(event.data.data);
+						return;
+
+					case "5":
+						window.close();
+						return;
+
+					case null:
+						continue;
+
+					default:
+						break;
 				}
-				window.close();
 			}
 		}, false);
 	}
