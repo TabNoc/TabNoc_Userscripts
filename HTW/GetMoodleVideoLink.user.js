@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GetMoodleVideoLink
 // @namespace    https://github.com/mnpingpong/TabNoc_Userscripts
-// @version      0.4
+// @version      0.5
 // @updateURL    https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/HTW/GetMoodleVideoLink.user.js
 // @description  Opens a prompt with the Url of the Video File
 // @author       TabNoc
@@ -28,40 +28,43 @@
 				.querySelector("h2")
 				.innerText
 				.replaceAll(":", " - ")
+				.replaceAll("\"", "'")
 				.replaceAll("  ", " ");
 
-			while(true) {
+			let blub = function (){
 				let result = prompt("1: Copy VideoUrl\r\n2: Open Video in new Tab and close current\r\n3: Copy modified Video-Title\r\n4: Open Video in new Tab\r\n5: Close Tab", "2");
 				console.log(result);
 				switch (result){
 					case "1":
 						GM_setClipboard(event.data.data, "text");
+						blub();
 						break;
 
 					case "2":
 						window.open(event.data.data);
 						window.close();
-						return;
+						break;
 
 					case "3":
 						GM_setClipboard(title, "text");
+						blub();
 						break;
 
 					case "4":
 						window.open(event.data.data);
-						return;
+						break;
 
 					case "5":
 						window.close();
-						return;
+						break;
 
 					case null:
-						continue;
-
 					default:
 						break;
 				}
-			}
+			};
+
+			blub();
 		}, false);
 	}
 	else {
