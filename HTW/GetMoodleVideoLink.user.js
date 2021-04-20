@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         GetMoodleVideoLink
 // @namespace    https://github.com/mnpingpong/TabNoc_Userscripts
-// @version      0.5
+// @version      0.6
 // @updateURL    https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/HTW/GetMoodleVideoLink.user.js
 // @description  Opens a prompt with the Url of the Video File
 // @author       TabNoc
 // @match        https://moodle.htw-berlin.de/mod/vimp/view.php?id=*
 // @match        https://mediathek.htw-berlin.de/media/embed?*
+// @match        https://mediathek.htw-berlin.de/category/video/*
 // @grant        window.close
 // @grant        GM_setClipboard
 // ==/UserScript==
@@ -23,12 +24,12 @@
 								"'; with data '" + event.data.data + "'" +
 								"'; from domain '" + event.data.domain + "'");
 
-			let title = document
-				.querySelector("#region-main")
-				.querySelector("h2")
-				.innerText
-				.replaceAll(":", " - ")
+			let title = event
+				.data
+				.title
+				.replaceAll(":", " _-_ ")
 				.replaceAll("\"", "'")
+				.replaceAll("/", "-")
 				.replaceAll("  ", " ");
 
 			let blub = function (){
@@ -66,10 +67,19 @@
 
 			blub();
 		}, false);
+
+		if(location.href.startsWith("https://mediathek.htw-berlin.de/category/video")){
+			window.top.postMessage({
+				title: document.querySelector("h1").textContent,
+				domain: document.domain,
+				message: "Hello from, iframe - " + document.title,
+				data: document.querySelector("video>source").src
+			}, "*");
+		}
 	}
 	else {
 		window.top.postMessage({
-			title: document.title,
+			title: document.querySelector("#p_video").getAttribute("data-piwik-title"),
 			domain: document.domain,
 			message: "Hello from, iframe - " + document.title,
 			data: document.querySelector("#p_video>source").src
