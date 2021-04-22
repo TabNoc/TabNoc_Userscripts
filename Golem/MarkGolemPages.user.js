@@ -764,8 +764,8 @@ try {
 				}
 			}
 			GM_Lock();
-			SetData("SeenNewsArray", SeenNewsArray.toSource(), true);
-			SetData("ToReadNewsArray", ToReadNewsArray.toSource(), true);
+			SetData("SeenNewsArray", JSON.stringify(SeenNewsArray), true);
+			SetData("ToReadNewsArray", JSON.stringify(ToReadNewsArray), true);
 			GM_Unlock();
 
 			if (TabNoc.Settings.MarkAfterScan) {
@@ -867,13 +867,13 @@ try {
 
 			if (SeenNewsArray.indexOf(currentID) !== -1) {
 				SeenNewsArray.splice(SeenNewsArray.indexOf(currentID), 1);
-				SetData("SeenNewsArray", SeenNewsArray.toSource(), true);
+				SetData("SeenNewsArray", JSON.stringify(SeenNewsArray), true);
 				console.info("OpenNewspage: " + TabNoc.Settings.NameOfElement + " removed from SeenNewsArray");
 			}
 
 			if (ToReadNewsArray.indexOf(currentID) === -1 && ReadedNewsArray.indexOf(currentID) === -1 && DeletedNewsArray.indexOf(currentID) === -1) {
 				ToReadNewsArray.push(currentID);
-				SetData("ToReadNewsArray", ToReadNewsArray.toSource(), true);
+				SetData("ToReadNewsArray", JSON.stringify(ToReadNewsArray), true);
 				console.info("OpenNewspage: " + TabNoc.Settings.NameOfElement + " added to ToReadNewsArray");
 			}
 
@@ -927,19 +927,19 @@ try {
 			if (deleteEntry === true) {
 				if (ToReadNewsArray.indexOf(currentID) !== -1) {
 					ToReadNewsArray.splice(ToReadNewsArray.indexOf(currentID), 1);
-					SetData("ToReadNewsArray", ToReadNewsArray.toSource(), true);
+					SetData("ToReadNewsArray", JSON.stringify(ToReadNewsArray), true);
 					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " removed from ToReadNewspage");
 				}
 
 				if (ReadedNewsArray.indexOf(currentID) !== -1) {
 					ReadedNewsArray.splice(SeenNewsArray.indexOf(currentID), 1);
-					SetData("ReadedNewsArray", ReadedNewsArray.toSource(), true);
+					SetData("ReadedNewsArray", JSON.stringify(ReadedNewsArray), true);
 					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " removed from ReadedNewsArray!!!");
 				}
 
 				if (DeletedNewsArray.indexOf(currentID) === -1) {
 					DeletedNewsArray.push(currentID);
-					SetData("DeletedNewsArray", DeletedNewsArray.toSource(), true);
+					SetData("DeletedNewsArray", JSON.stringify(DeletedNewsArray), true);
 					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " added to DeletedNewsArray!!!");
 				}
 				TabNoc.Variables.promptOnClose = false;
@@ -950,19 +950,19 @@ try {
 			else {
 				if (SeenNewsArray.indexOf(currentID) !== -1) {
 					SeenNewsArray.splice(SeenNewsArray.indexOf(currentID), 1);
-					SetData("SeenNewsArray", SeenNewsArray.toSource(), true);
+					SetData("SeenNewsArray", JSON.stringify(SeenNewsArray), true);
 					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " removed from SeenNewsArray");
 				}
 
 				if (ToReadNewsArray.indexOf(currentID) !== -1) {
 					ToReadNewsArray.splice(ToReadNewsArray.indexOf(currentID), 1);
-					SetData("ToReadNewsArray", ToReadNewsArray.toSource(), true);
+					SetData("ToReadNewsArray", JSON.stringify(ToReadNewsArray), true);
 					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " removed from ToReadNewspage");
 				}
 
 				if (ReadedNewsArray.indexOf(currentID) === -1 && DeletedNewsArray.indexOf(currentID) === -1) {
 					ReadedNewsArray.push(currentID);
-					SetData("ReadedNewsArray", ReadedNewsArray.toSource(), true);
+					SetData("ReadedNewsArray", JSON.stringify(ReadedNewsArray), true);
 					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " added to ReadedNewsArray");
 
 					$("#reading").remove();
@@ -1047,7 +1047,7 @@ try {
 				}
 				Feedback.showProgress(50, "Empfangene Daten migrieren");
 				if (!error) {
-					var responseData = eval(response.responseText);
+					var responseData = JSON.parse(response.responseText);
 					console.info("Server response Data:", responseData);
 					if (responseData.ReadedNewsArray != null && responseData.SeenNewsArray != null) {
 						Feedback.lockProgress();
@@ -1107,20 +1107,19 @@ try {
 				Feedback.showProgress(75, "Neue Daten auf dem Server speichern");
 
 				var element = ({});
-				element.ReadedNewsArray = eval(GM_getValue("ReadedNewsArray") || "([])");
-				element.SeenNewsArray = eval(GM_getValue("SeenNewsArray") || "([])");
-				element.ToReadNewsArray = eval(GM_getValue("ToReadNewsArray") || "([])");
-				element.DeletedNewsArray = eval(GM_getValue("DeletedNewsArray") || "([])");
+				element.ReadedNewsArray = JSON.parse(GM_getValue("ReadedNewsArray") || "([])");
+				element.SeenNewsArray = JSON.parse(GM_getValue("SeenNewsArray") || "([])");
+				element.ToReadNewsArray = JSON.parse(GM_getValue("ToReadNewsArray") || "([])");
+				element.DeletedNewsArray = JSON.parse(GM_getValue("DeletedNewsArray") || "([])");
 				element["ReadedNewsArray-Version"] = GetData("ReadedNewsArray-Version", 0, true);
 				element["SeenNewsArray-Version"] = GetData("SeenNewsArray-Version", 0, true);
 				element["ToReadNewsArray-Version"] = GetData("ToReadNewsArray-Version", 0, true);
 				element["DeletedNewsArray-Version"] = GetData("DeletedNewsArray-Version", 0, true);
 				GM_xmlhttpRequest({
-					data: {
+					data: JSON.stringify({
 						Token: Token,
-						data: element.toSource()
-					}
-					.toSource(),
+						data: JSON.stringify(element)
+					}),
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json"
@@ -1138,10 +1137,9 @@ try {
 		var Token = prompt("Bitte Token eingeben") + scriptName;
 		Feedback.showProgress(20, "Request starten");
 		GM_xmlhttpRequest({
-			data: {
+			data: JSON.stringify({
 				Token: Token
-			}
-			.toSource(),
+			}),
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json"
@@ -1174,7 +1172,7 @@ try {
 			console.info(msg);
 		}
 		versionData[moduleName].Version = currentVersion;
-		SetData("ImportVersion", versionData.toSource(), true);
+		SetData("ImportVersion", JSON.stringify(versionData), true);
 	}
 
 	function Main() {
