@@ -200,11 +200,19 @@ try {
 
 	function CheckCurrentElementFunction(element) {
 		if (CurrentUrlIsTicker() == true || CurrentUrlIsArchive ()) {
-			return $(element).children("h3").length === 1  && $(element).children("h3").eq(0).children("a").length === 1 && $(element).children("h3").eq(0).children("a")[0].hasAttribute("href");
+			return $(element).children("h3").length === 1 && $(element).children("h3").eq(0).children("a").length === 1 && $(element).children("h3").eq(0).children("a")[0].hasAttribute("href");
 		} else {
-			return $(element).children("a").length === 1  && (element.className.contains("media__teaser--articles") || $(element).children("a")[0].getAttribute("id").includes("hpal" + (MobileCheck() === false ? "t" : "")) ||
-				$(element).children("a")[0].getAttribute("id").includes("bigalt") ||
-				$(element).children("a")[0].getAttribute("id").includes("msalt"));
+			if (element.id === "index-promo") {
+				return element.querySelectorAll("section>div>a").length == 1 && element.querySelector("section>div>a").id.startsWith("bigalt");
+			}
+			else {
+				return
+					$(element).children("a").length === 1 && (
+						element.className.contains("media__teaser--articles") ||
+						$(element).children("a")[0].getAttribute("id").includes("hpal" + (MobileCheck() === false ? "t" : "")) ||
+						$(element).children("a")[0].getAttribute("id").includes("msalt")
+				);
+			}
 		}
 	}
 
