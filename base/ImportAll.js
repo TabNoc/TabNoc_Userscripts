@@ -1,5 +1,5 @@
 function getImportAllVersion(){
-	return {Version: "1.1.2", Date: "03.07.2018"};
+	return {Version: "1.1.3", Date: "23.04.2021"};
 }
 
 /*
@@ -45,12 +45,12 @@ function ImportData(allData, entriesArray) {
 		if (typeof(allData) == "object" && allData !== null) {
 			element = allData;
 		} else if (allData === true) {
-			element = eval(prompt("Bitte die exportierten Daten eintragen"));
+			element = JSON.parse(prompt("Bitte die exportierten Daten eintragen"));
 		} else {
 			element = ({});
 			for (let entryID in entriesArray) {
 				let entry = entriesArray[entryID];
-				element[entry.Name] = eval(prompt("Please insert new " + entry.Name + " Data"));
+				element[entry.Name] = JSON.parse(prompt("Please insert new " + entry.Name + " Data"));
 			}
 		}
 
@@ -80,7 +80,7 @@ function ImportData(allData, entriesArray) {
 		}
 
 		if (errorList.length !== 0) {
-			let msg = "Das Importieren kann nicht durchgeführt werden, da:\r\n";
+			msg = "Das Importieren kann nicht durchgeführt werden, da:\r\n";
 			for (let i in errorList) {
 				msg = msg + "\r\n\t- " + errorList[i];
 			}
@@ -94,14 +94,14 @@ function ImportData(allData, entriesArray) {
 
 		for (let entryID in entriesArray) {
 			let entry = entriesArray[entryID];
-			element[entry.Name] = eval(element[entry.Name]);
+			element[entry.Name] = JSON.parse(element[entry.Name]);
 		}
 
 		GM_Lock();
 		for (let entryID in entriesArray) {
 			let entry = entriesArray[entryID];
 			if (element[entry.Name] == undefined) {
-				element[entry.Name] = eval(entry.defaultValue);
+				element[entry.Name] = JSON.parse(entry.defaultValue);
 			}
 			if (typeof(element[entry.Name]) != "object") {
 				throw new Error("element." + entry.Name + "(Value: " + element[entry.Name] + ") is not an Object, Import impossible!");
@@ -123,7 +123,7 @@ function ImportData(allData, entriesArray) {
 			let entry = entriesArray[entryID];
 			element.currentData[entry.Name] = GetData(entry.Name, entry.defaultValue, true);
 			element.count[entry.Name] = 0;
-			newDataStorage[entry.Name] = eval(entry.defaultValue);
+			newDataStorage[entry.Name] = JSON.parse(entry.defaultValue);
 		}
 
 		for (let entryID in entriesArray) {
@@ -151,11 +151,11 @@ function ImportData(allData, entriesArray) {
 			let entry = entriesArray[entryID];
 			msg += entry.Name + ":\r\n";
 			msg += "\tEs wurden " + element.count[entry.Name] + " Elemente aktualisiert (";
-			msg += "gespeicherte Datenmenge: " + element.currentData[entry.Name].toSource().length + "B (" + Object.keys(element.currentData[entry.Name]).length + ") | ";
-			msg += "importierte Datenmenge: " + element[entry.Name].toSource().length + "B (" + Object.keys(element[entry.Name]).length + ") | ";
-			msg += "neue Datenmenge: " + newDataStorage[entry.Name].toSource().length + "B) (" + Object.keys(newDataStorage[entry.Name]).length + ")\r\n";
+			msg += "gespeicherte Datenmenge: " + JSON.stringify(element.currentData[entry.Name]).length + "B (" + Object.keys(element.currentData[entry.Name]).length + ") | ";
+			msg += "importierte Datenmenge: " + JSON.stringify(element[entry.Name]).length + "B (" + Object.keys(element[entry.Name]).length + ") | ";
+			msg += "neue Datenmenge: " + JSON.stringify(newDataStorage[entry.Name]).length + "B) (" + Object.keys(newDataStorage[entry.Name]).length + ")\r\n";
 			msg += "Delta:\r\n";
-			if (newDataStorage[entry.Name].toSource() != element.currentData[entry.Name].toSource()) {
+			if (JSON.stringify(newDataStorage[entry.Name]) != JSON.stringify(element.currentData[entry.Name])) {
 				changes = true;
 			}
 		}
@@ -168,7 +168,7 @@ function ImportData(allData, entriesArray) {
 			if (confirm("Sollen die Änderungen gespeichert werden?") === true) {
 				for (let entryID in entriesArray) {
 					let entry = entriesArray[entryID];
-					SetData(entry.Name, newDataStorage[entry.Name].toSource());
+					SetData(entry.Name, JSON.stringify(newDataStorage[entry.Name]));
 				}
 			}
 		}
@@ -286,7 +286,7 @@ function UpdateDatabaseTable(ExpectedVersionNumber, CurrentVersionNumber, TableN
 				TableUpdateObject[TableName].InitTable(functions, silent);
 				functions.setValue(TableName + "-Version", ExpectedVersionNumber);
 				CurrentVersionNumber = ExpectedVersionNumber;
-				let updateMsg = "Die Datenbank-Tabelle " + TableName + " wurde initialisiert (Version: " + functions.getValue(TableName + "-Version") + ")";
+				updateMsg = "Die Datenbank-Tabelle " + TableName + " wurde initialisiert (Version: " + functions.getValue(TableName + "-Version") + ")";
 				console.log(updateMsg);
 			}
 		}

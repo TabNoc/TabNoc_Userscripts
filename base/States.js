@@ -1,5 +1,5 @@
 function getStatesVersion(){
-	return {Version: "1.2.8", Date: "13.02.2018"};
+	return {Version: "1.2.9", Date: "23.04.2021"};
 }
 
 /*
@@ -98,8 +98,8 @@ function GetState(currentState, changes, requestedStateNr, requestAsTime) {
 		throw new Error("OutOfRangeException: requestedStateNr was already deleted");
 	}
 
-	var workingState = eval(currentState.toSource());
-	for (workingStateNr = currentStateNr - 1; workingStateNr >= requestedStateNr; workingStateNr--) {
+	var workingState = JSON.parse(JSON.stringify(currentState));
+	for (let workingStateNr = currentStateNr - 1; workingStateNr >= requestedStateNr; workingStateNr--) {
 		let diffData = changes.data[changes.changeLog[workingStateNr - changes.removedChangeLogEntries]];
 		if (diffData == null) {
 			throw new Error("NullPointerExeption: diffData is null [workingStateNr:" + workingStateNr + "]");
@@ -172,7 +172,7 @@ function CreateHistoryDialog(data, callBack) {
 			$("#HistoryDataSelector-" + i).selectmenu({
 				change: returnExec(function (event, data) {
 					let group = data.item.element[0].getAttribute("historyGroup");
-					document.getElementById("HistoryDialogTabResultPanel-" + group).innerHTML = GetVisualDiff(eval(GetData(group)), eval(GetData("changes"))[group], data.item.value, true);
+					document.getElementById("HistoryDialogTabResultPanel-" + group).innerHTML = GetVisualDiff(JSON.parse(GetData(group)), JSON.parse(GetData("changes"))[group], data.item.value, true);
 					$("#HistoryDataButton-" + group).attr("selectedValue", data.item.value);
 					console.error($("#HistoryDataButton-" + group));
 				})
@@ -181,7 +181,7 @@ function CreateHistoryDialog(data, callBack) {
 			$("#HistoryDataButton-" + keyName).button().click(function (event, data) {
 				console.error(event);
 				let group = $(event.target).attr("historyGroup");
-				let newValue = GetState(eval(GetData(group)), eval(GetData("changes"))[group], $(event.target).attr("selectedValue"), true);
+				let newValue = GetState(JSON.parse(GetData(group)), JSON.parse(GetData("changes"))[group], $(event.target).attr("selectedValue"), true);
 				if (callBack == null) {
 					if (confirm("Sollen die aktuellen Daten mit den ausgewählten alten Daten aus der Historie überschrieben werden?") === true) {
 						SetData(group, newValue, true, false);
@@ -201,12 +201,12 @@ function testTabNocStates() {
 	let changes = ({});
 	let testState = ({Baum:"tree"});
 	let testCount = 30;
-	for (i = 1; i <= testCount; i++) {
-		let oldState = testState.toSource();
+	for (let i = 1; i <= testCount; i++) {
+		let oldState = JSON.stringify(testState);
 		testState[i] = "!";
 		testState["State"] = i;
-		// console.log("State", i, ":", eval(oldState), ">", currentState);
-		if (AddState(eval(oldState), testState, changes, testCount - 2).StateNr != i) {
+		// console.log("State", i, ":", JSON.parse(oldState), ">", currentState);
+		if (AddState(JSON.parse(oldState), testState, changes, testCount - 2).StateNr != i) {
 			console.error("States.js.testTabNocStates(): Test 1 failed!\r\nAddState, returned StateNr not expected Statenr");
 			alert("States.js.testTabNocStates(): Test 1 failed!\r\nAddState, returned StateNr not expected Statenr");
 		}
@@ -218,7 +218,7 @@ function testTabNocStates() {
 		alert("States.js.testTabNocStates(): Test 2 failed!");
 	}
 	catch (e) {}
-	for (i = 2; i <= testCount; i++) {
+	for (let i = 2; i <= testCount; i++) {
 		let result = GetState(testState, changes, i);
 		if (result.State != i) {
 			console.warn(i, result);
@@ -238,12 +238,12 @@ function SetData(keyName, value, locked, disableValueHistory) {
 	try {
 		var oldValue;
 		if (disableValueHistory !== true)
-			oldValue = eval(GM_getValue(keyName));
+			oldValue = JSON.parse(GM_getValue(keyName));
 		if (oldValue == null) {
 			oldValue = ({});
 		}
 
-		if (oldValue.toSource() != value) {
+		if (JSON.stringify(oldValue) != value) {
 			if (locked == true) {
 				GM_setValue(keyName, value);
 			} else {
@@ -252,16 +252,16 @@ function SetData(keyName, value, locked, disableValueHistory) {
 
 			var result;
 			if (disableValueHistory !== true) {
-				let changes = eval(GM_getValue("changes") || ({}));
+				let changes = JSON.parse(GM_getValue("changes") || ({}));
 				changes[keyName] = changes[keyName] || ({});
 				const MaxAmount = 50;
 
-				result = AddState(oldValue, eval(value), changes[keyName], MaxAmount);
+				result = AddState(oldValue, JSON.parse(value), changes[keyName], MaxAmount);
 
-				GM_setValue("changes", changes.toSource());
+				GM_setValue("changes", JSON.stringify(changes));
 			}
 			if (TabNoc.Settings.Debug === true) {
-				console.log("SetData(" + keyName + ", " + defaultValue + ", " + locked + ", " + disableValueHistory + ") -> " + result);
+				console.log("SetData(" + keyName + ", " + value + ", " + locked + ", " + disableValueHistory + ") -> " + result);
 			}
 		}
 	} catch (exc) {
@@ -284,7 +284,7 @@ function GetData(keyName, defaultValue, evalValue) {
 
 		if (evalValue === true) {
 			try {
-				data = eval(data);
+				data = JSON.parse(data);
 			} catch (exc) {
 				ErrorHandler(exc, "Die Daten von >" + keyName + "< aus der Datenbank konnten nicht ausgewertet werden");
 			}

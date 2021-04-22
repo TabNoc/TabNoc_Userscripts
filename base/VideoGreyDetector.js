@@ -55,7 +55,7 @@ function AddGreyDetector(Config) {
 				var amount = 0;
 				// check performance
 				// maybe positionate i based on getImageData
-				for (i = 0; i < data.length; i += 4) {
+				for (let i = 0; i < data.length; i += 4) {
 					if (data[i + 1] < 250 && data[i] === data[i + 1] && data[i + 1] === data[i + 2]) {
 						amount++;
 					}

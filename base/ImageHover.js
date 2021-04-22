@@ -38,7 +38,7 @@ try {
 			throw "Element Config.StartShiftState is wrong";
 			return false;
 		}
-		for (i = 0; i < Config.HoverEventElements; i++) {
+		for (let i = 0; i < Config.HoverEventElements; i++) {
 			if (Config.HoverEventElements[i].condition == null) {
 				throw "Element Config.HoverEventElements[" + i + "].condition is wrong";
 				return false;
@@ -102,7 +102,7 @@ try {
 			TabNoc_ImageHover.Variables.isShiftDown = TabNoc_ImageHover.Settings.Config.StartShiftState;
 			
 			// Add Event Listener
-			for (i = 0; i < TabNoc_ImageHover.Settings.Config.HoverEventElements.length; i++) {
+			for (let i = 0; i < TabNoc_ImageHover.Settings.Config.HoverEventElements.length; i++) {
 				if (TabNoc_ImageHover.Settings.Config.HoverEventElements[i].condition === true) {
 					var index = i;
 					// OnMouseOver Event
