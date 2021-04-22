@@ -3,9 +3,9 @@
 // @namespace   TabNoc
 // @include     http*://www.youtube.com/feed/subscriptions
 // @include     http*://www.youtube.com/user/*
-// @include     http*://www.youtube.com/channel/*
-// @include     http*://www.youtube.com/channel/*/videos*
-// @include     http*://www.youtube.com/channel/*/featured*
+// @include     http*://www.youtube.com/c*/*
+// @include     http*://www.youtube.com/c*/*/videos*
+// @include     http*://www.youtube.com/c*/*/featured*
 // @include     http*://www.youtube.com/watch?*v=*
 // @include     http*://www.youtube.com/results?*
 // @include     http*://www.youtube.com/feed/history
@@ -290,7 +290,7 @@ try {
 			element["VideoObjectDictionary-Version"] = GetData("VideoObjectDictionary-Version", 0, true);
 			element["WatchedVideoArray-Version"] = GetData("WatchedVideoArray-Version", 0, true);
 			element["ScannedVideoArray-Version"] = GetData("ScannedVideoArray-Version", 0, true);
-			prompt("Bitte die Exportierten Daten kopieren", element.toSource());
+			prompt("Bitte die Exportierten Daten kopieren", JSON.stringify(element));
 		});
 
 		GM_registerMenuCommand("ImportAllData", function () {
@@ -306,7 +306,7 @@ try {
 				defaultVersion: 2,
 				defaultValue: "({})",
 				ImportAction: function (dataStorage, currentEntry, importElement) {
-					PushVideoObject(dataStorage[currentEntry.Name], eval(importElement.toSource()), false);
+					PushVideoObject(dataStorage[currentEntry.Name], JSON.parse(JSON.stringify(importElement)), false);
 				}
 			}, {
 				Name: "WatchedVideoArray",
@@ -384,7 +384,7 @@ try {
 			ToggleState = TabNoc.Variables.MarkToggleState;
 		}
 
-		for (i = 0; i < elements.length; i++) {
+		for (let i = 0; i < elements.length; i++) {
 			Feedback.showProgress(i / elements.length * 100, "Analysing Element " + i + " from " + elements.length);
 			var currentElement = elements[i];
 
@@ -486,7 +486,7 @@ try {
 				}
 			}
 
-			SetData("ScannedVideoArray", scannedVideoArray.toSource(), true, false);
+			SetData("ScannedVideoArray", JSON.stringify(scannedVideoArray), true, false);
 			GM_Unlock();
 
 			startCheckElements(true);
@@ -723,7 +723,7 @@ try {
 	function WatchingVideo() {
 		if (TabNoc.Settings.Debug === true) {
 			console.groupCollapsed("WatchingVideo");
-			console.log("WatchingVideo()->old:", eval(TabNoc.Variables.VideoStatisticsObject), TabNoc.Variables.VideoStatisticsObject);
+			console.log("WatchingVideo()->old:", JSON.parse(TabNoc.Variables.VideoStatisticsObject), TabNoc.Variables.VideoStatisticsObject);
 		}
 		if (TabNoc.Variables.VideoStatisticsObject != null) {
 			alert("TabNoc.Variables.VideoStatisticsObject ist nicht null");
@@ -736,7 +736,7 @@ try {
 			};
 
 			// prepare Current VideoStatisticsObject
-			TabNoc.Variables.VideoStatisticsObject = {
+			TabNoc.Variables.VideoStatisticsObject = JSON.stringify({
 				VideoID: unsafeWindow.document.getElementById("movie_player").getVideoData().video_id,
 				VideoTitle: unsafeWindow.document.getElementById("movie_player").getVideoData().title,
 				VideoAuthor: unsafeWindow.document.getElementById("movie_player").getVideoData().author,
@@ -746,14 +746,14 @@ try {
 					}
 				],
 				VideoLength: Math.floor(unsafeWindow.document.getElementById("movie_player").getDuration())
-			}.toSource();
+			});
 
 			if (TabNoc.Settings.Debug === true) {
 				console.log("WatchingVideo()->new: " + TabNoc.Variables.VideoStatisticsObject);
 			}
 
 			if (TabNoc.Settings.ShowAlreadyWatchedDialog === true) {
-				if (GetVideoWatched(null, null, eval(TabNoc.Variables.VideoStatisticsObject).VideoID) === true) {
+				if (GetVideoWatched(null, null, JSON.parse(TabNoc.Variables.VideoStatisticsObject).VideoID) === true) {
 					setTimeout(function () {
 						alert("watched");
 						Feedback.showMessage("Watched!", "error", 60000);
@@ -761,10 +761,10 @@ try {
 					console.log("Video already watched!");
 				}
 			}
-			TabNoc.Variables.VideoStatisticsObject = PushVideoObject(null, eval(TabNoc.Variables.VideoStatisticsObject), true).toSource();
+			TabNoc.Variables.VideoStatisticsObject = JSON.stringify(PushVideoObject(null, JSON.parse(TabNoc.Variables.VideoStatisticsObject), true));
 
-			Feedback.notify("Aktuelles Video: " + eval(TabNoc.Variables.VideoStatisticsObject).VideoTitle, 2000);
-			console.info("Aktuelles Video: " + eval(TabNoc.Variables.VideoStatisticsObject).VideoTitle + " ID: " + eval(TabNoc.Variables.VideoStatisticsObject).VideoID);
+			Feedback.notify("Aktuelles Video: " + JSON.parse(TabNoc.Variables.VideoStatisticsObject).VideoTitle, 2000);
+			console.info("Aktuelles Video: " + JSON.parse(TabNoc.Variables.VideoStatisticsObject).VideoTitle + " ID: " + JSON.parse(TabNoc.Variables.VideoStatisticsObject).VideoID);
 
 		} catch (exc) {
 			console.error(exc);
@@ -813,7 +813,7 @@ try {
 			//TODO: have I deleted something???
 			// check Fullscreen state Change
 			if ((document.mozFullScreenElement == null && TabNoc.Variables.LastFullScreenElement != null) ||
-				 (document.mozFullScreenElement != null && (document.mozFullScreenElement.getAttribute("id") != TabNoc.Variables.LastFullScreenElement))) {
+					(document.mozFullScreenElement != null && (document.mozFullScreenElement.getAttribute("id") != TabNoc.Variables.LastFullScreenElement))) {
 				TabNoc.Variables.LastFullScreenElement = document.mozFullScreenElement && document.mozFullScreenElement.getAttribute("id");
 				checkVideoWallElements();
 			}
@@ -906,10 +906,10 @@ try {
 			return false;
 		}
 		try {
-			let VideoStatisticsObject = eval(TabNoc.Variables.VideoStatisticsObject);
+			let VideoStatisticsObject = JSON.parse(TabNoc.Variables.VideoStatisticsObject);
 			VideoStatisticsObject.Watches[VideoStatisticsObject.Watches.length - 1].WatchedLength = Math.round(TabNoc.Variables.WatchedLength);
 
-			TabNoc.Variables.VideoStatisticsObject = PushVideoObject(null, eval(VideoStatisticsObject.toSource()), true);
+			TabNoc.Variables.VideoStatisticsObject = JSON.stringify(PushVideoObject(null, JSON.parse(JSON.stringify(VideoStatisticsObject)), true));
 
 			if (TabNoc.Settings.Debug === true) {
 				console.groupEnd();
@@ -944,13 +944,13 @@ try {
 		functions.lock();
 
 		// ### WatchedVideoArray-Version ###
-		let Version_WatchedVideoArray = eval(functions.getValue("WatchedVideoArray-Version"));
+		let Version_WatchedVideoArray = JSON.parse(functions.getValue("WatchedVideoArray-Version"));
 
 		// ### ScannedVideoArray-Version ###
-		let Version_ScannedVideoArray = eval(functions.getValue("ScannedVideoArray-Version"));
+		let Version_ScannedVideoArray = JSON.parse(functions.getValue("ScannedVideoArray-Version"));
 
 		// ### VideoObjectDictionary-Version ###
-		let Version_VideoObjectDictionary = eval(functions.getValue("VideoObjectDictionary-Version"));
+		let Version_VideoObjectDictionary = JSON.parse(functions.getValue("VideoObjectDictionary-Version"));
 
 		// ### WatchedVideoArray ###
 		if (Version_WatchedVideoArray != CurrentVersion_WatchedVideoArray) {
@@ -963,11 +963,11 @@ try {
 				// aus der alten Tabelle 'Watched-Videos' importieren, same DataStructure 		#*#!LEGACY CODE!#*#
 
 				// ### Watched-Videos ###
-				let WatchedVideos = eval(functions.getValue("Watched-Videos") || null);
+				let WatchedVideos = JSON.parse(functions.getValue("Watched-Videos") || null);
 
 				if (WatchedVideos != null) {
-					functions.setValue("WatchedVideoArray", WatchedVideos.toSource());
-					functions.setValue("WatchedVideoArray-Version-(-1)", WatchedVideos.toSource());
+					functions.setValue("WatchedVideoArray", JSON.stringify(WatchedVideos));
+					functions.setValue("WatchedVideoArray-Version-(-1)", JSON.stringify(WatchedVideos));
 
 					if (GM_listValues().indexOf("Watched-Videos") !== -1) {
 						GM_deleteValue("Watched-Videos");
@@ -995,7 +995,7 @@ try {
 				}
 			} else {
 				// ### WatchedVideoArray ###
-				let WatchedVideoArray = eval(functions.getValue("WatchedVideoArray") || "([])");
+				let WatchedVideoArray = JSON.parse(functions.getValue("WatchedVideoArray") || "([])");
 
 				switch (Version_WatchedVideoArray) {
 				default:
@@ -1016,7 +1016,7 @@ try {
 				// aus der alten Tabelle 'Videos' importieren, same DataStructure 		#*#!LEGACY CODE!#*#
 
 				// ### Videos ###
-				let Videos = eval(functions.getValue("Videos") || null);
+				let Videos = JSON.parse(functions.getValue("Videos") || null);
 
 				if (Videos != null) {
 					let ScannedVideoArray = ([]);
@@ -1031,8 +1031,8 @@ try {
 						}
 					}
 
-					functions.setValue("ScannedVideoArray", ScannedVideoArray.toSource());
-					functions.setValue("ScannedVideoArray-Version-(-1)", Videos.toSource());
+					functions.setValue("ScannedVideoArray", JSON.stringify(ScannedVideoArray));
+					functions.setValue("ScannedVideoArray-Version-(-1)", JSON.stringify(Videos));
 
 					if (GM_listValues().indexOf("Videos") !== -1) {
 						GM_deleteValue("Videos");
@@ -1052,7 +1052,7 @@ try {
 				}
 			} else {
 				// ### ScannedVideoArray ###
-				let ScannedVideoArray = eval(functions.getValue("ScannedVideoArray") || "([])");
+				let ScannedVideoArray = JSON.parse(functions.getValue("ScannedVideoArray") || "([])");
 
 				switch (Version_ScannedVideoArray) {
 				default:
@@ -1073,10 +1073,10 @@ try {
 				// aus der alten Tabelle 'VideoStatistics' importieren 		#*#!LEGACY CODE!#*#
 
 				// ### VideoStatistics ###
-				let VideoStatistics = eval(functions.getValue("VideoStatistics") || null);
+				let VideoStatistics = JSON.parse(functions.getValue("VideoStatistics") || null);
 
 				if (VideoStatistics != null) {
-					functions.setValue("VideoObjectDictionary-Version-(-1)", VideoStatistics.toSource());
+					functions.setValue("VideoObjectDictionary-Version-(-1)", JSON.stringify(VideoStatistics));
 					let newStructure = ({
 						"unknown": ([])
 					});
@@ -1094,7 +1094,7 @@ try {
 					console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + functions.getValue("VideoObjectDictionary-Version") + " geändert");
 					alert("DataBase:'VideoObjectDictionary' die alten Daten wurden erfolgreich importiert!\r\nDie Datenbank wurde von alten Daten bereinigt.");
 
-					functions.setValue("VideoObjectDictionary", newStructure.toSource());
+					functions.setValue("VideoObjectDictionary", JSON.stringify(newStructure));
 				} else {
 					functions.setValue("VideoObjectDictionary-Version", CurrentVersion_VideoObjectDictionary);
 					console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + functions.getValue("VideoObjectDictionary-Version") + " geändert");
@@ -1102,7 +1102,7 @@ try {
 				}
 			} else {
 				// ### VideoObjectDictionary ###
-				let videoObjectDictionary = eval(functions.getValue("VideoObjectDictionary") || "({})");
+				let videoObjectDictionary = JSON.parse(functions.getValue("VideoObjectDictionary") || "({})");
 				let newStructure = ({});
 				let count = 0;
 				let count2 = 0;
@@ -1110,7 +1110,7 @@ try {
 				switch (Version_VideoObjectDictionary) {
 					case 0:
 					case 1:
-						functions.setValue("VideoObjectDictionary-Version-1", videoObjectDictionary.toSource());
+						functions.setValue("VideoObjectDictionary-Version-1", JSON.stringify(videoObjectDictionary));
 
 						for (let i in videoObjectDictionary) {
 							for (let j in videoObjectDictionary[i]) {
@@ -1132,13 +1132,13 @@ try {
 						}
 
 						console.log("Die Version der Tabelle VideoObjectDictionary ist " + functions.getValue("VideoObjectDictionary-Version"));
-						console.info("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B)");
+						console.info("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + JSON.stringify(videoObjectDictionary).length + "B | neue Datenmenge: " + JSON.stringify(newStructure).length + "B)");
 						if (silent !== true)
-							alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B)");
+							alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + JSON.stringify(videoObjectDictionary).length + "B | neue Datenmenge: " + JSON.stringify(newStructure).length + "B)");
 						if (silent || confirm("Sollen die Änderungen gespeichert werden?") === true) {
 							functions.setValue("VideoObjectDictionary-Version", 2);
 							console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + functions.getValue("VideoObjectDictionary-Version") + " geändert");
-							functions.setValue("VideoObjectDictionary", newStructure.toSource());
+							functions.setValue("VideoObjectDictionary", JSON.stringify(newStructure));
 						} else {
 							throw new Error("Das Abspeichern der geänderten Daten wurde durch den Benutzer abgelehnt");
 						}
@@ -1146,13 +1146,13 @@ try {
 
 					case 2:
 						if (functions.getValue("VideoObjectDictionary-Version-2") != null) {
-							if (functions.getValue("VideoObjectDictionary-Version-2") !== videoObjectDictionary.toSource()) {
+							if (functions.getValue("VideoObjectDictionary-Version-2") !== JSON.stringify(videoObjectDictionary)) {
 								console.log("Current VideoObjectDictionary-Version-2 Data");
-								console.log(eval(functions.getValue("VideoObjectDictionary-Version-2")));
+								console.log(JSON.parse(functions.getValue("VideoObjectDictionary-Version-2")));
 								console.log("New VideoObjectDictionary-Version-2 Data");
-								console.log(eval(videoObjectDictionary.toSource()));
+								console.log(JSON.parse(JSON.stringify(videoObjectDictionary)));
 								if (confirm("Der Eintrag 'VideoObjectDictionary-Version-2' ist bereits mit anderen Daten gesetzt, soll dieser überschrieben werden?\r\n[In der Konsole sind ausführliche Informationen]") === true) {
-									functions.setValue("VideoObjectDictionary-Version-2", videoObjectDictionary.toSource());
+									functions.setValue("VideoObjectDictionary-Version-2", JSON.stringify(videoObjectDictionary));
 								} else {
 									if (confirm("Soll der Vorgang ohne Backup fortgesetzt werden?") !== true) {
 										throw new Error("Der Eintrag 'VideoObjectDictionary-Version-2' ist bereits mit anderen Daten gesetzt, der Benutzer hat ein überschreiben und ein Fortsetzten abgelehnt");
@@ -1162,10 +1162,10 @@ try {
 								console.log("VideoObjectDictionary-Version-2 was already set with same Data");
 							}
 						} else {
-							functions.setValue("VideoObjectDictionary-Version-2", videoObjectDictionary.toSource());
+							functions.setValue("VideoObjectDictionary-Version-2", JSON.stringify(videoObjectDictionary));
 						}
 
-						newStructure = eval(videoObjectDictionary.toSource());
+						newStructure = JSON.parse(JSON.stringify(videoObjectDictionary));
 						let regex = new RegExp(/(\d{1,2}).(\d{1,2}).(\d{4})(.*,.*\d{2}:\d{2}:\d{2})?/);
 
 						for (let i in videoObjectDictionary) {
@@ -1185,7 +1185,7 @@ try {
 										if (matches.length === 5 && matches[4] != undefined) {
 											var newDate = new Date(matches[2] + "/" + matches[1] + "/" + matches[3] + matches[4]);
 										}
-										// das Datum {videoObjectDictionary[i].Watches[j].Date} vom Datensatz {videoObjectDictionary[i].toSource()} auf die Zeit 00:00:00Uhr setzen
+										// das Datum {videoObjectDictionary[i].Watches[j].Date} vom Datensatz {JSON.stringify(videoObjectDictionary[i])} auf die Zeit 00:00:00Uhr setzen
 										else {
 											let newDate = new Date(matches[2] + "/" + matches[1] + "/" + matches[3]);
 										}
@@ -1202,13 +1202,13 @@ try {
 						}
 
 						console.log("Die Version der Tabelle VideoObjectDictionary ist " + functions.getValue("VideoObjectDictionary-Version"));
-						console.info("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
+						console.info("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + JSON.stringify(videoObjectDictionary).length + "B | neue Datenmenge: " + JSON.stringify(newStructure).length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
 						if (silent !== true)
-							alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
+							alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + JSON.stringify(videoObjectDictionary).length + "B | neue Datenmenge: " + JSON.stringify(newStructure).length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
 						if (silent || confirm("Sollen die Änderungen gespeichert werden?") === true) {
 							functions.setValue("VideoObjectDictionary-Version", 3);
 							console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + functions.getValue("VideoObjectDictionary-Version") + " geändert");
-							functions.setValue("VideoObjectDictionary", newStructure.toSource());
+							functions.setValue("VideoObjectDictionary", JSON.stringify(newStructure));
 						} else {
 							throw new Error("Das Abspeichern der geänderten Daten wurde durch den Benutzer abgelehnt");
 						}
@@ -1216,13 +1216,13 @@ try {
 
 					case 3:
 						if (functions.getValue("VideoObjectDictionary-Version-3") != null) {
-							if (functions.getValue("VideoObjectDictionary-Version-3") !== videoObjectDictionary.toSource()) {
+							if (functions.getValue("VideoObjectDictionary-Version-3") !== JSON.stringify(videoObjectDictionary)) {
 								console.log("Current VideoObjectDictionary-Version-3 Data");
-								console.log(eval(functions.getValue("VideoObjectDictionary-Version-3")));
+								console.log(JSON.parse(functions.getValue("VideoObjectDictionary-Version-3")));
 								console.log("New VideoObjectDictionary-Version-3 Data");
-								console.log(eval(videoObjectDictionary.toSource()));
+								console.log(JSON.parse(JSON.stringify(videoObjectDictionary)));
 								if (confirm("Der Eintrag 'VideoObjectDictionary-Version-3' ist bereits mit anderen Daten gesetzt, soll dieser überschrieben werden?\r\n[In der Konsole sind ausführliche Informationen]") === true) {
-									functions.setValue("VideoObjectDictionary-Version-3", videoObjectDictionary.toSource());
+									functions.setValue("VideoObjectDictionary-Version-3", JSON.stringify(videoObjectDictionary));
 								} else {
 									if (confirm("Soll der Vorgang ohne Backup fortgesetzt werden?") !== true) {
 										throw new Error("Der Eintrag 'VideoObjectDictionary-Version-3' ist bereits mit anderen Daten gesetzt, der Benutzer hat ein überschreiben und ein Fortsetzten abgelehnt");
@@ -1232,10 +1232,10 @@ try {
 								console.log("VideoObjectDictionary-Version-3 was already set with same Data");
 							}
 						} else {
-							functions.setValue("VideoObjectDictionary-Version-3", videoObjectDictionary.toSource());
+							functions.setValue("VideoObjectDictionary-Version-3", JSON.stringify(videoObjectDictionary));
 						}
 
-						newStructure = eval(videoObjectDictionary.toSource());
+						newStructure = JSON.parse(JSON.stringify(videoObjectDictionary));
 
 						for (let i in videoObjectDictionary) {
 							for (let j in videoObjectDictionary[i].Watches) {
@@ -1252,13 +1252,13 @@ try {
 						}
 
 						console.log("Die Version der Tabelle VideoObjectDictionary ist " + functions.getValue("VideoObjectDictionary-Version"));
-						console.info("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
+						console.info("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + JSON.stringify(videoObjectDictionary).length + "B | neue Datenmenge: " + JSON.stringify(newStructure).length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
 						if (silent !== true)
-							alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + videoObjectDictionary.toSource().length + "B | neue Datenmenge: " + newStructure.toSource().length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
+							alert("Es wurden " + count + " Elemente aktualisiert (alte Datenmenge: " + JSON.stringify(videoObjectDictionary).length + "B | neue Datenmenge: " + JSON.stringify(newStructure).length + "B).\r\nDabei sind " + count2 + " leere Datumswerte aufgetreten");
 						if (silent || confirm("Sollen die Änderungen gespeichert werden?") === true) {
 							functions.setValue("VideoObjectDictionary-Version", 4);
 							console.log("Die Version der Tabelle VideoObjectDictionary wurde auf " + functions.getValue("VideoObjectDictionary-Version") + " geändert");
-							functions.setValue("VideoObjectDictionary", newStructure.toSource());
+							functions.setValue("VideoObjectDictionary", JSON.stringify(newStructure));
 						} else {
 							throw new Error("Das Abspeichern der geänderten Daten wurde durch den Benutzer abgelehnt");
 						}
@@ -1271,9 +1271,9 @@ try {
 		}
 		// ### VideoObjectDictionary ###
 
-		if (CurrentVersion_WatchedVideoArray != eval(functions.getValue("WatchedVideoArray-Version")) ||
-			CurrentVersion_ScannedVideoArray != eval(functions.getValue("ScannedVideoArray-Version")) ||
-			CurrentVersion_VideoObjectDictionary != eval(functions.getValue("VideoObjectDictionary-Version"))) {
+		if (CurrentVersion_WatchedVideoArray != JSON.parse(functions.getValue("WatchedVideoArray-Version")) ||
+			CurrentVersion_ScannedVideoArray != JSON.parse(functions.getValue("ScannedVideoArray-Version")) ||
+			CurrentVersion_VideoObjectDictionary != JSON.parse(functions.getValue("VideoObjectDictionary-Version"))) {
 			UpdateDataBase(functions, silent);
 		}
 
@@ -1306,7 +1306,7 @@ try {
 
 	function PushVideoObject(videoObjectDictionary, videoObject, save) {
 		if (TabNoc.Settings.Debug === true) {
-			console.log("Pushing ...", eval(videoObject.toSource()));
+			console.log("Pushing ...", JSON.parse(JSON.stringify(videoObject)));
 		}
 		if (typeof(videoObject) !== "object") {
 			throw "WrongTypeException:Only Objects can be Pushed into the Database.";
@@ -1329,7 +1329,7 @@ try {
 		else {
 			videoObjectDictionary[videoObject.VideoID] = MergeVideoObjects(videoObjectDictionary[videoObject.VideoID], videoObject);
 			if (TabNoc.Settings.Debug === true) {
-				console.log(eval(videoObjectDictionary[videoObject.VideoID].toSource()), "... Merged PushRequest");
+				console.log(JSON.parse(JSON.stringify(videoObjectDictionary[videoObject.VideoID])), "... Merged PushRequest");
 			}
 		}
 
@@ -1344,7 +1344,7 @@ try {
 		}
 
 		if (save === true) {
-			SetData("VideoObjectDictionary", videoObjectDictionary.toSource(), true, false);
+			SetData("VideoObjectDictionary", JSON.stringify(videoObjectDictionary), true, false);
 			GM_Unlock();
 			if (TabNoc.Settings.Debug === true) {
 				console.log("Saveing videoObjectDictionary ...");
@@ -1370,8 +1370,8 @@ try {
 		if (TabNoc.Settings.Debug === true) {
 			console.log("Merging ...");
 		}
-		videoObject_1 = eval(videoObject_1.toSource());
-		videoObject_2 = eval(videoObject_2.toSource());
+		videoObject_1 = JSON.parse(JSON.stringify(videoObject_1));
+		videoObject_2 = JSON.parse(JSON.stringify(videoObject_2));
 
 		let namesArray = ([]);
 		for (let i in videoObject_1) {
@@ -1416,7 +1416,7 @@ try {
 					throw new Error("videoObject_1[objectIndex] or videoObject_2[objectIndex] is undefined");
 				}
 			}
-			if (videoObject_1[objectIndex].toSource() !== videoObject_2[objectIndex].toSource() || (forceMerge == true && objectIndex == "Watches")) {
+			if (JSON.stringify(videoObject_1[objectIndex]) !== JSON.stringify(videoObject_2[objectIndex]) || (forceMerge == true && objectIndex == "Watches")) {
 				switch (objectIndex) {
 					case "Watches":
 						let newArray = ([]);
@@ -1436,8 +1436,8 @@ try {
 								}
 
 								// beide identisch
-								if (videoObject_1.Watches[index1_i].toSource() === videoObject_2.Watches[index2_i].toSource()) {
-									newArray.push(eval(videoObject_1.Watches[index1_i].toSource()));
+								if (JSON.stringify(videoObject_1.Watches[index1_i]) === JSON.stringify(videoObject_2.Watches[index2_i])) {
+									newArray.push(JSON.parse(JSON.stringify(videoObject_1.Watches[index1_i])));
 									delete videoObject_2.Watches[index2_i];
 									found = true;
 									continue;
@@ -1470,7 +1470,7 @@ try {
 									(isNaN(new Date(videoObject_1.Watches[index1_i].Date).getTime()) === true && isNaN(new Date(videoObject_2.Watches[index2_i].Date).getTime()))) {
 									// Same Date and Time from Website Call or both are NaN, thats the same, choose the highest WatchedLength
 									videoObject_1.Watches[index1_i].WatchedLength = Math.max(videoObject_1.Watches[index1_i].WatchedLength, videoObject_2.Watches[index2_i].WatchedLength);
-									newArray.push(eval(videoObject_1.Watches[index1_i].toSource()));
+									newArray.push(JSON.parse(JSON.stringify(videoObject_1.Watches[index1_i])));
 									delete videoObject_2.Watches[index2_i];
 									found = true;
 								}
@@ -1478,14 +1478,14 @@ try {
 
 							if (found === false) {
 								// Der Eintrag ist nur im ersten Element vorhanden -> hinzufügen
-								newArray.push(eval(videoObject_1.Watches[index1_i].toSource()));
+								newArray.push(JSON.parse(JSON.stringify(videoObject_1.Watches[index1_i])));
 							}
 						}
 						if (videoObject_2.Watches.length !== 0) {
 							// ich füge diese Elemente jetzt erstmal dazu, weiß nicht so genau ob ich noch einen Fehler haben könnte
 							for (var j in videoObject_2.Watches) {
 								if (videoObject_2.Watches[j] != null) {
-									newArray.push(eval(videoObject_2.Watches[j].toSource()));
+									newArray.push(JSON.parse(JSON.stringify(videoObject_2.Watches[j])));
 								}
 							}
 						}
@@ -1534,14 +1534,14 @@ try {
 						} while (changed === true);
 
 						// gleichstellen, damit vergleich funktioniert
-						videoObject_1.Watches = eval(newArray.toSource());
-						videoObject_2.Watches = eval(newArray.toSource());
+						videoObject_1.Watches = JSON.parse(JSON.stringify(newArray));
+						videoObject_2.Watches = JSON.parse(JSON.stringify(newArray));
 						break;
 
 					case "VideoLength":
 						var VideoLength = Math.max(videoObject_1.VideoLength, videoObject_2.VideoLength);
-						videoObject_1.VideoLength = eval(VideoLength);
-						videoObject_2.VideoLength = eval(VideoLength);
+						videoObject_1.VideoLength = JSON.parse(VideoLength);
+						videoObject_2.VideoLength = JSON.parse(VideoLength);
 						break;
 
 					case "VideoTitle":
@@ -1587,13 +1587,13 @@ try {
 			}
 		}
 
-		if (videoObject_1.toSource() != videoObject_2.toSource()){
-			console.error("videoObject_1.toSource() != videoObject_2.toSource()", videoObject_1, videoObject_2);
+		if (JSON.stringify(videoObject_1) != JSON.stringify(videoObject_2)){
+			console.error("JSON.stringify(videoObject_1) != JSON.stringify(videoObject_2)", videoObject_1, videoObject_2);
 		}
 		if (videoObject_1 == null) {
 			return null;
 		}
-		return eval(videoObject_1.toSource());
+		return JSON.parse(JSON.stringify(videoObject_1));
 	}
 
 	function Syncronisieren(scriptName) {
@@ -1653,7 +1653,7 @@ try {
 				}
 				Feedback.showProgress(50, "Empfangene Daten migrieren");
 				if (!error) {
-					var responseData = eval(response.responseText);
+					var responseData = JSON.parse(response.responseText);
 					console.info("Server response Data:", responseData);
 					if (responseData.VideoObjectDictionary != null && responseData.WatchedVideoArray != null) {
 						Feedback.lockProgress();
@@ -1677,11 +1677,10 @@ try {
 				element["WatchedVideoArray-Version"] = GetData("WatchedVideoArray-Version", 0, true);
 				element["ScannedVideoArray-Version"] = GetData("ScannedVideoArray-Version", 0, true);
 				GM_xmlhttpRequest({
-					data: {
+					data: JSON.stringify({
 						Token: Token,
-						data: element.toSource()
-					}
-					.toSource(),
+						data: JSON.stringify(element)
+					}),
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json"
@@ -1699,10 +1698,9 @@ try {
 		var Token = prompt("Bitte Token eingeben") + scriptName;
 		Feedback.showProgress(20, "Request starten");
 		GM_xmlhttpRequest({
-			data: {
+			data: JSON.stringify({
 				Token: Token
-			}
-			.toSource(),
+			}),
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json"
@@ -1735,7 +1733,7 @@ try {
 			}
 		}
 		versionData[moduleName].Version = currentVersion;
-		SetData("ImportVersion", versionData.toSource(), true, false);
+		SetData("ImportVersion", JSON.stringify(versionData), true, false);
 	}
 
 	function Main() {
@@ -1788,7 +1786,7 @@ try {
 		}
 	}
 
-	Main();
+	execTime("Main", Main);
 
 	console.info(String.format("MarkOpenedVideos.user.js[Version: {0}, Autoupdate: {1}] readed", GM_info.script.version, GM_info.scriptWillUpdate));
 }
