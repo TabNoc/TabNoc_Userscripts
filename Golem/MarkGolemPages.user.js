@@ -495,6 +495,16 @@ try {
 	// ##########-##########-##########-##########-########## general Functions ##########-##########-##########-##########-##########
 	// ##########-##########-##########-###### Changes Down here will be applied to all Sites #######-##########-##########-##########
 	// ##########-##########-##########-##########-##########-########-########-##########-##########-##########-##########-##########
+	
+	function ErrorHandler(exc, msg) {
+		if (msg != null && msg != "") {
+			console.error(msg + ":\r\n\r\n" + exc);
+			alert(msg + ":\r\n\r\n" + exc);
+		} else {
+			console.error(exc);
+			alert(exc);
+		}
+	}
 
 	function MobileCheck() {
 		var check = false;
