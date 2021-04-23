@@ -173,7 +173,7 @@ try {
 			ElementsSearchString: GetElementsSearchString(),
 			NameOfElements: "Newspages",
 			NameOfElement: "Newspage",
-			GetIDFunction: function(element) {return (CurrentUrlIsTicker() || CurrentUrlIsArchive()) ? $(element).children("h3").eq(0).children("a")[0].getAttribute("href") : $(element).children("a")[0].getAttribute("href");},
+			GetIDFunction: function(element) {return (CurrentUrlIsTicker() || CurrentUrlIsArchive()) ? $(element).children("h3").eq(0).children("a")[0].getAttribute("href") : element.querySelector("section>div>a, li>a").getAttribute("href");},
 			GetCurrentSiteIDFunction: function() {return document.URL;},
 			CheckCurrentElementFunction: CheckCurrentElementFunction,
 			GetHidingNode: function (element){return element.parentNode.nodeName == "li" ? element.parentNode : element;}
@@ -206,8 +206,7 @@ try {
 				return element.querySelectorAll("section>div>a").length == 1 && element.querySelector("section>div>a").id.startsWith("bigalt");
 			}
 			else {
-				return
-					$(element).children("a").length === 1 && (
+				return $(element).children("a").length === 1 && (
 						element.className.contains("media__teaser--articles") ||
 						$(element).children("a")[0].getAttribute("id").includes("hpal" + (MobileCheck() === false ? "t" : "")) ||
 						$(element).children("a")[0].getAttribute("id").includes("msalt")
@@ -261,6 +260,8 @@ try {
 		$(".list-articles>li").detach().appendTo($(".list-articles").first());
 
 		$(".iqadlinetop>div").css("border-color", "transparent");
+
+		document.querySelectorAll(".li-reset").forEach((a)=>a.remove());
 
 		// Alle Nachrichten untereinander hängen
 		let elements = $("div").filter(".g:gt(1).g4").detach();
@@ -1194,10 +1195,10 @@ try {
 	}
 
 	function Main() {
-		ModuleImport("States", getStatesVersion, "1.2.8");
+		ModuleImport("States", getStatesVersion, "1.2.9");
 		ModuleImport("TabNoc_GM", getTabNoc_GMVersion, "2.0.2");
 		ModuleImport("TabNoc", getTabNocVersion, "1.2.2");
-		ModuleImport("ImportAll", getImportAllVersion, "1.1.2");
+		ModuleImport("ImportAll", getImportAllVersion, "1.1.3");
 
 		var count = 0;
 		while (GM_Locked() == true) {
