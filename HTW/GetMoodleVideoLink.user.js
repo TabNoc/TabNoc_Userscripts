@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         GetMoodleVideoLink
 // @namespace    https://github.com/mnpingpong/TabNoc_Userscripts
-// @version      0.6
+// @version      0.7
 // @updateURL    https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/HTW/GetMoodleVideoLink.user.js
 // @description  Opens a prompt with the Url of the Video File
 // @author       TabNoc
 // @match        https://moodle.htw-berlin.de/mod/vimp/view.php?id=*
 // @match        https://mediathek.htw-berlin.de/media/embed?*
 // @match        https://mediathek.htw-berlin.de/category/video/*
+// @match        https://mediathek.htw-berlin.de/m/*
 // @grant        window.close
 // @grant        GM_setClipboard
 // ==/UserScript==
@@ -68,7 +69,8 @@
 			blub();
 		}, false);
 
-		if(location.href.startsWith("https://mediathek.htw-berlin.de/category/video")){
+		if(location.href.startsWith("https://mediathek.htw-berlin.de/category/video") ||
+		  	location.href.startsWith("https://mediathek.htw-berlin.de/m/")){
 			window.top.postMessage({
 				title: document.querySelector("h1").textContent,
 				domain: document.domain,
