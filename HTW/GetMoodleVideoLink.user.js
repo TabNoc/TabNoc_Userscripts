@@ -15,15 +15,15 @@
 
 // @run-at       context-menu
 
-(function() {
+(function () {
 	'use strict';
 
 	if (window.top === window.self) {
-		window.addEventListener("message", function(event) {
+		window.addEventListener("message", function (event) {
 			window.console.log("This is data from '" + event.data.title +
-								"'; with message '" + event.data.message +
-								"'; with data '" + event.data.data + "'" +
-								"'; from domain '" + event.data.domain + "'");
+				"'; with message '" + event.data.message +
+				"'; with data '" + event.data.data + "'" +
+				"'; from domain '" + event.data.domain + "'");
 
 			let title = event
 				.data
@@ -33,10 +33,10 @@
 				.replaceAll("/", "-")
 				.replaceAll("  ", " ");
 
-			let blub = function (){
+			let blub = function () {
 				let result = prompt("1: Copy VideoUrl\r\n2: Open Video in new Tab and close current\r\n3: Copy modified Video-Title\r\n4: Open Video in new Tab\r\n5: Close Tab", "2");
 				console.log(result);
-				switch (result){
+				switch (result) {
 					case "1":
 						GM_setClipboard(event.data.data, "text");
 						blub();
@@ -69,8 +69,8 @@
 			blub();
 		}, false);
 
-		if(location.href.startsWith("https://mediathek.htw-berlin.de/category/video") ||
-		  	location.href.startsWith("https://mediathek.htw-berlin.de/m/")){
+		if (location.href.startsWith("https://mediathek.htw-berlin.de/category/video") ||
+			location.href.startsWith("https://mediathek.htw-berlin.de/m/")) {
 			setTimeout(() => window.top.postMessage({
 				title: document.querySelector("h1").textContent,
 				domain: document.domain,
