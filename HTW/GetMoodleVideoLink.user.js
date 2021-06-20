@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GetMoodleVideoLink
 // @namespace    https://github.com/mnpingpong/TabNoc_Userscripts
-// @version      0.7
+// @version      0.8
 // @updateURL    https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/HTW/GetMoodleVideoLink.user.js
 // @description  Opens a prompt with the Url of the Video File
 // @author       TabNoc
@@ -71,12 +71,12 @@
 
 		if(location.href.startsWith("https://mediathek.htw-berlin.de/category/video") ||
 		  	location.href.startsWith("https://mediathek.htw-berlin.de/m/")){
-			window.top.postMessage({
+			setTimeout(() => window.top.postMessage({
 				title: document.querySelector("h1").textContent,
 				domain: document.domain,
-				message: "Hello from, iframe - " + document.title,
+				message: "Hello from, mediathek.htw-berlin.de - " + document.title,
 				data: document.querySelector("video>source").src
-			}, "*");
+			}, "*"), 1000);
 		}
 	}
 	else {
