@@ -75,7 +75,7 @@
 				title: document.querySelector("h1").textContent,
 				domain: document.domain,
 				message: "Hello from, mediathek.htw-berlin.de - " + document.title,
-				data: document.querySelector("video>source").src
+				data: document.querySelector("video-js>video").src
 			}, "*"), 1000);
 		}
 	}
