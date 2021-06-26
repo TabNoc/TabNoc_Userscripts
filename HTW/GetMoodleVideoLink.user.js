@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GetMoodleVideoLink
 // @namespace    https://github.com/mnpingpong/TabNoc_Userscripts
-// @version      0.8
+// @version      0.9
 // @updateURL    https://github.com/mnpingpong/TabNoc_Userscripts/raw/master/HTW/GetMoodleVideoLink.user.js
 // @description  Opens a prompt with the Url of the Video File
 // @author       TabNoc
@@ -80,12 +80,12 @@
 		}
 	}
 	else {
-		window.top.postMessage({
-			title: document.querySelector("#p_video").getAttribute("data-piwik-title"),
+		setTimeout(() => window.top.postMessage({
+			title: document.querySelector("video-js>video").getAttribute("data-piwik-title"),
 			domain: document.domain,
 			message: "Hello from, iframe - " + document.title,
-			data: document.querySelector("#p_video>source").src
-		}, "*");
+			data: document.querySelector("video-js>video").src
+		}, "*"), 1000);
 	}
 	// Your code here...
 })();
