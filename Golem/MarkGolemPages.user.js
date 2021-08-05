@@ -914,12 +914,12 @@ try {
 				console.info("OpenNewspage: " + TabNoc.Settings.NameOfElement + " not readed!");
 			}
 
+			GM_Unlock();
 			// CloseTab
 			if (ToReadNewsArray.indexOf(currentID) !== -1 && GetData("CloseToReadNewsPage", false, false) === true) {
 				window.open('', '_self').close();
 				alert("If you can see this you have to set 'dom.allow_scripts_to_close_windows' to 'true' in about:config.");
 			}
-			GM_Unlock();
 		} catch (exc) {
 			console.error(exc);
 			alert(exc);
