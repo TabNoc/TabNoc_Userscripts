@@ -145,7 +145,7 @@ try {
 			lastCheckScanBufferAmount: 0,
 			Active: true,
 
-			promptOnClose : true,
+			promptOnClose: true,
 
 			Debug: false, // WebKonsole: TabNoc_.MarkGolemPages.Variables.Debug = true;
 			// Wird zurückgesetzt, wenn die Seite versteckt war
@@ -158,7 +158,7 @@ try {
 		Settings: {
 			SavingEnabled: true,
 			MarkAfterScan: true,
-			HideAlreadyWatchedNews : false,
+			HideAlreadyWatchedNews: false,
 
 			Personal: {
 				ScanUninterestingTweet: false,
@@ -174,10 +174,10 @@ try {
 			ElementsSearchString: GetElementsSearchString(),
 			NameOfElements: "Newspages",
 			NameOfElement: "Newspage",
-			GetIDFunction: function(element) {return (CurrentUrlIsTicker() || CurrentUrlIsArchive()) ? $(element).children("h3").eq(0).children("a")[0].getAttribute("href") : element.querySelector("section>div>a, li>a").getAttribute("href");},
-			GetCurrentSiteIDFunction: function() {return document.URL;},
+			GetIDFunction: function (element) { return (CurrentUrlIsTicker() || CurrentUrlIsArchive()) ? $(element).children("h3").eq(0).children("a")[0].getAttribute("href") : element.querySelector("section>div>a, li>a").getAttribute("href"); },
+			GetCurrentSiteIDFunction: function () { return document.URL; },
 			CheckCurrentElementFunction: CheckCurrentElementFunction,
-			GetHidingNode: function (element){return element.parentNode.nodeName == "li" ? element.parentNode : element;}
+			GetHidingNode: function (element) { return element.parentNode.nodeName == "li" ? element.parentNode : element; }
 		},
 
 		HTML: {
@@ -187,66 +187,66 @@ try {
 		}
 	});
 
-function uploadAllData() {
-	Feedback.showProgress(0, "Start Upload");
-	// ### ReadedNewsArray ###
-	var ReadedNewsArray = GetData("ReadedNewsArray", "([])", true);
-	// ### SeenNewsArray ###
-	var SeenNewsArray = GetData("SeenNewsArray", "([])", true);
-	// ### ToReadNewsArray ###
-	var ToReadNewsArray = GetData("ToReadNewsArray", "([])", true);
+	function uploadAllData() {
+		Feedback.showProgress(0, "Start Upload");
+		// ### ReadedNewsArray ###
+		var ReadedNewsArray = GetData("ReadedNewsArray", "([])", true);
+		// ### SeenNewsArray ###
+		var SeenNewsArray = GetData("SeenNewsArray", "([])", true);
+		// ### ToReadNewsArray ###
+		var ToReadNewsArray = GetData("ToReadNewsArray", "([])", true);
 
-	let currentPromise = Promise.resolve();
-	for (var i = 0; i < ReadedNewsArray.length; i++) {
-		let currentIndex = i;
-		currentPromise = currentPromise.then(async function () {
-			Feedback.showProgress(currentIndex / ReadedNewsArray.length * 100, "Uploading Element " + currentIndex + " from " + ReadedNewsArray.length);
-			console.log("Upload", currentIndex, "of", ReadedNewsArray.length);
-			await uploadEntry({
-				UrlId: ReadedNewsArray[currentIndex],
-				State: "Read"
-			});
+		let currentPromise = Promise.resolve();
+		for (var i = 0; i < ReadedNewsArray.length; i++) {
+			let currentIndex = i;
+			currentPromise = currentPromise.then(async function () {
+				Feedback.showProgress(currentIndex / ReadedNewsArray.length * 100, "Uploading Element " + currentIndex + " from " + ReadedNewsArray.length);
+				console.log("Upload", currentIndex, "of", ReadedNewsArray.length);
+				await uploadEntry({
+					UrlId: ReadedNewsArray[currentIndex],
+					State: "Read"
+				});
+			})
+		}
+
+		return currentPromise.then(() => {
+			Feedback.showProgress(100, "Finished!");
 		})
 	}
-
-	return currentPromise.then(() => {
-		Feedback.showProgress(100, "Finished!");
-	})
-}
-function simpleFetch(url, data) {
-	return new Promise((resolve, reject) => {
-		GM_xmlhttpRequest({
-			method: "POST",
-			url: url,
-			headers: {
-				"Content-Type": "application/json"
-			},
-			data: JSON.stringify(data),
-			onabort: reject,
-			onerror: reject,
-			ontimeout: reject,
-			onload: (result) => {
-				if (result.status >= 200 && result.status < 300) {
-					resolve(result);
+	function simpleFetch(url, data) {
+		return new Promise((resolve, reject) => {
+			GM_xmlhttpRequest({
+				method: "POST",
+				url: url,
+				headers: {
+					"Content-Type": "application/json"
+				},
+				data: JSON.stringify(data),
+				onabort: reject,
+				onerror: reject,
+				ontimeout: reject,
+				onload: (result) => {
+					if (result.status >= 200 && result.status < 300) {
+						resolve(result);
+					}
+					else {
+						reject(result);
+					}
 				}
-				else {
-					reject(result);
-				}
-			}
+			});
 		});
-	});
-}
-
-async function uploadEntry(entry) {
-	try {
-		const response = await simpleFetch("https://tabnoc.goip.de:9444/SimpleKeyValueStorage/Golem", entry);
-		if (response.status != 200) {
-			console.error('uploadEntry response not ok:', response);
-		}
-	} catch (error) {
-		console.error('uploadEntry Error:', error);
 	}
-}
+
+	async function uploadEntry(entry) {
+		try {
+			const response = await simpleFetch("https://tabnoc.goip.de:9444/SimpleKeyValueStorage/Golem", entry);
+			if (response.status != 200) {
+				console.error('uploadEntry response not ok:', response);
+			}
+		} catch (error) {
+			console.error('uploadEntry Error:', error);
+		}
+	}
 	// ##########-##########-##########-##########-##########-########-########-##########-##########-##########-##########-##########
 	// ##########-##########-##########-##########-####### Site specific Functions #######-##########-##########-##########-##########
 	// ##########-##########-##########-##########-##########-########-########-##########-##########-##########-##########-##########
@@ -260,7 +260,7 @@ async function uploadEntry(entry) {
 	}
 
 	function CheckCurrentElementFunction(element) {
-		if (CurrentUrlIsTicker() == true || CurrentUrlIsArchive ()) {
+		if (CurrentUrlIsTicker() == true || CurrentUrlIsArchive()) {
 			return $(element).children("h3").length === 1 && $(element).children("h3").eq(0).children("a").length === 1 && $(element).children("h3").eq(0).children("a")[0].hasAttribute("href");
 		} else {
 			if (element.id === "index-promo") {
@@ -268,16 +268,16 @@ async function uploadEntry(entry) {
 			}
 			else {
 				return $(element).children("a").length === 1 && (
-						element.className.contains("media__teaser--articles") ||
-						$(element).children("a")[0].getAttribute("id").includes("hpal" + (MobileCheck() === false ? "t" : "")) ||
-						$(element).children("a")[0].getAttribute("id").includes("msalt")
+					element.className.contains("media__teaser--articles") ||
+					$(element).children("a")[0].getAttribute("id").includes("hpal" + (MobileCheck() === false ? "t" : "")) ||
+					$(element).children("a")[0].getAttribute("id").includes("msalt")
 				);
 			}
 		}
 	}
 
-	function GetElementsSearchString(){
-		if (CurrentUrlIsTicker() || CurrentUrlIsArchive ()) {
+	function GetElementsSearchString() {
+		if (CurrentUrlIsTicker() || CurrentUrlIsArchive()) {
 			if (MobileCheck()) { // && !CurrentUrlIsArchive ()) {
 				return ".list-ticker>li";
 			}
@@ -305,14 +305,14 @@ async function uploadEntry(entry) {
 		console.log("StartPageLoader_SiteSpecific");
 
 
-		GM_registerMenuCommand("Toggle CloseToReadNewsPage", function() {
+		GM_registerMenuCommand("Toggle CloseToReadNewsPage", function () {
 			SetData("CloseToReadNewsPage", !GetData("CloseToReadNewsPage", false, false), false, true);
 		});
-		GM_registerMenuCommand("Open Random ToReadNews", function() {
+		GM_registerMenuCommand("Open Random ToReadNews", function () {
 			var ToReadNewsArray = GetData("ToReadNewsArray", "([])", true);
 			console.log(ToReadNewsArray.length + " ToReadNews availible!");
 			var win = window.open(ToReadNewsArray[getRandomInt(0, ToReadNewsArray.length)]);
-  			win.focus();
+			win.focus();
 		});
 
 
@@ -323,7 +323,7 @@ async function uploadEntry(entry) {
 
 		$(".iqadlinetop>div").css("border-color", "transparent");
 
-		document.querySelectorAll(".li-reset").forEach((a)=>a.remove());
+		document.querySelectorAll(".li-reset").forEach((a) => a.remove());
 
 		// Alle Nachrichten untereinander hängen
 		let elements = $("div").filter(".g:gt(1).g4").detach();
@@ -350,8 +350,8 @@ async function uploadEntry(entry) {
 		}
 	}
 
-	function ReadingNewspageFinishAction(){
-		if (TabNoc.Variables.PageReaded == true){
+	function ReadingNewspageFinishAction() {
+		if (TabNoc.Variables.PageReaded == true) {
 			if ($("#jtoc_next,#atoc_next").length >= 1 && confirm("Soll die nächste Seite geöffnet werden?") == true) {
 				$("#jtoc_next,#atoc_next")[0].click();
 				return;
@@ -397,7 +397,7 @@ async function uploadEntry(entry) {
 				"CheckInit": function (functions, silent) {
 					return functions.getValue("ReadedNewsArray") == undefined;
 				},
-				"InitTable": function (functions, silent) {},
+				"InitTable": function (functions, silent) { },
 				0: function (functions, silent) {
 					let returnStats = {
 						ChangeCount: 0,
@@ -408,7 +408,7 @@ async function uploadEntry(entry) {
 						Result: true,
 						Stats: returnStats,
 						NewVersionNumber: 1,
-						Save: function (functions, silent) {}
+						Save: function (functions, silent) { }
 					};
 				}
 			},
@@ -416,7 +416,7 @@ async function uploadEntry(entry) {
 				"CheckInit": function (functions, silent) {
 					return functions.getValue("SeenNewsArray") == undefined;
 				},
-				"InitTable": function (functions, silent) {},
+				"InitTable": function (functions, silent) { },
 				0: function (functions, silent) {
 					let returnStats = {
 						ChangeCount: 0,
@@ -427,7 +427,7 @@ async function uploadEntry(entry) {
 						Result: true,
 						Stats: returnStats,
 						NewVersionNumber: 1,
-						Save: function (functions, silent) {}
+						Save: function (functions, silent) { }
 					};
 				}
 			},
@@ -435,7 +435,7 @@ async function uploadEntry(entry) {
 				"CheckInit": function (functions, silent) {
 					return functions.getValue("ToReadNewsArray") == undefined;
 				},
-				"InitTable": function (functions, silent) {},
+				"InitTable": function (functions, silent) { },
 				0: function (functions, silent) {
 					let returnStats = {
 						ChangeCount: 0,
@@ -446,7 +446,7 @@ async function uploadEntry(entry) {
 						Result: true,
 						Stats: returnStats,
 						NewVersionNumber: 1,
-						Save: function (functions, silent) {}
+						Save: function (functions, silent) { }
 					};
 				}
 			},
@@ -454,7 +454,7 @@ async function uploadEntry(entry) {
 				"CheckInit": function (functions, silent) {
 					return functions.getValue("DeletedNewsArray") == undefined;
 				},
-				"InitTable": function (functions, silent) {},
+				"InitTable": function (functions, silent) { },
 				0: function (functions, silent) {
 					let returnStats = {
 						ChangeCount: 0,
@@ -465,7 +465,7 @@ async function uploadEntry(entry) {
 						Result: true,
 						Stats: returnStats,
 						NewVersionNumber: 1,
-						Save: function (functions, silent) {}
+						Save: function (functions, silent) { }
 					};
 				}
 			}
@@ -478,7 +478,7 @@ async function uploadEntry(entry) {
 	}
 
 	function Distribute() {
-		var removeAdsInterval = setInterval(function() {
+		var removeAdsInterval = setInterval(function () {
 			if ($("div>img[src*='//www.golem.de']").length >= 5) {
 				// header
 				$("div>img[src*='//www.golem.de']:nth(1)").first().parent().parent().remove();
@@ -510,7 +510,7 @@ async function uploadEntry(entry) {
 			NewsPageLoader();
 
 
-			GM_registerMenuCommand("Spritz", function() {
+			GM_registerMenuCommand("Spritz", function () {
 				// überschriften anpassen
 				$(".formatted,.paged-cluster-header").children(":header").text(function (index, value) {
 					return ". >>> " + value + " <<<.";
@@ -522,7 +522,7 @@ async function uploadEntry(entry) {
 
 				var lastMessage = "";
 				function MyKeyEvent(e) {
-					try{
+					try {
 						var currentMessage = "TabNoc:" + e.type + ";" + e.keyCode;
 						if (currentMessage != lastMessage) {
 							// $("[src='https://sdk.spritzinc.com/js/1.2/bookmarklet/html/spritzlet.html?1.1.2']")[0].contentWindow.postMessage(currentMessage, "*"); //"http://www.golem.de");//"https://sdk.spritzinc.com");
@@ -534,7 +534,7 @@ async function uploadEntry(entry) {
 						e.preventDefault = true;
 						return true;
 					}
-					catch(exc) {
+					catch (exc) {
 						console.log(exc);
 						alert(exc)
 					}
@@ -543,7 +543,7 @@ async function uploadEntry(entry) {
 				$(document).keydown(MyKeyEvent);
 				$(document).keyup(MyKeyEvent);
 			});
-			GM_registerMenuCommand("ActRemover", function() {
+			GM_registerMenuCommand("ActRemover", function () {
 				$(".popup-visible").removeClass("popup-visible");
 				document.body.style.overflow = "";
 			});
@@ -571,13 +571,13 @@ async function uploadEntry(entry) {
 
 	function MobileCheck() {
 		var check = false;
-		(function(a){if(/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino/i.test(a)||/1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(a.substr(0,4))) check = true;})(navigator.userAgent||navigator.vendor||window.opera);
+		(function (a) { if (/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino/i.test(a) || /1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(a.substr(0, 4))) check = true; })(navigator.userAgent || navigator.vendor || window.opera);
 		return check;
 	};
 
 	function MobileAndTabletCheck() {
 		var check = false;
-		(function(a){if(/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino|android|ipad|playbook|silk/i.test(a)||/1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(a.substr(0,4))) check = true;})(navigator.userAgent||navigator.vendor||window.opera);
+		(function (a) { if (/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino|android|ipad|playbook|silk/i.test(a) || /1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(a.substr(0, 4))) check = true; })(navigator.userAgent || navigator.vendor || window.opera);
 		return check;
 	};
 
@@ -624,7 +624,7 @@ async function uploadEntry(entry) {
 
 			// ## ScanWithKeyPress ##
 
-			var ValueChangeCallback = function(name, old_value, new_value, remote) {
+			var ValueChangeCallback = function (name, old_value, new_value, remote) {
 				startCheckElements(TabNoc.Variables.MarkToggleState, true);
 			};
 			GM_addValueChangeListener("ReadedNewsArray", ValueChangeCallback);
@@ -646,12 +646,12 @@ async function uploadEntry(entry) {
 	function registerTabNoc() {
 		GM_registerMenuCommand("Einlesen", returnExec(getAllElements));
 
-		GM_registerMenuCommand("CreateHistoryDialog", function() {CreateHistoryDialog(GetData("changes", "([])", true));});
+		GM_registerMenuCommand("CreateHistoryDialog", function () { CreateHistoryDialog(GetData("changes", "([])", true)); });
 
 		GM_registerMenuCommand("ManuelleSyncronisation", returnExec(Syncronisieren));
 
 
-		GM_registerMenuCommand("UploadAll", ()=> {uploadAllData();});
+		GM_registerMenuCommand("UploadAll", () => { uploadAllData(); });
 	}
 
 	/**
@@ -665,15 +665,15 @@ async function uploadEntry(entry) {
 			var elements = $(TabNoc.Settings.ElementsSearchString);
 			if (TabNoc.Variables.Debug === true && TabNoc.Variables.lastCheckItemCount !== elements.length) {
 				console.log("startCheckElements()", "elements:", elements);
-            }
+			}
 
-/*
-			console.log(elements, elements
-						.toArray()
-						.filter(element => TabNoc.Settings.CheckCurrentElementFunction(element) == true)
-						.map((element) => ({ID: TabNoc.Settings.GetIDFunction(element), element: element}))
-							);
-*/
+			/*
+						console.log(elements, elements
+									.toArray()
+									.filter(element => TabNoc.Settings.CheckCurrentElementFunction(element) == true)
+									.map((element) => ({ID: TabNoc.Settings.GetIDFunction(element), element: element}))
+										);
+			*/
 			if (force === true || TabNoc.Variables.lastCheckItemCount !== elements.length) {
 				// ### ReadedNewsArray ###
 				var ReadedNewsArray = GetData("ReadedNewsArray", "([])", true);
@@ -684,9 +684,9 @@ async function uploadEntry(entry) {
 
 				//TODO. revert this Hack and create Real Implementation!!!
 				if (MobileCheck() && CurrentUrlIsTicker()) {
-					ReadedNewsArray = ReadedNewsArray.map((element) => 	element.includes("-") ? "/" + element.substring(element.lastIndexOf("-") - 4).replace("-", "/") : element);
-					SeenNewsArray = SeenNewsArray.map((element) => 		element.includes("-") ? "/" + element.substring(element.lastIndexOf("-") - 4).replace("-", "/") : element);
-					ToReadNewsArray = ToReadNewsArray.map((element) => 	element.includes("-") ? "/" + element.substring(element.lastIndexOf("-") - 4).replace("-", "/") : element);
+					ReadedNewsArray = ReadedNewsArray.map((element) => element.includes("-") ? "/" + element.substring(element.lastIndexOf("-") - 4).replace("-", "/") : element);
+					SeenNewsArray = SeenNewsArray.map((element) => element.includes("-") ? "/" + element.substring(element.lastIndexOf("-") - 4).replace("-", "/") : element);
+					ToReadNewsArray = ToReadNewsArray.map((element) => element.includes("-") ? "/" + element.substring(element.lastIndexOf("-") - 4).replace("-", "/") : element);
 				}
 
 				if (TabNoc.Variables.Debug === true) {
@@ -734,7 +734,7 @@ async function uploadEntry(entry) {
 		console.log((elements.length - UnScannedElements) + " Marked Elements | " + UnScannedElements + " UnMarked Elements | Total " + elements.length + " Elements (" + ReadedNewsArray.length + " " + TabNoc.Settings.NameOfElements + " readed, " + ToReadNewsArray.length + " " + TabNoc.Settings.NameOfElements + " to read, " + SeenNewsArray.length + " " + TabNoc.Settings.NameOfElements + " marked)");
 
 		if (TabNoc.Settings.HideAlreadyWatchedNews === false) {
-			Feedback.notify(markedElementsMessage, 10000, function(){TabNoc.Settings.HideAlreadyWatchedNews = !TabNoc.Settings.HideAlreadyWatchedNews; startCheckElements(true, true); Feedback.hideMessage();});
+			Feedback.notify(markedElementsMessage, 10000, function () { TabNoc.Settings.HideAlreadyWatchedNews = !TabNoc.Settings.HideAlreadyWatchedNews; startCheckElements(true, true); Feedback.hideMessage(); });
 		}
 	}
 
@@ -792,17 +792,17 @@ async function uploadEntry(entry) {
 			$(checkElement).find(".MyReadButton").length === 0 &&
 			$(checkElement).find(".MyMarkedSeenElement").length === 0) {
 			let ScanButton = $(TabNoc.HTML.ScanButton);
-			ScanButton.click(function(){getAllElements(SearchString, SearchString);});
+			ScanButton.click(function () { getAllElements(SearchString, SearchString); });
 			$(checkElement).append(ScanButton);
 
 			if (MobileCheck() === false) {
 				let ReadButton = $(TabNoc.HTML.ReadButton);
-				ReadButton.click(function(){if (confirm("Soll dieser Eintrag wirklich ohne zu öffnen auf ToRead gesetz werden?") == true) getAllElements(SearchString, SearchString, true);});
+				ReadButton.click(function () { if (confirm("Soll dieser Eintrag wirklich ohne zu öffnen auf ToRead gesetz werden?") == true) getAllElements(SearchString, SearchString, true); });
 				$(checkElement).append(ReadButton);
 			}
 			if (TabNoc.Settings.ShowOpenInNewTabButton == true && MobileCheck() === false) {
 				let OpenTabButton = $(TabNoc.HTML.OpenTabButton);
-				OpenTabButton.click(function(){GM_openInTab(SearchString, {active: false, loadInBackground: true, insert: true, setParent: true});});
+				OpenTabButton.click(function () { GM_openInTab(SearchString, { active: false, loadInBackground: true, insert: true, setParent: true }); });
 				$(checkElement).append(OpenTabButton);
 			}
 		}
@@ -824,10 +824,10 @@ async function uploadEntry(entry) {
 
 			var elements = $(TabNoc.Settings.ElementsSearchString);
 
-			var fromIndex = from == null ? 0 : elements.toArray().findIndex(function (element) { try {return TabNoc.Settings.GetIDFunction(element) == from;} catch(exc) {console.error("getAllElements: getFromIndex", exc); return false;}});
+			var fromIndex = from == null ? 0 : elements.toArray().findIndex(function (element) { try { return TabNoc.Settings.GetIDFunction(element) == from; } catch (exc) { console.error("getAllElements: getFromIndex", exc); return false; } });
 			if (fromIndex == -1) throw "from(" + from + ") were not found";
 
-			var tillIndex = till == null ? elements.length : (elements.toArray().findIndex(function (element) { try {return TabNoc.Settings.GetIDFunction(element) == till;} catch(exc) {console.error("getAllElements: getTillIndex", exc); return false;}}) + 1);
+			var tillIndex = till == null ? elements.length : (elements.toArray().findIndex(function (element) { try { return TabNoc.Settings.GetIDFunction(element) == till; } catch (exc) { console.error("getAllElements: getTillIndex", exc); return false; } }) + 1);
 			if (tillIndex == -1) throw "till(" + till + ") were not found";
 			// tillIndex > elements.length ? elements.length : tillIndex;
 
@@ -875,7 +875,7 @@ async function uploadEntry(entry) {
 	// ### http*://www.golem.de ###
 
 	// ### http*://www.golem.de/news/* ###
-	function NewsPageLoader(){
+	function NewsPageLoader() {
 		console.log(GM_info.script.name + ".user.js loading");
 		try {
 			OpenNewspage();
@@ -884,7 +884,7 @@ async function uploadEntry(entry) {
 				ReadingNewspage(true);
 			});
 
-			$(window).on('beforeunload', function(e){
+			$(window).on('beforeunload', function (e) {
 				if (TabNoc.Variables.promptOnClose === true) {
 					console.log("on beforeunload()");
 					e.returnValue = 'Die Seite wurde nicht als gelsesen markiert, fortfahren?';
@@ -914,16 +914,16 @@ async function uploadEntry(entry) {
 					else if (PageLoaderKeyListener(KeyPressActivated, event)) {
 						finished = true;
 					}
-					else if (event.key == "<" ) {
+					else if (event.key == "<") {
 						window.scroll({
-						  top: window.scrollY + (19 * 3) * 3,
-						  behavior: "smooth"
+							top: window.scrollY + (19 * 3) * 3,
+							behavior: "smooth"
 						});
 					}
-					else if (event.key == ">" ) {
+					else if (event.key == ">") {
 						window.scroll({
-						  top: window.scrollY - (19 * 3) * 3,
-						  behavior: "smooth"
+							top: window.scrollY - (19 * 3) * 3,
+							behavior: "smooth"
 						});
 					}
 					if (finished == true) {
@@ -941,7 +941,7 @@ async function uploadEntry(entry) {
 		}
 	}
 
-	function OpenNewspage(){
+	function OpenNewspage() {
 		try {
 			// ### ReadedNewsArray ###
 			var ReadedNewsArray = GetData("ReadedNewsArray", "([])", true);
@@ -969,20 +969,20 @@ async function uploadEntry(entry) {
 			}
 
 			if (DeletedNewsArray.indexOf(currentID) !== -1) {
-				setTimeout(function(){alert("deleted!");}, 100);
+				setTimeout(function () { alert("deleted!"); }, 100);
 				console.info("OpenNewspage: " + TabNoc.Settings.NameOfElement + " already deleted!");
 				TabNoc.Variables.promptOnClose = false;
 				TabNoc.Variables.PageReaded = true;
 			}
 			else if (ReadedNewsArray.indexOf(currentID) !== -1) {
-				setTimeout(function(){alert("readed");}, 100);
+				setTimeout(function () { alert("readed"); }, 100);
 				console.info("OpenNewspage: " + TabNoc.Settings.NameOfElement + " already readed!");
 				TabNoc.Variables.promptOnClose = false;
 				TabNoc.Variables.PageReaded = true;
 			}
 			else {
 				$("body").append('<div id="reading" style="position: fixed;top: 20px;right: 20px;">Gelesen</div>');
-				$("#reading").button().on("click", (function(){ReadingNewspage();}));
+				$("#reading").button().on("click", (function () { ReadingNewspage(); }));
 				console.info("OpenNewspage: " + TabNoc.Settings.NameOfElement + " not readed!");
 			}
 
@@ -998,7 +998,7 @@ async function uploadEntry(entry) {
 		}
 	}
 
-	function ReadingNewspage(deleteEntry){
+	function ReadingNewspage(deleteEntry) {
 		try {
 			if (deleteEntry !== true) deleteEntry = false;
 
@@ -1061,7 +1061,7 @@ async function uploadEntry(entry) {
 					TabNoc.Variables.PageReaded = true;
 				}
 				else {
-					setTimeout(function(){alert("readed");}, 100);
+					setTimeout(function () { alert("readed"); }, 100);
 					console.info("ReadingNewspage: " + TabNoc.Settings.NameOfElement + " already readed!");
 					TabNoc.Variables.promptOnClose = false;
 					TabNoc.Variables.PageReaded = true;
@@ -1099,130 +1099,130 @@ async function uploadEntry(entry) {
 		});
 
 		var onLoadPost = returnExec(function (response) {
-				if (response.status !== 200) {
-					console.error(response);
-					alert("Statuscode:" + response.status);
-					Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
-					return;
-				}
-				if (response.responseText.charAt(0) === '#') {
-					console.error(response);
-					alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
-					Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
-					return;
-				}
-				Feedback.showProgress(100, "Senden der Daten erfolgreich abgeschlossen");
-				alert("Die Syncronisierung der Daten mit dem Server wurde erfolgreich abgeschlossen.\r\nAktueller Versionsstand: " + response.responseText);
-			});
+			if (response.status !== 200) {
+				console.error(response);
+				alert("Statuscode:" + response.status);
+				Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
+				return;
+			}
+			if (response.responseText.charAt(0) === '#') {
+				console.error(response);
+				alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
+				Feedback.showProgress(100, "Senden der Daten fehlgeschlagen");
+				return;
+			}
+			Feedback.showProgress(100, "Senden der Daten erfolgreich abgeschlossen");
+			alert("Die Syncronisierung der Daten mit dem Server wurde erfolgreich abgeschlossen.\r\nAktueller Versionsstand: " + response.responseText);
+		});
 
 		var onLoadGet = returnExec(function (response) {
+			console.error(response);
+			Feedback.showProgress(40, "Servernachricht auswerten");
+			var error = false;
+			if (response.status !== 200) {
 				console.error(response);
-				Feedback.showProgress(40, "Servernachricht auswerten");
-				var error = false;
-				if (response.status !== 200) {
-					console.error(response);
-					alert("Statuscode:" + response.status);
-					Feedback.showProgress(100, "Abgebrochen, es konnten keine Daten empfangen werden");
+				alert("Statuscode:" + response.status);
+				Feedback.showProgress(100, "Abgebrochen, es konnten keine Daten empfangen werden");
+				return;
+			}
+			if (response.responseText.charAt(0) === '#') {
+				console.error(response);
+				var errorCode = response.responseText.split("\r\n")[0].substring(1);
+				if (errorCode === "2") {
+					error = true;
+				} else {
+					alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
+					Feedback.showProgress(100, "Abgebrochen, Fehler auf dem Server");
 					return;
 				}
-				if (response.responseText.charAt(0) === '#') {
-					console.error(response);
-					var errorCode = response.responseText.split("\r\n")[0].substring(1);
-					if (errorCode === "2") {
-						error = true;
-					} else {
-						alert("Bei der Abfrage ist ein Fehler aufgetreten:" + response.responseText);
-						Feedback.showProgress(100, "Abgebrochen, Fehler auf dem Server");
-						return;
-					}
-				}
-				Feedback.showProgress(50, "Empfangene Daten migrieren");
-				if (!error) {
-					var responseData = JSON.parse(response.responseText);
-					console.info("Server response Data:", responseData);
-					if (responseData.ReadedNewsArray != null && responseData.SeenNewsArray != null) {
-						Feedback.lockProgress();
-						ImportData(responseData, ([{
-									Name: "ReadedNewsArray",
-									defaultVersion: 0,
-									defaultValue: "([])",
-									ImportAction: function (dataStorage, currentEntry, importElement) {
-										if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
-											dataStorage[currentEntry.Name].push(importElement);
-										}
-									}
-								}, {
-									Name: "ToReadNewsArray",
-									defaultVersion: 0,
-									defaultValue: "([])",
-									ImportAction: function (dataStorage, currentEntry, importElement) {
-										if (dataStorage.ReadedNewsArray.indexOf(importElement) == -1 && dataStorage.DeletedNewsArray.indexOf(importElement) == -1) {
-											if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
-												dataStorage[currentEntry.Name].push(importElement);
-											}
-										}
-									}
-								}, {
-									Name: "SeenNewsArray",
-									defaultVersion: 0,
-									defaultValue: "([])",
-									ImportAction: function (dataStorage, currentEntry, importElement) {
-										if (dataStorage.ReadedNewsArray.indexOf(importElement) == -1 && dataStorage.ToReadNewsArray.indexOf(importElement) == -1) {
-											if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
-												dataStorage[currentEntry.Name].push(importElement);
-											}
-										}
-									}
-								}, {
-									Name: "DeletedNewsArray",
-									defaultVersion: 0,
-									defaultValue: "([])",
-									ImportAction: function (dataStorage, currentEntry, importElement) {
-										if (dataStorage.DeletedNewsArray.indexOf(importElement) == -1) {
-											if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
-												dataStorage[currentEntry.Name].push(importElement);
-											}
-										}
-									}
+			}
+			Feedback.showProgress(50, "Empfangene Daten migrieren");
+			if (!error) {
+				var responseData = JSON.parse(response.responseText);
+				console.info("Server response Data:", responseData);
+				if (responseData.ReadedNewsArray != null && responseData.SeenNewsArray != null) {
+					Feedback.lockProgress();
+					ImportData(responseData, ([{
+						Name: "ReadedNewsArray",
+						defaultVersion: 0,
+						defaultValue: "([])",
+						ImportAction: function (dataStorage, currentEntry, importElement) {
+							if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
+								dataStorage[currentEntry.Name].push(importElement);
+							}
+						}
+					}, {
+						Name: "ToReadNewsArray",
+						defaultVersion: 0,
+						defaultValue: "([])",
+						ImportAction: function (dataStorage, currentEntry, importElement) {
+							if (dataStorage.ReadedNewsArray.indexOf(importElement) == -1 && dataStorage.DeletedNewsArray.indexOf(importElement) == -1) {
+								if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
+									dataStorage[currentEntry.Name].push(importElement);
 								}
-												  ]));
-						Feedback.unlockProgress();
-					} else {
-						alert("Der Wert des Response des Servers war ungültig!");
+							}
+						}
+					}, {
+						Name: "SeenNewsArray",
+						defaultVersion: 0,
+						defaultValue: "([])",
+						ImportAction: function (dataStorage, currentEntry, importElement) {
+							if (dataStorage.ReadedNewsArray.indexOf(importElement) == -1 && dataStorage.ToReadNewsArray.indexOf(importElement) == -1) {
+								if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
+									dataStorage[currentEntry.Name].push(importElement);
+								}
+							}
+						}
+					}, {
+						Name: "DeletedNewsArray",
+						defaultVersion: 0,
+						defaultValue: "([])",
+						ImportAction: function (dataStorage, currentEntry, importElement) {
+							if (dataStorage.DeletedNewsArray.indexOf(importElement) == -1) {
+								if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
+									dataStorage[currentEntry.Name].push(importElement);
+								}
+							}
+						}
 					}
+					]));
+					Feedback.unlockProgress();
+				} else {
+					alert("Der Wert des Response des Servers war ungültig!");
 				}
-				if (confirm("Sollen die aktuellen Daten auf dem Server gespeichert werden?") === false) {
-					Feedback.showProgress(100, "Senden der Daten abgebrochen");
-					return;
-				}
-				Feedback.showProgress(75, "Neue Daten auf dem Server speichern");
+			}
+			if (confirm("Sollen die aktuellen Daten auf dem Server gespeichert werden?") === false) {
+				Feedback.showProgress(100, "Senden der Daten abgebrochen");
+				return;
+			}
+			Feedback.showProgress(75, "Neue Daten auf dem Server speichern");
 
-				var element = ({});
-				element.ReadedNewsArray = JSON.parse(GM_getValue("ReadedNewsArray") || "([])");
-				element.SeenNewsArray = JSON.parse(GM_getValue("SeenNewsArray") || "([])");
-				element.ToReadNewsArray = JSON.parse(GM_getValue("ToReadNewsArray") || "([])");
-				element.DeletedNewsArray = JSON.parse(GM_getValue("DeletedNewsArray") || "([])");
-				element["ReadedNewsArray-Version"] = GetData("ReadedNewsArray-Version", 0, true);
-				element["SeenNewsArray-Version"] = GetData("SeenNewsArray-Version", 0, true);
-				element["ToReadNewsArray-Version"] = GetData("ToReadNewsArray-Version", 0, true);
-				element["DeletedNewsArray-Version"] = GetData("DeletedNewsArray-Version", 0, true);
-				GM_xmlhttpRequest({
-					data: JSON.stringify({
-						Token: Token,
-						data: JSON.stringify(element)
-					}),
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json"
-					},
-					onabort: onAbort,
-					onerror: onError("Sending New Data Failed"),
-					onload: onLoadPost,
-					ontimeout: onTimeout,
-					timeout: 60000,
-					url: "https://tabnoc.gear.host/MyDataFiles//Input"
-				});
+			var element = ({});
+			element.ReadedNewsArray = JSON.parse(GM_getValue("ReadedNewsArray") || "([])");
+			element.SeenNewsArray = JSON.parse(GM_getValue("SeenNewsArray") || "([])");
+			element.ToReadNewsArray = JSON.parse(GM_getValue("ToReadNewsArray") || "([])");
+			element.DeletedNewsArray = JSON.parse(GM_getValue("DeletedNewsArray") || "([])");
+			element["ReadedNewsArray-Version"] = GetData("ReadedNewsArray-Version", 0, true);
+			element["SeenNewsArray-Version"] = GetData("SeenNewsArray-Version", 0, true);
+			element["ToReadNewsArray-Version"] = GetData("ToReadNewsArray-Version", 0, true);
+			element["DeletedNewsArray-Version"] = GetData("DeletedNewsArray-Version", 0, true);
+			GM_xmlhttpRequest({
+				data: JSON.stringify({
+					Token: Token,
+					data: JSON.stringify(element)
+				}),
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json"
+				},
+				onabort: onAbort,
+				onerror: onError("Sending New Data Failed"),
+				onload: onLoadPost,
+				ontimeout: onTimeout,
+				timeout: 60000,
+				url: "https://tabnoc.gear.host/MyDataFiles//Input"
 			});
+		});
 
 		Feedback.showProgress(10, "Token erfassen");
 		var Token = prompt("Bitte Token eingeben") + scriptName;
@@ -1251,7 +1251,7 @@ async function uploadEntry(entry) {
 		var versionData = GetData("ImportVersion", "({show: true})", true);
 		versionData[moduleName] = versionData[moduleName] || ({});
 		if (versionData.show == true && versionData[moduleName].Version != currentVersion && versionData[moduleName].Version != undefined) {
-			alert ("Das Modul " + moduleName + " wurde von Version " + versionData[moduleName].Version + " auf Version " + currentVersion + " aktualisiert (Die erwartete Version ist " + expectedVersion + ")");
+			alert("Das Modul " + moduleName + " wurde von Version " + versionData[moduleName].Version + " auf Version " + currentVersion + " aktualisiert (Die erwartete Version ist " + expectedVersion + ")");
 		}
 
 		if (versionCompareResult != 0) {
@@ -1277,7 +1277,7 @@ async function uploadEntry(entry) {
 			count = count + 1;
 			alert("Der Aktuelle Sperrzustand der Datenbank ist positiv, dies wird durch Fehlermeldungen während der Ausführung ausgelöst oder ist nur eine kurzweilige erscheinung. \r\n\r\n Bitte Meldung bestätigen!");
 			if (count >= 2) {
-				if (confirm("Soll der Sperrzustand der Datenbank aufgehoben werden [empfohlen]?") === true ) {
+				if (confirm("Soll der Sperrzustand der Datenbank aufgehoben werden [empfohlen]?") === true) {
 					GM_Unlock(true);
 				}
 			}
@@ -1297,21 +1297,21 @@ async function uploadEntry(entry) {
 	}
 
 	if (false) {
-/* 		var Feedback = Feedback || null;
-		var GM_Unlock = GM_Unlock || null;
-		var GM_Locked = GM_Locked || null;
-		var SetData = SetData || null;
-		var GetData = GetData || null;
-		var versionCompare = versionCompare || null;
-		var ImportData = ImportData || null;
-		var $ = $ || null;
-		var returnExec = returnExec || null;
-		var TabNoc = TabNoc || null;
-		var GM_Lock = GM_Lock || null;
-		var setTabNoc = setTabNoc || null;
-		var exportFunction = exportFunction || null;
-		var CreateHistoryDialog = CreateHistoryDialog || null;
-		var execTime = execTime || null; */
+		/* 		var Feedback = Feedback || null;
+				var GM_Unlock = GM_Unlock || null;
+				var GM_Locked = GM_Locked || null;
+				var SetData = SetData || null;
+				var GetData = GetData || null;
+				var versionCompare = versionCompare || null;
+				var ImportData = ImportData || null;
+				var $ = $ || null;
+				var returnExec = returnExec || null;
+				var TabNoc = TabNoc || null;
+				var GM_Lock = GM_Lock || null;
+				var setTabNoc = setTabNoc || null;
+				var exportFunction = exportFunction || null;
+				var CreateHistoryDialog = CreateHistoryDialog || null;
+				var execTime = execTime || null; */
 	}
 
 	$(Main());
