@@ -28,6 +28,7 @@
 // @grant       GM_addValueChangeListener
 // @grant       GM_openInTab
 // @connect     tabnoc.gear.host
+// @connect     tabnoc.goip.de
 // @noframes
 // ==/UserScript==
 
@@ -132,7 +133,7 @@ Start Writing Script
 	- fixed: ScanWithKeyPress not working anymore
 	- added: logging when no element is found from ScanWithKeyPress
 */
-
+// https://www.golem.de/news/arbeitsschutz-heil-beharrt-auf-arbeitszeiterfassung-im-homeoffice-2011-152236.html gleich wie https://www.golem.de/2011/152236.html
 try {
 	setTabNoc({
 		Variables: {
@@ -186,6 +187,66 @@ try {
 		}
 	});
 
+function uploadAllData() {
+	Feedback.showProgress(0, "Start Upload");
+	// ### ReadedNewsArray ###
+	var ReadedNewsArray = GetData("ReadedNewsArray", "([])", true);
+	// ### SeenNewsArray ###
+	var SeenNewsArray = GetData("SeenNewsArray", "([])", true);
+	// ### ToReadNewsArray ###
+	var ToReadNewsArray = GetData("ToReadNewsArray", "([])", true);
+
+	let currentPromise = Promise.resolve();
+	for (var i = 0; i < ReadedNewsArray.length; i++) {
+		let currentIndex = i;
+		currentPromise = currentPromise.then(async function () {
+			Feedback.showProgress(currentIndex / ReadedNewsArray.length * 100, "Uploading Element " + currentIndex + " from " + ReadedNewsArray.length);
+			console.log("Upload", currentIndex, "of", ReadedNewsArray.length);
+			await uploadEntry({
+				UrlId: ReadedNewsArray[currentIndex],
+				State: "Read"
+			});
+		})
+	}
+
+	return currentPromise.then(() => {
+		Feedback.showProgress(100, "Finished!");
+	})
+}
+function simpleFetch(url, data) {
+	return new Promise((resolve, reject) => {
+		GM_xmlhttpRequest({
+			method: "POST",
+			url: url,
+			headers: {
+				"Content-Type": "application/json"
+			},
+			data: JSON.stringify(data),
+			onabort: reject,
+			onerror: reject,
+			ontimeout: reject,
+			onload: (result) => {
+				if (result.status >= 200 && result.status < 300) {
+					resolve(result);
+				}
+				else {
+					reject(result);
+				}
+			}
+		});
+	});
+}
+
+async function uploadEntry(entry) {
+	try {
+		const response = await simpleFetch("https://tabnoc.goip.de:9444/SimpleKeyValueStorage/Golem", entry);
+		if (response.status != 200) {
+			console.error('uploadEntry response not ok:', response);
+		}
+	} catch (error) {
+		console.error('uploadEntry Error:', error);
+	}
+}
 	// ##########-##########-##########-##########-##########-########-########-##########-##########-##########-##########-##########
 	// ##########-##########-##########-##########-####### Site specific Functions #######-##########-##########-##########-##########
 	// ##########-##########-##########-##########-##########-########-########-##########-##########-##########-##########-##########
@@ -256,6 +317,7 @@ try {
 
 
 		$("#index-vica2").remove();
+		$("#iqadtile3").remove();
 
 		$(".list-articles>li").detach().appendTo($(".list-articles").first());
 
@@ -496,7 +558,7 @@ try {
 	// ##########-##########-##########-##########-########## general Functions ##########-##########-##########-##########-##########
 	// ##########-##########-##########-###### Changes Down here will be applied to all Sites #######-##########-##########-##########
 	// ##########-##########-##########-##########-##########-########-########-##########-##########-##########-##########-##########
-	
+
 	function ErrorHandler(exc, msg) {
 		if (msg != null && msg != "") {
 			console.error(msg + ":\r\n\r\n" + exc);
@@ -587,6 +649,9 @@ try {
 		GM_registerMenuCommand("CreateHistoryDialog", function() {CreateHistoryDialog(GetData("changes", "([])", true));});
 
 		GM_registerMenuCommand("ManuelleSyncronisation", returnExec(Syncronisieren));
+
+
+		GM_registerMenuCommand("UploadAll", ()=> {uploadAllData();});
 	}
 
 	/**
@@ -602,6 +667,13 @@ try {
 				console.log("startCheckElements()", "elements:", elements);
             }
 
+/*
+			console.log(elements, elements
+						.toArray()
+						.filter(element => TabNoc.Settings.CheckCurrentElementFunction(element) == true)
+						.map((element) => ({ID: TabNoc.Settings.GetIDFunction(element), element: element}))
+							);
+*/
 			if (force === true || TabNoc.Variables.lastCheckItemCount !== elements.length) {
 				// ### ReadedNewsArray ###
 				var ReadedNewsArray = GetData("ReadedNewsArray", "([])", true);
