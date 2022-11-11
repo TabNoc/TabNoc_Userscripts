@@ -809,55 +809,41 @@ try {
 		return false;
 	}
 
-	function getAllElements(from, till, asToRead) {
-		try {
+	class ElementScanner {
+		lastPromise = Promise.resolve();
+		getAllElementsOnPage() {
+			return document.querySelectorAll(TabNoc.Settings.ElementsSearchString);
+		}
+		/**
+		 * @param {string} from ID of first Entry
+		 * @param {string} till ID of last entry
+		 * @returns {Array<HTMLElement>}
+		 */
+		getFilteredElements(from, till) {
+			let elements = Array.from(this.getAllElementsOnPage());
+			let ids = elements.map(TabNoc.Settings.GetIDFunction);
+
+			let fromIndex = from == null ? 0 : ids.indexOf(from);
+			if (fromIndex == -1) throw `from(${from}) were not found`;
+
+			let tillIndex = till == null ? elements.length : (ids.indexOf(till) + 1);
+			if (tillIndex == 0) throw `till(${till}) were not found`;
+
+			return elements.slice(fromIndex, tillIndex);
+		}
+
+		/**
+		 * @param {string} from ID of first Entry
+		 * @param {string} till ID of last entry
+		 * @param {boolean} asToRead 
+		 * @returns {void} 
+		 */
+		scanAllElements(from, till, asToRead) {
 			var start = new Date().getTime();
 
-			// ### ReadedNewsArray ###
-			var ReadedNewsArray = GetData("ReadedNewsArray", "([])", true);
-			// ### SeenNewsArray ###
-			var SeenNewsArray = GetData("SeenNewsArray", "([])", true);
-			// ### ToReadNewsArray ###
-			var ToReadNewsArray = GetData("ToReadNewsArray", "([])", true);
-			// ### DeletedNewsArray ###
-			var DeletedNewsArray = GetData("DeletedNewsArray", "([])", true);
-
-			var elements = $(TabNoc.Settings.ElementsSearchString);
-
-			var fromIndex = from == null ? 0 : elements.toArray().findIndex(function (element) { try { return TabNoc.Settings.GetIDFunction(element) == from; } catch (exc) { console.error("getAllElements: getFromIndex", exc); return false; } });
-			if (fromIndex == -1) throw "from(" + from + ") were not found";
-
-			var tillIndex = till == null ? elements.length : (elements.toArray().findIndex(function (element) { try { return TabNoc.Settings.GetIDFunction(element) == till; } catch (exc) { console.error("getAllElements: getTillIndex", exc); return false; } }) + 1);
-			if (tillIndex == -1) throw "till(" + till + ") were not found";
-			// tillIndex > elements.length ? elements.length : tillIndex;
-
-			for (var i = fromIndex; i < tillIndex; i++) {
-				var element = elements[i];
-				var currentElementId = TabNoc.Settings.GetIDFunction(element);
-
-				if (TabNoc.Settings.CheckCurrentElementFunction(element) == true) {
-					if (DeletedNewsArray.indexOf(currentElementId) === -1) {
-						if (asToRead == true) {
-							if (ReadedNewsArray.indexOf(currentElementId) == -1 && ToReadNewsArray.indexOf(currentElementId) == -1) {
-								ToReadNewsArray.push(currentElementId);
-								if (SeenNewsArray.indexOf(currentElementId) != -1) {
-									SeenNewsArray.splice(SeenNewsArray.indexOf(currentElementId), 1);
-								}
-							}
-						} else {
-							if (SeenNewsArray.indexOf(currentElementId) == -1 && ReadedNewsArray.indexOf(currentElementId) == -1 && ToReadNewsArray.indexOf(currentElementId) == -1) {
-								SeenNewsArray.push(currentElementId);
-							}
-						}
-					}
-				} else {
-					console.error("CheckCurrentElementFunction: Folgendes Element entspricht nicht den Vorgaben", element);
-				}
+			for (const element of this.getFilteredElements(from, till)) {
+				this.lastPromise = this.lastPromise.then(() => this.scanElement(element, asToRead))
 			}
-			GM_Lock();
-			SetData("SeenNewsArray", JSON.stringify(SeenNewsArray), true);
-			SetData("ToReadNewsArray", JSON.stringify(ToReadNewsArray), true);
-			GM_Unlock();
 
 			if (TabNoc.Settings.MarkAfterScan) {
 				startCheckElements(true);
@@ -865,6 +851,68 @@ try {
 
 			var time = new Date().getTime() - start;
 			console.log('getAllElements() Execution time: ' + time);
+		}
+
+		/**
+		 * @param {HTMLElement} element element to be scanned
+		 * @param {boolean} asToRead 
+		 * @returns {void}
+		 */
+		async scanElement(element, asToRead) {
+			let currentElementId = TabNoc.Settings.GetIDFunction(element);
+
+			if (TabNoc.Settings.CheckCurrentElementFunction(element) == true) {
+				let DeletedNewsArray = await this.getDataArray("DeletedNewsArray");
+				if (DeletedNewsArray.indexOf(currentElementId) === -1) {
+					let ReadedNewsArray = await this.getDataArray("ReadedNewsArray");
+					let ToReadNewsArray = await this.getDataArray("ToReadNewsArray");
+					let SeenNewsArray = await this.getDataArray("SeenNewsArray");
+
+					if (asToRead == true) {
+						if (ReadedNewsArray.indexOf(currentElementId) == -1 && ToReadNewsArray.indexOf(currentElementId) == -1) {
+							ToReadNewsArray.push(currentElementId);
+							if (SeenNewsArray.indexOf(currentElementId) != -1) {
+								SeenNewsArray.splice(SeenNewsArray.indexOf(currentElementId), 1);
+							}
+						}
+					} else {
+						if (SeenNewsArray.indexOf(currentElementId) == -1 && ReadedNewsArray.indexOf(currentElementId) == -1 && ToReadNewsArray.indexOf(currentElementId) == -1) {
+							SeenNewsArray.push(currentElementId);
+						}
+					}
+
+					GM_Lock();
+					await this.setDataArray("SeenNewsArray", SeenNewsArray)
+					await this.setDataArray("ToReadNewsArray", ToReadNewsArray)
+					GM_Unlock();
+				}
+			} else {
+				console.error("CheckCurrentElementFunction: Folgendes Element entspricht nicht den Vorgaben", element);
+			}
+		}
+
+		/**
+		 * @param {string} name 
+		 * @returns {Promise<Array<string>>}
+		 */
+		getDataArray(name) {
+			return new Promise((resolve) => resolve(GetData(name, "([])", true)));
+		}
+
+		/**
+		 * @param {string} name 
+		 * @param {Array<string>} value 
+		 * @returns {Promise<void>}
+		 */
+		setDataArray(name, value) {
+			return new Promise((resolve) => resolve(SetData(name, JSON.stringify(value), true)));
+		}
+	}
+	let scanner = new ElementScanner();
+
+	function getAllElements(from, till, asToRead) {
+		try {
+			scanner.scanAllElements(from, till, asToRead);
 		}
 		catch (exc) {
 			console.error(exc);
