@@ -440,7 +440,7 @@ try {
       elements = Array.from(elements).filter(
         (el) => !el.querySelector(excludedSelector),
       );
-      console.log(elements);
+      console.log("elements", elements);
 
       force = true;
 
@@ -542,9 +542,11 @@ try {
     currentElement,
     ToggleState,
   ) {
-    //return true if checkedElement is already Scanned
+    //return true if checkedElement is already Scanned or no videoID was found
 
-    var infoElement = $(currentElement).find("#video-title-link, #video-title");
+    var infoElement = $(currentElement).find(
+      ".yt-lockup-metadata-view-model__title",
+    );
 
     let VideoID = getVideoIdFromElement(currentElement);
 
@@ -619,26 +621,37 @@ try {
     return false;
   }
 
+  /**
+   * @param {Element} element - The DOM element (or jQuery-wrapped element) to inspect.
+   * @returns {string|null} The extracted video id or normalized link fragment, or null when no valid single-video id is found
+   */
   function getVideoIdFromElement(element) {
     let link;
     console.info("getVideoIdFromElement", element);
 
-    if (element.querySelectorAll("yt-lockup-view-model").length > 0) {
-      // this one is a playlist entry, so skip it!
-      return null;
-    }
-    // "Latest Youtube Posts" shelves for text or image content from creators one follows
-    else if (
-      element.classList.contains("ytd-rich-shelf-renderer") ||
-      element.querySelector("ytd-feed-nudge-renderer") != null
+    if (
+      element.localName !== "ytd-rich-item-renderer" ||
+      element.querySelector("#content>yt-lockup-view-model") === null
     ) {
-      // this one is simply no video, so skip it!
+      if (element.querySelector("ytm-shorts-lockup-view-model-v2") !== null) {
+        console.debug("found shorts layout element");
+      } else {
+        console.debug("found unknown layout element");
+      }
       return null;
-    } else if (element.localName === "ytd-rich-item-renderer") {
-      link = element.querySelector("#video-title-link").getAttribute("href");
-    } else {
-      link = $(element).find("#thumbnail").attr("href");
     }
+
+    element = element.querySelector("#content>yt-lockup-view-model");
+
+    let thumbnailElement = element.querySelector(
+      ".yt-lockup-view-model__content-image",
+    );
+    if (thumbnailElement == null) {
+      console.warn("did not find thumbnail element");
+      return null;
+    }
+    link = thumbnailElement.getAttribute("href");
+
     console.info(element, "link:", link);
     link = link
       .replace("https://www.youtube.com", "")
