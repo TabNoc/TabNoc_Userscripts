@@ -426,16 +426,14 @@ try {
         }
       }
 
-      let newSidebarSelector =
-        "ytd-compact-video-renderer.ytd-watch-next-secondary-results-renderer";
-      let oldSidebarSelector =
-        "ytd-compact-video-renderer.ytd-item-section-renderer";
+      let sidebarSelector = "yt-lockup-view-model.ytd-item-section-renderer";
       let channelPageSelector = "ytd-rich-item-renderer";
+      let videoFinishedSelector = "a.ytp-modern-videowall-still"; // probably not working, as this has a different structure
       let searchPageSelector = "ytd-video-renderer";
       let excludedSelector =
         "ytd-ad-slot-renderer, ytd-rich-grid-slim-media, .ytd-rich-shelf-renderer";
       let elements = document.querySelectorAll(
-        `${channelPageSelector},${oldSidebarSelector},${newSidebarSelector},${searchPageSelector}`,
+        `${channelPageSelector},${sidebarSelector},${videoFinishedSelector},${searchPageSelector}`,
       );
       elements = Array.from(elements).filter(
         (el) => !el.querySelector(excludedSelector),
@@ -629,19 +627,23 @@ try {
     let link;
     console.info("getVideoIdFromElement", element);
 
-    if (
-      element.localName !== "ytd-rich-item-renderer" ||
-      element.querySelector("#content>yt-lockup-view-model") === null
-    ) {
+    // "ytd-rich-item-renderer" -> Start page (this is a container, not the actual video element. This is also used in the sidebar, but encapsulates all videos there)
+    if (element.localName === "ytd-rich-item-renderer") {
       if (element.querySelector("ytm-shorts-lockup-view-model-v2") !== null) {
         console.debug("found shorts layout element");
-      } else {
-        console.debug("found unknown layout element");
+        return null;
       }
-      return null;
+      element = element.querySelector("#content>yt-lockup-view-model");
+    } else if (element.localName === "yt-lockup-view-model") {
+      //ok
+    } else {
+      element = null;
     }
 
-    element = element.querySelector("#content>yt-lockup-view-model");
+    if (element == null) {
+      console.debug("found unknown layout element");
+      return null;
+    }
 
     let thumbnailElement = element.querySelector(
       ".yt-lockup-view-model__content-image",
