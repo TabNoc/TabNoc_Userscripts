@@ -188,6 +188,18 @@ fixed:	- fixed StyleChanges from Youtube
 12.05.2018 - 2.3.6Beta11
   changed: applied getAllElements Opmimisations from Twitter
  */
+
+import jQuery from "jquery";
+
+// Ensure jQuery is available on the page/global scope (for other libs and inline code)
+if (typeof unsafeWindow !== 'undefined') {
+  unsafeWindow.jQuery = unsafeWindow.$ = jQuery;
+} else if (typeof window !== 'undefined') {
+  window.jQuery = window.$ = jQuery;
+}
+import {diff, unpatch} from "jsondiffpatch"
+import "./../../../base/String"
+
 /**
  * Compares two software version numbers (e.g. "1.7.1" or "1.2b").
  *
@@ -218,6 +230,7 @@ fixed:	- fixed StyleChanges from Youtube
  * @copyright by Jon Papaioannou (["john", "papaioannou"].join(".") + "@gmail.com")
  * @license This function is in the public domain. Do what you want with it, no strings attached.
  */
+
 function versionCompare(v1, v2, options) {
   var lexicographical = options && options.lexicographical,
     zeroExtend = options && options.zeroExtend,
@@ -435,12 +448,12 @@ function getTabNoc() {
   var ScriptName = GM_info.script.name;
 
   if (unsafeWindow.TabNoc_ == null) {
-    unsafeWindow.TabNoc_ = cloneInto(({}), unsafeWindow, {
+    unsafeWindow.TabNoc_ = cloneInto({}, unsafeWindow, {
       wrapReflectors: true
     });
   }
   if (unsafeWindow.TabNoc_[ScriptName] == null) {
-    unsafeWindow.TabNoc_[ScriptName] = cloneInto(({}), unsafeWindow.TabNoc_, {
+    unsafeWindow.TabNoc_[ScriptName] = cloneInto({}, unsafeWindow.TabNoc_, {
       wrapReflectors: true
     });
   }
@@ -454,13 +467,13 @@ function setTabNoc(obj) {
 
   if (unsafeWindow.TabNoc_ == null) {
     // console.log("Adding " + ScriptName + ": unsafeWindow.TabNoc_ is null");
-    unsafeWindow.TabNoc_ = cloneInto(({}), unsafeWindow, {
+    unsafeWindow.TabNoc_ = cloneInto({}, unsafeWindow, {
       wrapReflectors: true
     });
   }
   if (unsafeWindow.TabNoc_[ScriptName] == null) {
     // console.log("Adding " + ScriptName + ": unsafeWindow.TabNoc_[ScriptName] is null");
-    unsafeWindow.TabNoc_[ScriptName] = cloneInto(({}), unsafeWindow.TabNoc_, {
+    unsafeWindow.TabNoc_[ScriptName] = cloneInto({}, unsafeWindow.TabNoc_, {
       wrapReflectors: true
     });
   }
@@ -471,7 +484,7 @@ function setTabNoc(obj) {
   TabNoc = unsafeWindow.TabNoc_[GM_info.script.name];
 }
 var Feedback = null;
-if (false && jQuery != undefined) {
+if (jQuery != undefined) {
   Feedback = {
     messageTimeout: null,
     showMessage: (function (message, type, time, onClickFunction) {
@@ -568,9 +581,306 @@ if (false && jQuery != undefined) {
 }
 
 console.log("TabNoc.js: Readed TabNoc_Config " + getTabNocVersion().Version + " by TabNoc (namespace: " + GM_info.script.name + ")");
+function getImportAllVersion() {
+  return { Version: "1.1.3", Date: "23.04.2021" };
+}
+
+/*
+ImportData(responseData, ([{
+    Name: "Array",
+    defaultVersion: 0,
+    defaultValue: "([])",
+    ImportAction: function (dataStorage, currentEntry, importElement, elementId) {
+      if (dataStorage[currentEntry.Name].indexOf(importElement) == -1) {
+        dataStorage[currentEntry.Name].push(importElement);
+      }
+    }
+  }, {
+    Name: "Object",
+    defaultVersion: 0,
+    defaultValue: "({})",
+    ImportAction: function (dataStorage, currentEntry, importElement, elementId) {
+      dataStorage[currentEntry.Name][elementId] = importElement;
+    }
+  }
+]));
+*/
+
+function ImportData(allData, entriesArray) {
+  let element = null;
+  if (typeof (GetData) != "function") {
+    throw new Error("GetData is not Implemented but required for ImportData!");
+  }
+  if (typeof (SetData) != "function") {
+    throw new Error("SetData is not Implemented but required for ImportData!");
+  }
+  if (typeof (GM_Lock) != "function") {
+    throw new Error("GM_Lock is not Implemented but required for ImportData!");
+  }
+  if (typeof (GM_Unlock) != "function") {
+    throw new Error("GM_Unlock is not Implemented but required for ImportData!");
+  }
+  if (typeof (UpdateDataBase) != "function") {
+    throw new Error("UpdateDataBase is not Implemented but required for ImportData!");
+  }
+
+  try {
+    if (typeof (allData) == "object" && allData !== null) {
+      element = allData;
+    } else if (allData === true) {
+      element = JSON.parse(prompt("Bitte die exportierten Daten eintragen"));
+    } else {
+      element = ({});
+      for (let entryID in entriesArray) {
+        let entry = entriesArray[entryID];
+        element[entry.Name] = JSON.parse(prompt("Please insert new " + entry.Name + " Data"));
+      }
+    }
+
+    for (let entryID in entriesArray) {
+      let entry = entriesArray[entryID];
+      element[entry.Name + "-Version"] = element[entry.Name + "-Version"] || entry.defaultVersion;
+    }
+
+    UpdateDataBase(({
+      lock: (function () { }),
+      unlock: (function () { }),
+      getValue: (function (key) {
+        return element[key];
+      }),
+      setValue: (function (key, value) {
+        element[key] = value;
+      })
+    }), true);
+
+    let errorList = ([]);
+
+    for (let entryID in entriesArray) {
+      let entry = entriesArray[entryID];
+      if (element[entry.Name + "-Version"] !== GetData(entry.Name + "-Version")) {
+        errorList.push("Die Version der Datenbanktabelle " + entry.Name + " passt nicht (importierte Version: " + element[entry.Name + "-Version"] + ", lokale Version: " + GetData(entry.Name + "-Version") + ")");
+      }
+    }
+
+    if (errorList.length !== 0) {
+      msg = "Das Importieren kann nicht durchgeführt werden, da:\r\n";
+      for (let i in errorList) {
+        msg = msg + "\r\n\t- " + errorList[i];
+      }
+      alert(msg);
+      throw new Error("ImportData impossible!");
+    }
+
+    if (confirm("Sollen die Daten mit den Aktuellen Daten zusammengeführt werden?") !== true) {
+      throw new Error("Das Importieren der Daten wurde durch den Benutzer abgebrochen");
+    }
+
+    for (let entryID in entriesArray) {
+      let entry = entriesArray[entryID];
+      element[entry.Name] = JSON.parse(element[entry.Name]);
+    }
+
+    GM_Lock();
+    for (let entryID in entriesArray) {
+      let entry = entriesArray[entryID];
+      if (element[entry.Name] == undefined) {
+        element[entry.Name] = JSON.parse(entry.defaultValue);
+      }
+      if (typeof (element[entry.Name]) != "object") {
+        throw new Error("element." + entry.Name + "(Value: " + element[entry.Name] + ") is not an Object, Import impossible!");
+      }
+    }
+
+    element.currentData = ({});
+    element.count = ({});
+
+    for (let entryID in entriesArray) {
+      let entry = entriesArray[entryID];
+      element.currentData[entry.Name] = GetData(entry.Name, entry.defaultValue, true);
+      element.currentData[entry.Name + "Count"] = 0;
+    }
+
+    let newDataStorage = ({});
+
+    for (let entryID in entriesArray) {
+      let entry = entriesArray[entryID];
+      element.currentData[entry.Name] = GetData(entry.Name, entry.defaultValue, true);
+      element.count[entry.Name] = 0;
+      newDataStorage[entry.Name] = JSON.parse(entry.defaultValue);
+    }
+
+    for (let entryID in entriesArray) {
+      let entry = entriesArray[entryID];
+      if (TabNoc.Settings.Debug) {
+        console.info("Importing stored " + entry.Name);
+      }
+      for (let i in element.currentData[entry.Name]) {
+        entry.ImportAction(newDataStorage, entry, element.currentData[entry.Name][i], i);
+        element.count[entry.Name]++;
+      }
+      if (TabNoc.Settings.Debug) {
+        console.info("Importing new " + entry.Name);
+        console.info(element[entry.Name]);
+      }
+      for (let i in element[entry.Name]) {
+        entry.ImportAction(newDataStorage, entry, element[entry.Name][i], i);
+        element.count[entry.Name]++;
+      }
+    }
+
+    let changes = false;
+    let msg = "Das Importieren wurde erfolgreich abgeschlossen!\r\n";
+    for (let entryID in entriesArray) {
+      let entry = entriesArray[entryID];
+      msg += entry.Name + ":\r\n";
+      msg += "\tEs wurden " + element.count[entry.Name] + " Elemente aktualisiert (";
+      msg += "gespeicherte Datenmenge: " + JSON.stringify(element.currentData[entry.Name]).length + "B (" + Object.keys(element.currentData[entry.Name]).length + ") | ";
+      msg += "importierte Datenmenge: " + JSON.stringify(element[entry.Name]).length + "B (" + Object.keys(element[entry.Name]).length + ") | ";
+      msg += "neue Datenmenge: " + JSON.stringify(newDataStorage[entry.Name]).length + "B) (" + Object.keys(newDataStorage[entry.Name]).length + ")\r\n";
+      msg += "Delta:\r\n";
+      if (JSON.stringify(newDataStorage[entry.Name]) != JSON.stringify(element.currentData[entry.Name])) {
+        changes = true;
+      }
+    }
+
+    alert(msg);
+
+    if (changes == false) {
+      alert("Es wurde keine Änderung der Daten durch das Importieren durchgeführt\r\n\t\tSpeichern nicht erforderlich");
+    } else {
+      if (confirm("Sollen die Änderungen gespeichert werden?") === true) {
+        for (let entryID in entriesArray) {
+          let entry = entriesArray[entryID];
+          SetData(entry.Name, JSON.stringify(newDataStorage[entry.Name]));
+        }
+      }
+    }
+  } catch (exc) {
+    console.error(exc);
+    alert("Das Importieren ist fehlgeschlagen!\r\n" + exc);
+    throw (exc);
+  }
+  finally {
+    GM_Unlock();
+  }
+}
 
 
-console.log(TabNoc)
+/*
+let TableUpdateObject = {
+  "ReadedNewsArray": {
+    "CheckInit": function (functions, silent) {
+      // code
+      // return true || false;
+    },
+    "InitTable": function (functions, silent) {
+      //code
+    },
+    1: function (functions, silent) {
+      let returnStats = {
+        ChangeCount: 0,
+        OldSize: 0,
+        NewSize: 0
+      };
+      // code
+      return {
+        Result: true,
+        Stats: returnStats,
+        Save: function () {}
+      };
+    }
+  }
+};
+*/
+
+function UpdateDatabaseTable(ExpectedVersionNumber, CurrentVersionNumber, TableName, TableUpdateObject, functions, silent) {
+  if (ExpectedVersionNumber == null) {
+    throw ("ArgumentNullException (ExpectedVersionNumber):\r\nDer Parameter ExpectedVersionNumber ist null");
+  }
+  if (typeof (ExpectedVersionNumber) != "number") {
+    throw ("ArgumentException (ExpectedVersionNumber):\r\nDer Parameter ExpectedVersionNumber hat das falsche Format, erwartet: number");
+  }
+
+  if (CurrentVersionNumber == null) {
+    throw ("ArgumentNullException (CurrentVersionNumber):\r\nDer Parameter CurrentVersionNumber ist null");
+  }
+  if (typeof (CurrentVersionNumber) != "number") {
+    throw ("ArgumentException (CurrentVersionNumber):\r\nDer Parameter CurrentVersionNumber hat das falsche Format, erwartet: number");
+  }
+
+  if (TableName == null) {
+    throw ("ArgumentNullException (TableName):\r\nDer Parameter TableName ist null");
+  }
+  if (typeof (TableName) != "string") {
+    throw ("ArgumentException (TableName):\r\nDer Parameter TableName hat das falsche Format, erwartet: string");
+  }
+
+  if (TableUpdateObject == null) {
+    throw ("ArgumentNullException (TableUpdateObject):\r\nDer Parameter TableUpdateObject ist null");
+  }
+  if (typeof (TableUpdateObject) != "object") {
+    throw ("ArgumentException (TableUpdateObject):\r\nDer Parameter TableUpdateObject hat das falsche Format, erwartet: object");
+  }
+
+  if (functions == null) {
+    throw ("ArgumentNullException (functions):\r\nDer Parameter functions ist null");
+  }
+  if (typeof (functions) != "object") {
+    throw ("ArgumentException (functions):\r\nDer Parameter functions hat das falsche Format, erwartet: object");
+  }
+
+  if (silent == null) {
+    throw ("ArgumentNullException (silent):\r\nDer Parameter silent ist null");
+  }
+  if (typeof (silent) != "boolean") {
+    throw ("ArgumentException (silent):\r\nDer Parameter silent hat das falsche Format, erwartet: boolean");
+  }
+
+  if (CurrentVersionNumber != ExpectedVersionNumber) {
+    functions.lock();
+    while (CurrentVersionNumber != ExpectedVersionNumber) {
+      let updateMsg = "Es wurde ein Versionsunterschied der Datenbank-Tabelle " + TableName + " gefunden (aktuell: " + CurrentVersionNumber + " | erwartet: " + ExpectedVersionNumber + ")";
+      console.info(updateMsg);
+      if (TableUpdateObject[TableName].CheckInit(functions, silent) === false) {
+        alert(updateMsg + "\r\nOK drücken um den Updatevorgang zu starten.");
+        if (TableUpdateObject[TableName][CurrentVersionNumber] == null) {
+          throw ("NoUpdateImplemeneted:\r\nFür die Version " + CurrentVersionNumber + " der Tabelle " + TableName + " wurde kein Update definiert!");
+        }
+        let UpdateResult = TableUpdateObject[TableName][CurrentVersionNumber]();
+
+        if (UpdateResult.Result === true) {
+          alert("Der Updatevorgang von Tabelle " + TableName + " war erfolgreich\r\n\r\nEs wurden " + UpdateResult.Stats.ChangeCount + " Elemente aktualisiert (alte Datenmenge: " + UpdateResult.Stats.OldSize + "B | neue Datenmenge: " + UpdateResult.Stats.NewSize + "B)");
+          if (confirm("Sollen die Änderungen gespeichert werden?") === true) {
+            UpdateResult.Save(functions, silent);
+            functions.setValue(TableName + "-Version", UpdateResult.NewVersionNumber);
+            CurrentVersionNumber = UpdateResult.NewVersionNumber;
+            console.log("Die Version der Tabelle " + TableName + " wurde auf " + functions.getValue(TableName + "-Version") + " geändert");
+          }
+          else {
+            throw ("UserAbort:\r\nDer Update-Vorgang für Version " + CurrentVersionNumber + " der Tabelle " + TableName + " wurde durch den Benutzer abgebrochen!");
+          }
+        }
+        else {
+          console.error(UpdateResult);
+          throw ("Der Updatevorgang von Tabelle " + TableName + " ist fehlgeschlagen!\r\nUpdateResult.Result !== true");
+        }
+      }
+      else {
+        TableUpdateObject[TableName].InitTable(functions, silent);
+        functions.setValue(TableName + "-Version", ExpectedVersionNumber);
+        CurrentVersionNumber = ExpectedVersionNumber;
+        updateMsg = "Die Datenbank-Tabelle " + TableName + " wurde initialisiert (Version: " + functions.getValue(TableName + "-Version") + ")";
+        console.log(updateMsg);
+      }
+    }
+    functions.unlock();
+    return true;
+  }
+  return false;
+}
+
+
+
 setTabNoc({
   Variables: {
     MarkToggleState: true,
@@ -628,10 +938,8 @@ setTabNoc({
 
   HTML: {},
 });
-
-console.log(TabNoc)
 function getStatesVersion() {
-  return { Version: "1.1.1", Date: "17.10.2017" };
+  return { Version: "1.2.9", Date: "23.04.2021" };
 }
 
 /*
@@ -654,6 +962,9 @@ function AddState(oldState, newState, changes, maxAmount = 10) {
   if (changes == null) {
     throw new Error("NullPointerExeption: changes not provided");
   }
+  if (typeof (changes) != "object") {
+    throw new Error("InvalidTypeException: changes is not an object, instead: " + typeof (changes));
+  }
   if (maxAmount == null) {
     maxAmount = 10;
   }
@@ -669,14 +980,14 @@ function AddState(oldState, newState, changes, maxAmount = 10) {
   if (changes.removedChangeLogEntries == null) {
     changes.removedChangeLogEntries = 0;
   }
-  var time = (new Date).getTime();
+  var time = (new Date()).getTime();
   let appendIndex = "";
 
   while (changes.changeLog.indexOf(time + appendIndex) != -1) {
     appendIndex = appendIndex == "" ? "-1" : (--appendIndex).toString();
   }
   changes.changeLog.push(time + appendIndex);
-  changes.data[time + appendIndex] = jsondiffpatch.diff(oldState, newState);
+  changes.data[time + appendIndex] = diff(oldState, newState);
 
   changes.currentState = changes.changeLog.length + changes.removedChangeLogEntries;
   while (changes.changeLog.length > maxAmount) {
@@ -703,7 +1014,7 @@ function GetState(currentState, changes, requestedStateNr, requestAsTime) {
   var currentStateNr = changes.currentState;
 
   if (requestAsTime === true) {
-    requestedStateNr = changes.changeLog.indexOf(requestedStateNr);
+    requestedStateNr = changes.changeLog.indexOf(requestedStateNr) + changes.removedChangeLogEntries;
     if (requestedStateNr == -1) {
       throw new Error("OutOfRangeException: The provided Timestamp requestedStateNr does not exists in changeLog");
     }
@@ -721,27 +1032,115 @@ function GetState(currentState, changes, requestedStateNr, requestAsTime) {
     throw new Error("OutOfRangeException: requestedStateNr was already deleted");
   }
 
-  var workingState = eval(currentState.toSource());
-  for (workingStateNr = currentStateNr - 1; workingStateNr >= requestedStateNr; workingStateNr--) {
+  var workingState = JSON.parse(JSON.stringify(currentState));
+  for (let workingStateNr = currentStateNr - 1; workingStateNr >= requestedStateNr; workingStateNr--) {
     let diffData = changes.data[changes.changeLog[workingStateNr - changes.removedChangeLogEntries]];
     if (diffData == null) {
-      throw new Error("NullPointerExeption: diffData is null [workingStateNr:" + workingStateNr + "]")
+      throw new Error("NullPointerExeption: diffData is null [workingStateNr:" + workingStateNr + "]");
     }
-    workingState = jsondiffpatch.unpatch(workingState, changes.data[changes.changeLog[workingStateNr - changes.removedChangeLogEntries]]);
+    workingState = unpatch(workingState, changes.data[changes.changeLog[workingStateNr - changes.removedChangeLogEntries]]);
   }
   return workingState;
+}
+
+function GetVisualDiff(currentState, changes, requestedStateNr, requestAsTime) {
+  return jsondiffpatch.formatters.html.format(diff(currentState, GetState(currentState, changes, requestedStateNr, requestAsTime)), currentState);
+}
+
+// optional callBack (StorageName, newValue)
+function CreateHistoryDialog(data, callBack) {
+  try {
+    $("#HistoryDialog").remove();
+    $("<div />").attr("id", "HistoryDialog").attr("title", "Historie").css("backgroundColor", "#F9F9F9 !important;").appendTo("body");
+
+    var i = 0;
+    var s = "<div id=\"HistoryDialogTabs\" style=\"margin-bottom: 10px\"><ul>";
+    for (var keyName in data) {
+      if (keyName.contains("-Version"))
+        continue;
+      i++;
+      s += "<li><a href=\"#HistoryDialogTab-" + i + "\">" + keyName + "</a></li>";
+    }
+    s += "</ul>";
+
+    i = 0;
+    var keyname;
+    for (keyName in data) {
+      if (keyName.contains("-Version"))
+        continue;
+      i++;
+      s += "<div id=\"HistoryDialogTab-" + i + "\" style=\"padding-bottom:7px\">";
+
+      s += "<label for=\"HistoryData-" + i + "\">Historien-Elemente</label>";
+      s += "<select name=\"HistoryData-" + i + "\" id=\"HistoryDataSelector-" + i + "\"><option historyGroup=\"" + keyName + "\" value=\"" + data[keyName].currentState + "\" selected=\"selected\">Aktuelle Daten</option>";
+      for (var timeIndex in data[keyName].changeLog.reverse()) {
+        let time = data[keyName].changeLog[timeIndex];
+        s += "<option historyGroup=\"" + keyName + "\" value=\"" + time + "\">" + new Date(parseInt(time)).toLocaleString() + "</option>";
+      }
+      s += "</select>";
+
+      s += "<div id=\"HistoryDialogTabResultPanel-" + keyName + "\" style=\"margin: 10px 0px 10px 0px;border: 1px solid #D3D3D3;border-radius: 5px;padding: 8px 0px 8px 0px;\"></div>";
+
+      s += "<button id=\"HistoryDataButton-" + keyName + "\" historyGroup=\"" + keyName + "\" >Daten Übernehmen</button>";
+      s += "</div>";
+    }
+    s += "</div>";
+
+    $(s).appendTo("#HistoryDialog");
+
+    $("#HistoryDialog").dialog({
+      close: function (event, ui) {
+        $("#HistoryDialog").parentNode().remove();
+      },
+      width: 1400,
+      height: 850,
+      top: 65 // nur nötig, da zIndex nicht funktioniert (für den Youtube Header)
+    });
+    $("#HistoryDialogTabs").tabs();
+    // $("#HistoryDialog").dialog("option", "classes.ui-dialog-content", "MyDialogBackgroundColor" );
+
+    i = 0;
+    for (keyName in data) {
+      i++;
+
+      $("#HistoryDataSelector-" + i).selectmenu({
+        change: returnExec(function (event, data) {
+          let group = data.item.element[0].getAttribute("historyGroup");
+          document.getElementById("HistoryDialogTabResultPanel-" + group).innerHTML = GetVisualDiff(JSON.parse(GetData(group)), JSON.parse(GetData("changes"))[group], data.item.value, true);
+          $("#HistoryDataButton-" + group).attr("selectedValue", data.item.value);
+          console.error($("#HistoryDataButton-" + group));
+        })
+      });
+
+      $("#HistoryDataButton-" + keyName).button().click(function (event, data) {
+        console.error(event);
+        let group = $(event.target).attr("historyGroup");
+        let newValue = GetState(JSON.parse(GetData(group)), JSON.parse(GetData("changes"))[group], $(event.target).attr("selectedValue"), true);
+        if (callBack == null) {
+          if (confirm("Sollen die aktuellen Daten mit den ausgewählten alten Daten aus der Historie überschrieben werden?") === true) {
+            SetData(group, newValue, true, false);
+          }
+        } else {
+          callBack(group, newValue);
+        }
+      });
+    }
+  } catch (exc) {
+    console.error(exc);
+    alert(exc);
+  }
 }
 
 function testTabNocStates() {
   let changes = ({});
   let testState = ({ Baum: "tree" });
   let testCount = 30;
-  for (i = 1; i <= testCount; i++) {
-    let oldState = testState.toSource();
+  for (let i = 1; i <= testCount; i++) {
+    let oldState = JSON.stringify(testState);
     testState[i] = "!";
     testState["State"] = i;
-    // console.log("State", i, ":", eval(oldState), ">", currentState);
-    if (AddState(eval(oldState), testState, changes, testCount - 2).StateNr != i) {
+    // console.log("State", i, ":", JSON.parse(oldState), ">", currentState);
+    if (AddState(JSON.parse(oldState), testState, changes, testCount - 2).StateNr != i) {
       console.error("States.js.testTabNocStates(): Test 1 failed!\r\nAddState, returned StateNr not expected Statenr");
       alert("States.js.testTabNocStates(): Test 1 failed!\r\nAddState, returned StateNr not expected Statenr");
     }
@@ -753,7 +1152,7 @@ function testTabNocStates() {
     alert("States.js.testTabNocStates(): Test 2 failed!");
   }
   catch (e) { }
-  for (i = 2; i <= testCount; i++) {
+  for (let i = 2; i <= testCount; i++) {
     let result = GetState(testState, changes, i);
     if (result.State != i) {
       console.warn(i, result);
@@ -771,25 +1170,33 @@ function testTabNocStates() {
 
 function SetData(keyName, value, locked, disableValueHistory) {
   try {
+    var oldValue;
     if (disableValueHistory !== true)
-      var oldValue = GM_getValue(keyName) || "<undefined>";
-    if (locked == true) {
-      GM_setValue(keyName, value);
-    } else {
-      GM_setValueLocked(keyName, value);
+      oldValue = JSON.parse(GM_getValue(keyName) || "{}");
+    if (oldValue == null) {
+      oldValue = ({});
     }
 
-    if (disableValueHistory !== true) {
-      let changes = eval(GM_getValue("changes") || ({}));
-      changes[keyName] = changes[keyName] || ({});
-      const MaxAmount = 50;
+    if (JSON.stringify(oldValue) != value) {
+      if (locked == true) {
+        GM_setValue(keyName, value);
+      } else {
+        GM_setValueLocked(keyName, value);
+      }
 
-      var result = AddState(eval(oldValue), eval(value), changes[keyName], MaxAmount);
+      var result;
+      if (disableValueHistory !== true) {
+        let changes = JSON.parse(GM_getValue("changes") || "{}");
+        changes[keyName] = changes[keyName] || ({});
+        const MaxAmount = 50;
 
-      GM_setValue("changes", changes.toSource());
-    }
-    if (TabNoc.Settings.Debug === true) {
-      console.log("SetData(" + keyName + ", " + defaultValue + ", " + locked + ", " + disableValueHistory + ") -> " + result);
+        result = AddState(oldValue, JSON.parse(value), changes[keyName], MaxAmount);
+
+        GM_setValue("changes", JSON.stringify(changes));
+      }
+      if (TabNoc.Settings.Debug === true) {
+        console.log("SetData(" + keyName + ", " + value + ", " + locked + ", " + disableValueHistory + ") -> " + result);
+      }
     }
   } catch (exc) {
     console.error(exc);
@@ -823,6 +1230,8 @@ function GetData(keyName, defaultValue, evalValue) {
     throw exc;
   }
 }
+
+
 
 
 
@@ -870,7 +1279,7 @@ function registerTabNoc() {
   });
 
   GM_registerMenuCommand("CreateHistoryDialog", function () {
-    CreateHistoryDialog(GetData("changes", "([])", true));
+    CreateHistoryDialog(GetData("changes", "[]", true));
   });
 
   GM_registerMenuCommand("ManuelleSyncronisation", function () {
@@ -887,11 +1296,11 @@ function registerTabNoc() {
 
   GM_registerMenuCommand("ExportAllData", function () {
     var element = {};
-    element.WatchedVideoArray = GetData("WatchedVideoArray", "([])", true);
-    element.ScannedVideoArray = GetData("ScannedVideoArray", "([])", true);
+    element.WatchedVideoArray = GetData("WatchedVideoArray", "[]", true);
+    element.ScannedVideoArray = GetData("ScannedVideoArray", "[]", true);
     element.VideoObjectDictionary = GetData(
       "VideoObjectDictionary",
-      "({})",
+      "{}",
       true,
     );
     element["VideoObjectDictionary-Version"] = GetData(
@@ -924,7 +1333,7 @@ function registerTabNoc() {
     {
       Name: "VideoObjectDictionary",
       defaultVersion: 2,
-      defaultValue: "({})",
+      defaultValue: "{}",
       ImportAction: function (dataStorage, currentEntry, importElement) {
         PushVideoObject(
           dataStorage[currentEntry.Name],
@@ -936,7 +1345,7 @@ function registerTabNoc() {
     {
       Name: "WatchedVideoArray",
       defaultVersion: 0,
-      defaultValue: "([])",
+      defaultValue: "[]",
       ImportAction: function (dataStorage, currentEntry, importElement) {
         if (
           GetVideoWatched(
@@ -952,7 +1361,7 @@ function registerTabNoc() {
     {
       Name: "ScannedVideoArray",
       defaultVersion: 0,
-      defaultValue: "([])",
+      defaultValue: "[]",
       ImportAction: function (dataStorage, currentEntry, importElement) {
         if (
           GetVideoWatched(
@@ -980,13 +1389,13 @@ function startCheckElements(ToggleState, force) {
     true
   ) {
     // ### ScannedVideoArray ###
-    let scannedVideoArray = GetData("ScannedVideoArray", "([])", true);
+    let scannedVideoArray = GetData("ScannedVideoArray", "[]", true);
     // ### WatchedVideoArray ###
-    let watchedVideoArray = GetData("WatchedVideoArray", "([])", true);
+    let watchedVideoArray = GetData("WatchedVideoArray", "[]", true);
     // ### VideoObjectDictionary ###
     let videoObjectDictionary = GetData(
       "VideoObjectDictionary",
-      "({})",
+      "{}",
       true,
     );
 
@@ -1254,13 +1663,13 @@ function getAllElements(from, till) {
 
     GM_Lock();
     // ### ScannedVideoArray ###
-    let scannedVideoArray = GetData("ScannedVideoArray", "([])", true);
+    let scannedVideoArray = GetData("ScannedVideoArray", "[]", true);
     // ### WatchedVideoArray ###
-    let watchedVideoArray = GetData("WatchedVideoArray", "([])", true);
+    let watchedVideoArray = GetData("WatchedVideoArray", "[]", true);
     // ### VideoObjectDictionary ###
     let videoObjectDictionary = GetData(
       "VideoObjectDictionary",
-      "({})",
+      "{}",
       true,
     );
 
@@ -1781,17 +2190,17 @@ function checkVideoWallElements() {
   // ### ScannedVideoArray ###
   let scannedVideoArray = GetData(
     "ScannedVideoArray",
-    "([])",
+    "[]",
     true,
   ).reverse();
   // ### WatchedVideoArray ###
   let watchedVideoArray = GetData(
     "WatchedVideoArray",
-    "([])",
+    "[]",
     true,
   ).reverse();
   // ### VideoObjectDictionary ###
-  let videoObjectDictionary = GetData("VideoObjectDictionary", "({})", true);
+  let videoObjectDictionary = GetData("VideoObjectDictionary", "{}", true);
 
   let elements = $(".ytp-videowall-still");
 
@@ -1947,17 +2356,17 @@ function UpdateDataBase(functions, silent) {
 
   // ### WatchedVideoArray-Version ###
   let Version_WatchedVideoArray = JSON.parse(
-    functions.getValue("WatchedVideoArray-Version"),
+    functions.getValue("WatchedVideoArray-Version", null),
   );
 
   // ### ScannedVideoArray-Version ###
   let Version_ScannedVideoArray = JSON.parse(
-    functions.getValue("ScannedVideoArray-Version"),
+    functions.getValue("ScannedVideoArray-Version", null),
   );
 
   // ### VideoObjectDictionary-Version ###
   let Version_VideoObjectDictionary = JSON.parse(
-    functions.getValue("VideoObjectDictionary-Version"),
+    functions.getValue("VideoObjectDictionary-Version", null),
   );
 
   // ### WatchedVideoArray ###
@@ -1988,7 +2397,7 @@ function UpdateDataBase(functions, silent) {
 
       // ### Watched-Videos ###
       let WatchedVideos = JSON.parse(
-        functions.getValue("Watched-Videos") || null,
+        functions.getValue("Watched-Videos", null),
       );
 
       if (WatchedVideos != null) {
@@ -2041,7 +2450,7 @@ function UpdateDataBase(functions, silent) {
     } else {
       // ### WatchedVideoArray ###
       let WatchedVideoArray = JSON.parse(
-        functions.getValue("WatchedVideoArray") || "([])",
+        functions.getValue("WatchedVideoArray", "[]"),
       );
 
       switch (Version_WatchedVideoArray) {
@@ -2079,7 +2488,7 @@ function UpdateDataBase(functions, silent) {
       // aus der alten Tabelle 'Videos' importieren, same DataStructure 		#*#!LEGACY CODE!#*#
 
       // ### Videos ###
-      let Videos = JSON.parse(functions.getValue("Videos") || null);
+      let Videos = JSON.parse(functions.getValue("Videos", null));
 
       if (Videos != null) {
         let ScannedVideoArray = [];
@@ -2140,7 +2549,7 @@ function UpdateDataBase(functions, silent) {
     } else {
       // ### ScannedVideoArray ###
       let ScannedVideoArray = JSON.parse(
-        functions.getValue("ScannedVideoArray") || "([])",
+        functions.getValue("ScannedVideoArray", "[]"),
       );
 
       switch (Version_ScannedVideoArray) {
@@ -2179,7 +2588,7 @@ function UpdateDataBase(functions, silent) {
 
       // ### VideoStatistics ###
       let VideoStatistics = JSON.parse(
-        functions.getValue("VideoStatistics") || null,
+        functions.getValue("VideoStatistics", null),
       );
 
       if (VideoStatistics != null) {
@@ -2229,7 +2638,7 @@ function UpdateDataBase(functions, silent) {
     } else {
       // ### VideoObjectDictionary ###
       let videoObjectDictionary = JSON.parse(
-        functions.getValue("VideoObjectDictionary") || "({})",
+        functions.getValue("VideoObjectDictionary", "{}"),
       );
       let newStructure = {};
       let count = 0;
@@ -2592,25 +3001,25 @@ function UpdateDataBase(functions, silent) {
   }
   // ### VideoObjectDictionary ###
 
+  functions.unlock();
+
   if (
     CurrentVersion_WatchedVideoArray !=
-    JSON.parse(functions.getValue("WatchedVideoArray-Version")) ||
+    JSON.parse(functions.getValue("WatchedVideoArray-Version"), null) ||
     CurrentVersion_ScannedVideoArray !=
-    JSON.parse(functions.getValue("ScannedVideoArray-Version")) ||
+    JSON.parse(functions.getValue("ScannedVideoArray-Version"), null) ||
     CurrentVersion_VideoObjectDictionary !=
-    JSON.parse(functions.getValue("VideoObjectDictionary-Version"))
+    JSON.parse(functions.getValue("VideoObjectDictionary-Version"), null)
   ) {
     UpdateDataBase(functions, silent);
   }
-
-  functions.unlock();
 }
 
 function GetVideoWatched(watchedVideoArray, videoObjectDictionary, VideoID) {
   // If videoObjectDictionary is false ignore Elements from Dictionary (only check Elements from WatchedVideoArray)
   if (videoObjectDictionary !== false) {
     if (videoObjectDictionary === null) {
-      videoObjectDictionary = GetData("VideoObjectDictionary", "({})", true);
+      videoObjectDictionary = GetData("VideoObjectDictionary", "{}", true);
     }
     if (videoObjectDictionary[VideoID] !== undefined) {
       return true;
@@ -2620,7 +3029,7 @@ function GetVideoWatched(watchedVideoArray, videoObjectDictionary, VideoID) {
   // If watchedVideoArray is false ignore Elements from Array (only check Elements from VideoObjectDictionary)
   if (watchedVideoArray !== false) {
     if (watchedVideoArray === null || watchedVideoArray === undefined) {
-      watchedVideoArray = GetData("WatchedVideoArray", "([])", true);
+      watchedVideoArray = GetData("WatchedVideoArray", "[]", true);
     }
     if (watchedVideoArray.indexOf(VideoID) !== -1) {
       console.info("found Video only in old Declarationtable");
@@ -2639,7 +3048,7 @@ function PushVideoObject(videoObjectDictionary, videoObject, save) {
   }
   if (videoObjectDictionary === null) {
     GM_Lock();
-    videoObjectDictionary = GetData("VideoObjectDictionary", "({})", true);
+    videoObjectDictionary = GetData("VideoObjectDictionary", "{}", true);
     save = true;
     if (TabNoc.Settings.Debug === true) {
       console.log("Loading videoObjectDictionary ...");
@@ -2704,7 +3113,7 @@ function PushVideoObject(videoObjectDictionary, videoObject, save) {
 
 function GetElementCount(videoObjectDictionary) {
   if (videoObjectDictionary === null) {
-    videoObjectDictionary = GetData("VideoObjectDictionary", "({})", true);
+    videoObjectDictionary = GetData("VideoObjectDictionary", "{}", true);
   }
   var count = 0;
   for (var i in videoObjectDictionary) {
@@ -3157,11 +3566,11 @@ function Syncronisieren(scriptName) {
     Feedback.showProgress(75, "Neue Daten auf dem Server speichern");
 
     var element = {};
-    element.WatchedVideoArray = GetData("WatchedVideoArray", "([])", true);
-    element.ScannedVideoArray = GetData("ScannedVideoArray", "([])", true);
+    element.WatchedVideoArray = GetData("WatchedVideoArray", "[]", true);
+    element.ScannedVideoArray = GetData("ScannedVideoArray", "[]", true);
     element.VideoObjectDictionary = GetData(
       "VideoObjectDictionary",
-      "({})",
+      "{}",
       true,
     );
     element["VideoObjectDictionary-Version"] = GetData(
@@ -3221,7 +3630,7 @@ function Syncronisieren(scriptName) {
 function ModuleImport(moduleName, moduleFunction, expectedVersion) {
   let currentVersion = moduleFunction().Version;
   let versionCompareResult = versionCompare(currentVersion, expectedVersion);
-  var versionData = GetData("ImportVersion", "({show: true})", true);
+  var versionData = GetData("ImportVersion", "{\"show\": true}", true);
   versionData[moduleName] = versionData[moduleName] || {};
   if (
     versionData.show == true &&
@@ -3267,14 +3676,12 @@ function ModuleImport(moduleName, moduleFunction, expectedVersion) {
   versionData[moduleName].Version = currentVersion;
   SetData("ImportVersion", JSON.stringify(versionData), true, false);
 }
-console.log(TabNoc)
 
 function Main() {
-console.log(TabNoc)
-  ModuleImport("States", getStatesVersion, "1.2.8");
+  ModuleImport("States", getStatesVersion, "1.2.9");
   ModuleImport("TabNoc_GM", getTabNoc_GMVersion, "2.0.2");
   ModuleImport("TabNoc", getTabNocVersion, "1.2.4");
-  ModuleImport("ImportAll", getImportAllVersion, "1.1.0");
+  ModuleImport("ImportAll", getImportAllVersion, "1.1.3");
 
   // ModuleImport("VideoGreyDetector", getVideoGreyDetectorVersion, "1.0.0");
   /*

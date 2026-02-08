@@ -29,11 +29,11 @@
 
 (function(window) {
 
-    $type = String;
+    let $type = String;
     $type.__typeName = 'String';
     $type.__class = true;
 
-    $prototype = $type.prototype;
+    let $prototype = $type.prototype;
     $prototype.endsWith = function String$endsWith(suffix) {
         /// <summary>Determines whether the end of this instance matches the specified string.</summary>
         /// <param name="suffix" type="String">A string to compare to.</param>
