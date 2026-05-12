@@ -295,129 +295,237 @@ function registerTabNoc() {
   });
 }
 
+// ─── Node types ────────────────────────────────────────────────────────────────
+
 type SelectorDefinition = {
   name: string;
   selector: string;
 };
 
-type SelectorEvaluation = {
-  name: string;
-  selector: string;
-  totalCount: number;
-  filteredCount: number;
-  filteredElements: Element[];
+/** Coarse structural kind of a matched DOM node. */
+type NodeType = "video" | "videowall" | "short" | "unknown";
+
+/**
+ * Lifecycle state of a node within one pipeline run.
+ * Set by the extractor and updated by pipeline steps.
+ */
+type NodeState = "new" | "watched" | "scanned" | "filtered";
+
+/**
+ * Mutable context object carried through the extractor and all pipeline steps
+ * for a single DOM node.
+ */
+type NodeContext = {
+  element: Element;
+  nodeType: NodeType;
+  /** Extracted YouTube video ID, or null when unavailable / not applicable. */
+  videoID: string | null;
+  state: NodeState;
 };
 
-type NodePipelineContext = {
+/** Passed as immutable input to every pipeline step. */
+type SelectorRunContext = {
   ToggleState: boolean;
 };
 
+/**
+ * A named async step that mutates a NodeContext.
+ * Each step runs inside its own collapsed console group nested under the
+ * per-node group, so all its log output is naturally scoped.
+ */
 type NodePipelineStep = {
   name: string;
-  run: (elements: Element[], context: NodePipelineContext) => Promise<void> | void;
+  run: (nodeCtx: NodeContext, context: SelectorRunContext) => Promise<void> | void;
 };
 
-type PerNodePipelineStep = {
-  name: string;
-  run: (element: Element, context: NodePipelineContext) => Promise<void> | void;
-};
+// ─── NodeManager ───────────────────────────────────────────────────────────────
 
+/**
+ * Manages a set of CSS selectors and a per-node async pipeline.
+ *
+ * Run order per interval tick:
+ *   1. Each registered selector is queried and filtered.
+ *   2. Selectors whose node-set has not changed since the last run are skipped
+ *      (unless `force` is true).
+ *   3. For each changed selector, the extractor populates every NodeContext
+ *      (type / videoID / initial state) — this phase is synchronous and
+ *      produces no console output itself so that its results can be used as
+ *      the per-node console-group label.
+ *   4. A per-node collapsed group is opened with the label
+ *      `<nodeType> <videoID> state:<state> [element ref]`.
+ *   5. Each registered pipeline step runs inside a nested sub-group within
+ *      the node group, so all console output from that step is scoped there.
+ *
+ * Console structure:
+ *   ▸ Selector results
+ *     ▸ channelPageSelector — total: 20, after filter: 18  ✦ (changed)
+ *       ▸ video dQw4w9WgXcY  state: new  [element]
+ *         ▸ ↳ Fetch server data
+ *         ▸ ↳ Apply formatting
+ *       ▸ short —  state: filtered  [element]
+ *         ▸ ↳ Fetch server data  (skipped)
+ *         …
+ *     — sidebarSelector — unchanged (5)
+ *     …
+ */
 class NodeManager {
-  private selectors: SelectorDefinition[] = [];
+  private readonly selectors: SelectorDefinition[] = [];
+  private readonly pipelineSteps: NodePipelineStep[] = [];
+  /** Previous filtered element sets per selector name — used for change detection. */
+  private readonly selectorCache = new Map<string, Set<Element>>();
+  /**
+   * Runs synchronously for every node before the per-node group is opened.
+   * Must populate nodeCtx.nodeType, nodeCtx.videoID, and nodeCtx.state.
+   * Must NOT call console.log/info/warn (output would appear outside the node groups).
+   */
+  private extractor: ((nodeCtx: NodeContext) => void) | null = null;
 
-  private pipelineSteps: NodePipelineStep[] = [];
-
-  constructor(private excludedSelector: string) {}
+  constructor(private readonly excludedSelector: string) {}
 
   registerSelector(name: string, selector: string): this {
     this.selectors.push({ name, selector });
     return this;
   }
 
+  /**
+   * Set the extraction function.
+   * Called once per node before any pipeline step, result used for group label.
+   */
+  setExtractor(fn: (nodeCtx: NodeContext) => void): this {
+    this.extractor = fn;
+    return this;
+  }
+
+  /** Register a named async step that runs inside the per-node console group. */
   registerPipelineStep(name: string, run: NodePipelineStep["run"]): this {
     this.pipelineSteps.push({ name, run });
     return this;
   }
 
-  registerPerNodeStep(name: string, run: PerNodePipelineStep["run"]): this {
-    this.pipelineSteps.push({
-      name,
-      run: async (elements, context) => {
-        for (const element of elements) {
-          await run(element, context);
-        }
-      },
-    });
-    return this;
-  }
+  /**
+   * Evaluate all selectors, reprocess selectors that changed (or all when
+   * `force` is true), and run the full pipeline for each matched node.
+   */
+  async run(runCtx: SelectorRunContext, force: boolean = false): Promise<void> {
+    const S = NodeManager.styles;
 
-  evaluateSelectorsWithLogs(): SelectorEvaluation[] {
-    const styleHeader = "color: #fff; background: #333; padding: 2px 6px; border-radius: 3px;";
-    const styleFound = "color: #fff; background: #1f8b4c; padding: 2px 6px; border-radius: 3px;";
-    const styleEmpty = "color: #fff; background: #c53030; padding: 2px 6px; border-radius: 3px;";
+    console.groupCollapsed("%cSelector results", S.header);
 
-    const evaluations = this.selectors.map((selectorDef) => {
+    for (const selectorDef of this.selectors) {
       const allElements = Array.from(document.querySelectorAll(selectorDef.selector));
-      const filteredElements = allElements.filter((el) => !el.querySelector(this.excludedSelector));
+      const filtered = allElements.filter((el) => !el.querySelector(this.excludedSelector));
+      const changed = this.hasChanged(selectorDef.name, filtered);
 
-      return {
-        name: selectorDef.name,
-        selector: selectorDef.selector,
-        totalCount: allElements.length,
-        filteredCount: filteredElements.length,
-        filteredElements,
-      };
-    });
+      if (!changed && !force) {
+        console.log(
+          "%c— " + selectorDef.name + " — unchanged (" + filtered.length + ")",
+          S.unchanged,
+        );
+        continue;
+      }
 
-    console.groupCollapsed("%cSelector results", styleHeader);
-    evaluations.forEach((evaluation) => {
-      const badgeStyle = evaluation.filteredCount === 0 ? styleEmpty : styleFound;
+      this.updateCache(selectorDef.name, filtered);
+
+      // ── Phase 1: synchronous extraction (no logging, populates labels) ──────
+      const nodeContexts: NodeContext[] = filtered.map((element) => ({
+        element,
+        nodeType: "unknown" as NodeType,
+        videoID: null,
+        state: "new" as NodeState,
+      }));
+
+      if (this.extractor != null) {
+        for (const nodeCtx of nodeContexts) {
+          this.extractor(nodeCtx);
+        }
+      }
+
+      // ── Open selector group ──────────────────────────────────────────────────
+      const badgeStyle = filtered.length === 0 ? S.empty : S.found;
       console.groupCollapsed(
         "%c " +
-          evaluation.name +
+          selectorDef.name +
           " — total: " +
-          evaluation.totalCount +
+          allElements.length +
           ", after filter: " +
-          evaluation.filteredCount,
+          filtered.length +
+          (changed ? "  ✦" : ""),
         badgeStyle,
       );
 
-      if (evaluation.filteredCount === 0) {
-        console.log("%cNo elements found for selector " + evaluation.selector, styleEmpty);
-      } else {
-        console.log("Selector:", evaluation.selector);
+      let errorCount = 0;
+
+      // ── Phase 2: per-node groups + pipeline ──────────────────────────────────
+      for (const nodeCtx of nodeContexts) {
+        const stateStyle = NodeManager.stateStyle(nodeCtx.state);
+        console.groupCollapsed(
+          "%c " + nodeCtx.nodeType +
+          "  %c" + (nodeCtx.videoID ?? "—") +
+          "  %cstate: " + nodeCtx.state,
+          S.typeBadge,
+          S.videoId,
+          stateStyle,
+          nodeCtx.element,
+        );
+
+        for (const step of this.pipelineSteps) {
+          console.groupCollapsed("↳ " + step.name);
+          try {
+            await step.run(nodeCtx, runCtx);
+          } catch (err) {
+            console.error("Pipeline step error:", err);
+            errorCount++;
+          }
+          console.groupEnd();
+        }
+
+        console.groupEnd(); // node group
       }
 
-      console.groupEnd();
-    });
-    console.groupEnd();
+      if (errorCount > 0) {
+        console.warn(errorCount + " node(s) encountered errors in this selector.");
+      }
 
-    return evaluations;
+      console.groupEnd(); // selector group
+    }
+
+    console.groupEnd(); // "Selector results"
   }
 
-  getMergedElements(evaluations: SelectorEvaluation[]): Element[] {
-    const mergedElements: Element[] = [];
-    const seenElements = new Set<Element>();
+  // ── Internals ────────────────────────────────────────────────────────────────
 
-    evaluations.forEach((evaluation) => {
-      evaluation.filteredElements.forEach((el) => {
-        if (!seenElements.has(el)) {
-          seenElements.add(el);
-          mergedElements.push(el);
-        }
-      });
-    });
-
-    return mergedElements;
+  private hasChanged(name: string, elements: Element[]): boolean {
+    const prev = this.selectorCache.get(name);
+    if (prev == null) return true;
+    if (prev.size !== elements.length) return true;
+    for (const el of elements) {
+      if (!prev.has(el)) return true;
+    }
+    return false;
   }
 
-  async runPipeline(elements: Element[], context: NodePipelineContext) {
-    for (const step of this.pipelineSteps) {
-      console.groupCollapsed("Node pipeline: " + step.name);
-      await step.run(elements, context);
-      console.groupEnd();
+  private updateCache(name: string, elements: Element[]): void {
+    this.selectorCache.set(name, new Set(elements));
+  }
+
+  private static stateStyle(state: NodeState): string {
+    switch (state) {
+      case "scanned":  return "color:#fff;background:#1f8b4c;padding:1px 5px;border-radius:3px;font-size:11px;";
+      case "watched":  return "color:#fff;background:#2e7d32;padding:1px 5px;border-radius:3px;font-size:11px;";
+      case "filtered": return "color:#fff;background:#c53030;padding:1px 5px;border-radius:3px;font-size:11px;";
+      case "new":      return "color:#fff;background:#1565c0;padding:1px 5px;border-radius:3px;font-size:11px;";
+      default:         return "color:#333;";
     }
   }
+
+  private static readonly styles = {
+    header:    "color:#fff;background:#333;padding:2px 6px;border-radius:3px;font-weight:bold;",
+    found:     "color:#fff;background:#1f8b4c;padding:2px 6px;border-radius:3px;",
+    empty:     "color:#fff;background:#c53030;padding:2px 6px;border-radius:3px;",
+    unchanged: "color:#888;padding:2px 6px;",
+    typeBadge: "color:#fff;background:#555;padding:1px 5px;border-radius:3px;font-size:11px;",
+    videoId:   "color:#333;font-family:monospace;font-size:12px;",
+  };
 }
 
 class VideoNodeDetailsManager {
@@ -475,19 +583,131 @@ class VideoNodeDetailsManager {
 let nodeManager: NodeManager | null = null;
 const videoNodeDetailsManager = new VideoNodeDetailsManager();
 
-function getNodeManager() {
-  if (nodeManager == null) {
-    nodeManager = new NodeManager(
-      "ytd-ad-slot-renderer, ytd-rich-grid-slim-media, .ytd-rich-shelf-renderer",
-    )
-      .registerSelector("channelPageSelector", "ytd-rich-item-renderer")
-      .registerSelector("sidebarSelector", "yt-lockup-view-model.ytd-item-section-renderer")
-      .registerSelector("videoFinishedSelector", "a.ytp-modern-videowall-still")
-      .registerSelector("searchPageSelector", "ytd-video-renderer")
-      .registerPipelineStep("checkElements", async (elements, context) => {
-        await checkElements(elements, context.ToggleState);
-      });
-  }
+function getNodeManager(): NodeManager {
+  if (nodeManager != null) return nodeManager;
+
+  nodeManager = new NodeManager(
+    "ytd-ad-slot-renderer, ytd-rich-grid-slim-media, .ytd-rich-shelf-renderer",
+  )
+    .registerSelector("channelPageSelector", "ytd-rich-item-renderer")
+    .registerSelector("sidebarSelector", "yt-lockup-view-model.ytd-item-section-renderer")
+    .registerSelector("videoFinishedSelector", "a.ytp-modern-videowall-still")
+    .registerSelector("searchPageSelector", "ytd-video-renderer")
+
+    // ── Step 0: Extractor ─────────────────────────────────────────────────────
+    // Synchronous. Runs before the per-node console group is opened so its
+    // output populates the group label. Must not call console.log.
+    .setExtractor((nodeCtx) => {
+      const el = nodeCtx.element;
+
+      // Determine structural type
+      if (el.localName === "a") {
+        // videowall link element (a.ytp-modern-videowall-still)
+        nodeCtx.nodeType = "videowall";
+      } else if (el.querySelector("ytm-shorts-lockup-view-model-v2") !== null) {
+        nodeCtx.nodeType = "short";
+        nodeCtx.state = "filtered"; // shorts are always skipped
+        return; // no videoID extraction needed
+      } else {
+        nodeCtx.nodeType = "video";
+      }
+
+      nodeCtx.videoID = videoNodeDetailsManager.getVideoId(el);
+    })
+
+    // ── Step 1: Fetch server data ─────────────────────────────────────────────
+    // Async. Updates nodeCtx.state based on server response.
+    .registerPipelineStep("Fetch server data", async (nodeCtx) => {
+      if (nodeCtx.state === "filtered") {
+        console.log("Skipped — node is filtered (short / ad / shelf).");
+        return;
+      }
+      if (nodeCtx.videoID == null) {
+        console.log("Skipped — no videoID could be extracted.");
+        return;
+      }
+
+      const scanned = await GetVideoScanned(nodeCtx.videoID);
+      if (scanned) {
+        nodeCtx.state = "scanned";
+        console.log("→ scanned");
+        return;
+      }
+
+      const watched = await GetVideoWatched(nodeCtx.videoID);
+      if (watched) {
+        nodeCtx.state = "watched";
+        console.log("→ watched");
+      } else {
+        // state stays "new"
+        console.log("→ new (not yet watched)");
+      }
+    })
+
+    // ── Step 2: Apply formatting ──────────────────────────────────────────────
+    // Synchronous. Reads nodeCtx.state and applies DOM styles.
+    .registerPipelineStep("Apply formatting", (nodeCtx, runCtx) => {
+      if (!(nodeCtx.element instanceof HTMLElement)) {
+        console.log("Skipped — element is not an HTMLElement.");
+        return;
+      }
+      const el = nodeCtx.element;
+
+      if (nodeCtx.state === "filtered") {
+        console.log("Skipped — filtered node, no formatting applied.");
+        return;
+      }
+
+      videoNodeDetailsManager.applyBaseStyle(el);
+
+      const infoElement = $(el).find(".yt-lockup-metadata-view-model__title");
+      videoNodeDetailsManager.normalizeTitle(infoElement);
+
+      switch (nodeCtx.state) {
+        case "scanned":
+          videoNodeDetailsManager.markScanned(el, runCtx.ToggleState);
+          if (TabNoc.Settings.HideAlreadyWatchedVideos) {
+            videoNodeDetailsManager.setHidden(el);
+            console.log("Hidden (HideAlreadyWatched).");
+          }
+          break;
+
+        case "watched":
+          videoNodeDetailsManager.markWatched(el, runCtx.ToggleState);
+          if (TabNoc.Settings.HideAlreadyWatchedVideos) {
+            videoNodeDetailsManager.setHidden(el);
+            console.log("Hidden (HideAlreadyWatched).");
+          }
+          break;
+
+        default: {
+          // "new" — reset any previous coloring, then check title keyword lists
+          videoNodeDetailsManager.resetState(el);
+
+          const title = infoElement[0]?.textContent ?? "";
+          let matched = false;
+
+          for (const keyword of TabNoc.Settings.UninterestingVideos) {
+            if (title.includes(keyword)) {
+              videoNodeDetailsManager.setUninteresting(el);
+              console.log("Marked uninteresting — matched keyword:", keyword);
+              matched = true;
+              break;
+            }
+          }
+
+          if (!matched) {
+            for (const keyword of TabNoc.Settings.NotWantedVideos) {
+              if (title.includes(keyword)) {
+                videoNodeDetailsManager.removeOrHideNotWanted(el);
+                console.log("Removed/hidden (not wanted) — matched keyword:", keyword);
+                break;
+              }
+            }
+          }
+        }
+      }
+    });
 
   return nodeManager;
 }
@@ -513,23 +733,8 @@ async function startCheckElements(ToggleState:boolean, force?: boolean) {
       }
     }
 
-    const manager = getNodeManager();
-    const selectorEvaluation = manager.evaluateSelectorsWithLogs();
-    const elements = manager.getMergedElements(selectorEvaluation);
+    await getNodeManager().run({ ToggleState }, force === true);
 
-    console.log("elements count:", elements.length);
-
-    force = true;
-
-    if (
-      force === true ||
-      TabNoc.Variables.lastCheckItemCount !== elements.length
-      //TODO: trigger when server state has changed
-    ) {
-      await manager.runPipeline(elements, { ToggleState });
-
-      TabNoc.Variables.lastCheckItemCount = elements.length;
-    }
     CheckWatchingVideo();
 
     var time = new Date().getTime() - start;
