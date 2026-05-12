@@ -295,6 +295,203 @@ function registerTabNoc() {
   });
 }
 
+type SelectorDefinition = {
+  name: string;
+  selector: string;
+};
+
+type SelectorEvaluation = {
+  name: string;
+  selector: string;
+  totalCount: number;
+  filteredCount: number;
+  filteredElements: Element[];
+};
+
+type NodePipelineContext = {
+  ToggleState: boolean;
+};
+
+type NodePipelineStep = {
+  name: string;
+  run: (elements: Element[], context: NodePipelineContext) => Promise<void> | void;
+};
+
+type PerNodePipelineStep = {
+  name: string;
+  run: (element: Element, context: NodePipelineContext) => Promise<void> | void;
+};
+
+class NodeManager {
+  private selectors: SelectorDefinition[] = [];
+
+  private pipelineSteps: NodePipelineStep[] = [];
+
+  constructor(private excludedSelector: string) {}
+
+  registerSelector(name: string, selector: string): this {
+    this.selectors.push({ name, selector });
+    return this;
+  }
+
+  registerPipelineStep(name: string, run: NodePipelineStep["run"]): this {
+    this.pipelineSteps.push({ name, run });
+    return this;
+  }
+
+  registerPerNodeStep(name: string, run: PerNodePipelineStep["run"]): this {
+    this.pipelineSteps.push({
+      name,
+      run: async (elements, context) => {
+        for (const element of elements) {
+          await run(element, context);
+        }
+      },
+    });
+    return this;
+  }
+
+  evaluateSelectorsWithLogs(): SelectorEvaluation[] {
+    const styleHeader = "color: #fff; background: #333; padding: 2px 6px; border-radius: 3px;";
+    const styleFound = "color: #fff; background: #1f8b4c; padding: 2px 6px; border-radius: 3px;";
+    const styleEmpty = "color: #fff; background: #c53030; padding: 2px 6px; border-radius: 3px;";
+
+    const evaluations = this.selectors.map((selectorDef) => {
+      const allElements = Array.from(document.querySelectorAll(selectorDef.selector));
+      const filteredElements = allElements.filter((el) => !el.querySelector(this.excludedSelector));
+
+      return {
+        name: selectorDef.name,
+        selector: selectorDef.selector,
+        totalCount: allElements.length,
+        filteredCount: filteredElements.length,
+        filteredElements,
+      };
+    });
+
+    console.groupCollapsed("%cSelector results", styleHeader);
+    evaluations.forEach((evaluation) => {
+      const badgeStyle = evaluation.filteredCount === 0 ? styleEmpty : styleFound;
+      console.groupCollapsed(
+        "%c " +
+          evaluation.name +
+          " — total: " +
+          evaluation.totalCount +
+          ", after filter: " +
+          evaluation.filteredCount,
+        badgeStyle,
+      );
+
+      if (evaluation.filteredCount === 0) {
+        console.log("%cNo elements found for selector " + evaluation.selector, styleEmpty);
+      } else {
+        console.log("Selector:", evaluation.selector);
+      }
+
+      console.groupEnd();
+    });
+    console.groupEnd();
+
+    return evaluations;
+  }
+
+  getMergedElements(evaluations: SelectorEvaluation[]): Element[] {
+    const mergedElements: Element[] = [];
+    const seenElements = new Set<Element>();
+
+    evaluations.forEach((evaluation) => {
+      evaluation.filteredElements.forEach((el) => {
+        if (!seenElements.has(el)) {
+          seenElements.add(el);
+          mergedElements.push(el);
+        }
+      });
+    });
+
+    return mergedElements;
+  }
+
+  async runPipeline(elements: Element[], context: NodePipelineContext) {
+    for (const step of this.pipelineSteps) {
+      console.groupCollapsed("Node pipeline: " + step.name);
+      await step.run(elements, context);
+      console.groupEnd();
+    }
+  }
+}
+
+class VideoNodeDetailsManager {
+  getVideoId(element: Element): string | null {
+    return getVideoIdFromElement(element);
+  }
+
+  normalizeTitle(infoElement: JQuery<HTMLElement>) {
+    const ariaLabel = infoElement.attr("aria-label");
+    if (ariaLabel != null) {
+      infoElement.attr("title", ariaLabel.replace("Minuten,", "Minuten"));
+    }
+  }
+
+  applyBaseStyle(currentElement: HTMLElement) {
+    currentElement.style.borderRadius = "15px";
+    currentElement.style.border = "1px solid #ddd";
+    currentElement.style.padding = "5px";
+  }
+
+  markScanned(currentElement: HTMLElement, ToggleState: boolean) {
+    if (ToggleState === true) {
+      $(currentElement).css("background-color", "rgb(151, 255, 139)");
+    }
+  }
+
+  markWatched(currentElement: HTMLElement, ToggleState: boolean) {
+    if (ToggleState === true) {
+      $(currentElement).css("background-color", "rgb(166, 235, 158)");
+    }
+  }
+
+  resetState(currentElement: HTMLElement) {
+    $(currentElement).css("background-color", "");
+    currentElement.style.display = "";
+  }
+
+  setHidden(currentElement: HTMLElement) {
+    currentElement.style.display = "none";
+  }
+
+  setUninteresting(currentElement: HTMLElement) {
+    $(currentElement).css("background-color", "rgb(255, 175, 175)");
+  }
+
+  removeOrHideNotWanted(currentElement: HTMLElement) {
+    if (TabNoc.Settings.DeleteNotWantedVideos === true) {
+      $(currentElement).remove();
+    } else {
+      this.setHidden(currentElement);
+    }
+  }
+}
+
+let nodeManager: NodeManager | null = null;
+const videoNodeDetailsManager = new VideoNodeDetailsManager();
+
+function getNodeManager() {
+  if (nodeManager == null) {
+    nodeManager = new NodeManager(
+      "ytd-ad-slot-renderer, ytd-rich-grid-slim-media, .ytd-rich-shelf-renderer",
+    )
+      .registerSelector("channelPageSelector", "ytd-rich-item-renderer")
+      .registerSelector("sidebarSelector", "yt-lockup-view-model.ytd-item-section-renderer")
+      .registerSelector("videoFinishedSelector", "a.ytp-modern-videowall-still")
+      .registerSelector("searchPageSelector", "ytd-video-renderer")
+      .registerPipelineStep("checkElements", async (elements, context) => {
+        await checkElements(elements, context.ToggleState);
+      });
+  }
+
+  return nodeManager;
+}
+
 async function startCheckElements(ToggleState:boolean, force?: boolean) {
   if (
     (document.hidden === false && document.hasFocus()) ||
@@ -316,53 +513,9 @@ async function startCheckElements(ToggleState:boolean, force?: boolean) {
       }
     }
 
-    let sidebarSelector = "yt-lockup-view-model.ytd-item-section-renderer";
-    let channelPageSelector = "ytd-rich-item-renderer";
-    let videoFinishedSelector = "a.ytp-modern-videowall-still"; // probably not working, as this has a different structure
-    let searchPageSelector = "ytd-video-renderer";
-    let excludedSelector =
-      "ytd-ad-slot-renderer, ytd-rich-grid-slim-media, .ytd-rich-shelf-renderer";
-
-    // Log per-selector results (grouped, colored) so it's easy to see what's missing
-    const selectors = [
-      { name: "channelPageSelector", selector: channelPageSelector },
-      { name: "sidebarSelector", selector: sidebarSelector },
-      { name: "videoFinishedSelector", selector: videoFinishedSelector },
-      { name: "searchPageSelector", selector: searchPageSelector },
-    ];
-
-    const styleHeader = "color: #fff; background: #333; padding: 2px 6px; border-radius: 3px;";
-    const styleFound = "color: #fff; background: #1f8b4c; padding: 2px 6px; border-radius: 3px;";
-    const styleEmpty = "color: #fff; background: #c53030; padding: 2px 6px; border-radius: 3px;";
-
-    console.groupCollapsed("%cSelector results", styleHeader);
-    const perSelectorFiltered: Element[] = [];
-    selectors.forEach((s) => {
-      const nodes = Array.from(document.querySelectorAll(s.selector));
-      const filtered = nodes.filter((el) => !el.querySelector(excludedSelector));
-      const badgeStyle = filtered.length === 0 ? styleEmpty : styleFound;
-
-      console.groupCollapsed("%c " + s.name + " — total: " + nodes.length + ", after filter: " + filtered.length, badgeStyle);
-      if (filtered.length > 0) {
-        const maxPreview = 5;
-        const preview = filtered.slice(0, maxPreview).map((el) => {
-          try {
-            const id = getVideoIdFromElement(el);
-            return id || (el as HTMLElement).outerHTML.substring(0, 80);
-          } catch (exc) {
-            return (el as Element).localName;
-          }
-        });
-        console.log("Sample:", preview);
-      } else {
-        console.log("%cNo elements found for selector", styleEmpty);
-      }
-      console.groupEnd();
-      perSelectorFiltered.push(...filtered);
-    });
-    console.groupEnd();
-
-    let elements = perSelectorFiltered; // preserve original variable name for downstream logic
+    const manager = getNodeManager();
+    const selectorEvaluation = manager.evaluateSelectorsWithLogs();
+    const elements = manager.getMergedElements(selectorEvaluation);
 
     console.log("elements count:", elements.length);
 
@@ -373,10 +526,7 @@ async function startCheckElements(ToggleState:boolean, force?: boolean) {
       TabNoc.Variables.lastCheckItemCount !== elements.length
       //TODO: trigger when server state has changed
     ) {
-      await checkElements(
-        elements,
-        ToggleState,
-      );
+      await manager.runPipeline(elements, { ToggleState });
 
       TabNoc.Variables.lastCheckItemCount = elements.length;
     }
@@ -449,7 +599,7 @@ async function checkElement(
     ".yt-lockup-metadata-view-model__title",
   );
 
-  let VideoID = getVideoIdFromElement(currentElement);
+  let VideoID = videoNodeDetailsManager.getVideoId(currentElement);
 
   console.log(
     "currentElement",
@@ -464,35 +614,31 @@ async function checkElement(
     return true;
   }
 
-  infoElement.attr(
-    "title",
-    infoElement.attr("aria-label").replace("Minuten,", "Minuten"),
-  );
+  if ((currentElement instanceof HTMLElement) === false) {
+    return true;
+  }
 
-  currentElement.style.borderRadius = "15px";
-  currentElement.style.border = "1px solid #ddd";
-  currentElement.style.padding = "5px";
+  videoNodeDetailsManager.normalizeTitle(infoElement);
+
+  videoNodeDetailsManager.applyBaseStyle(currentElement);
   // currentElement.style.minHeight = "187px";
 
   if (await GetVideoScanned(VideoID)) {
-    if (ToggleState === true)
-      $(currentElement).css("background-color", "rgb(151, 255, 139)");
+    videoNodeDetailsManager.markScanned(currentElement, ToggleState);
     if (TabNoc.Settings.HideAlreadyWatchedVideos === true) {
-      currentElement.style.display = "none";
+      videoNodeDetailsManager.setHidden(currentElement);
     }
     return true;
   } else if (
     await GetVideoWatched(VideoID)
   ) {
-    if (ToggleState === true)
-      $(currentElement).css("background-color", "rgb(166, 235, 158)");
+    videoNodeDetailsManager.markWatched(currentElement, ToggleState);
     if (TabNoc.Settings.HideAlreadyWatchedVideos === true) {
-      currentElement.style.display = "none";
+      videoNodeDetailsManager.setHidden(currentElement);
     }
     return true;
   } else {
-    $(currentElement).css("background-color", "");
-    currentElement.style.display = "";
+    videoNodeDetailsManager.resetState(currentElement);
   }
 
   for (let i = 0; i < TabNoc.Settings.UninterestingVideos.length; i++) {
@@ -501,7 +647,7 @@ async function checkElement(
         TabNoc.Settings.UninterestingVideos[i],
       )
     ) {
-      $(currentElement).css("background-color", "rgb(255, 175, 175)");
+      videoNodeDetailsManager.setUninteresting(currentElement);
       break;
     }
   }
@@ -509,12 +655,7 @@ async function checkElement(
     if (
       infoElement[0].textContent.includes(TabNoc.Settings.NotWantedVideos[i])
     ) {
-      //disableVideo
-      if (TabNoc.Settings.DeleteNotWantedVideos === true) {
-        $(currentElement).remove();
-      } else {
-        currentElement.style.display = "none";
-      }
+      videoNodeDetailsManager.removeOrHideNotWanted(currentElement);
       break;
     }
   }
