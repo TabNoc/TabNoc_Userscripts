@@ -348,6 +348,12 @@ type NodePipelineStepResult = "skipped" | void;
 
 type StepStatus = "success" | "skipped" | "failed";
 
+type StepExecution = {
+  stepName: string;
+  status: StepStatus;
+  logs: CapturedLog[];
+};
+
 type CapturedLogMethod = "log" | "info" | "warn" | "error" | "debug" | "group" | "groupCollapsed" | "groupEnd";
 type CapturedLog = { method: CapturedLogMethod; args: unknown[] };
 
@@ -359,12 +365,8 @@ type CapturedLog = { method: CapturedLogMethod; args: unknown[] };
  * Run order per interval tick:
  *   1. Each registered selector is queried and filtered.
  *   2. Selectors unchanged since the last run are skipped (unless `force`).
- *   3. A minimal silent pre-extraction reads `localName` for the node group label.
- *   4. Per-node group opens: `<preType>  [element]`.
- *   5. The registered extractor runs as Step 0 "Extract node info" — ALL
- *      console output is captured and replayed inside that step's group.
- *   6. A context summary line (type / videoID / state) is logged in node scope.
- *   7. Each remaining step runs the same way: output captured → step group
+ *   3. Per-node group opens: `<preType>  [element]`.
+ *   4. Each step runs: output captured → step group
  *      opened with a colored status badge → logs replayed inside.
  *
  * Step group badges:
@@ -375,13 +377,12 @@ type CapturedLog = { method: CapturedLogMethod; args: unknown[] };
  * Console structure:
  *   ▸ Selector results
  *     ▸ channelPageSelector — total: 20, after filter: 18
- *       ▸ video  [element]
- *           video  dQw4w9WgXcY  state: new         ← context summary
+ *       ▸ [  OK  ] [type] [ID] [state] <element>
  *         ▸ [  OK  ] ↳ Extract node info
  *         ▸ [  OK  ] ↳ Apply base style
  *         ▸ [  OK  ] ↳ Fetch server data
  *         ▸ [  OK  ] ↳ Apply formatting
- *       ▸ short  [element]
+ *       ▸ [Skipped] [type] [ID] [state] <element>
  *         ▸ [  OK  ] ↳ Extract node info
  *         ▸ [Skipped] ↳ Apply base style
  *     — sidebarSelector — unchanged (5)
@@ -391,27 +392,11 @@ class NodeManager {
   private readonly pipelineSteps: NodePipelineStep[] = [];
   /** Previous filtered element sets per selector name — used for change detection. */
   private readonly selectorCache = new Map<string, Set<Element>>();
-  /**
-   * Registered via `setExtractor`. Runs as Step 0 "Extract node info" inside
-   * its own step group. All console output is captured and replayed there.
-   */
-  private extractorFn: ((nodeCtx: NodeContext) => NodePipelineStepResult | Promise<NodePipelineStepResult>) | null = null;
 
   constructor(private readonly excludedSelector: string) {}
 
   registerSelector(name: string, selector: string): this {
     this.selectors.push({ name, selector });
-    return this;
-  }
-
-  /**
-   * Register the extraction function.
-   * Runs as the first pipeline step ("Extract node info") with full console
-   * capture — all log/info/warn/error/group calls appear inside that step group.
-   * Return `"skipped"` or throw to signal skip / failure.
-   */
-  setExtractor(fn: (nodeCtx: NodeContext) => NodePipelineStepResult | Promise<NodePipelineStepResult>): this {
-    this.extractorFn = fn;
     return this;
   }
 
@@ -462,30 +447,42 @@ class NodeManager {
       );
 
       for (const element of filtered) {
-        // Minimal silent pre-extraction: reads localName only — does NOT log.
-        const preType = NodeManager.quickExtractType(element);
-        const nodeCtx: NodeContext = { element, nodeType: preType, videoID: null, state: "new" };
+        const nodeCtx: NodeContext = {
+          element,
+          nodeType: "unknown",
+          videoID: null,
+          state: "new",
+        };
+        const stepExecutions: StepExecution[] = [];
 
-        // Open node group with minimal label; full context summary follows Step 0.
+        for (const step of this.pipelineSteps) {
+          stepExecutions.push(await this.executeStep(step, nodeCtx, runCtx));
+        }
+
+        const worstResult = stepExecutions.reduce<StepStatus>((worst, exec) => {
+          return match (exec.status)
+            .with("failed", () => "failed" as StepStatus)
+            .with("skipped", () => worst === "failed", () => "failed" as StepStatus)
+            .with("skipped", () => worst !== "failed", () => "skipped" as StepStatus)
+            .otherwise(() => worst);
+        }, "success" as StepStatus);
+        
+        const { style: badgeStyle, label: badgeLabel } = this.getBadgeForStatus(worstResult);
+
         console.groupCollapsed(
-          "%c " + nodeCtx.nodeType + " %c",
-          S.typeBadge, S.nodeRef,
+          "%c" + badgeLabel + 
+          "%c " + nodeCtx.nodeType +
+          "%c" + (nodeCtx.videoID ?? " — ") +
+          "%cstate: " + nodeCtx.state,
+          badgeStyle,
+          S.typeBadge,
+          S.videoId,
+          NodeManager.stateStyle(nodeCtx.state),
           nodeCtx.element,
         );
 
-        // Step 0: extractor (captured, same as other steps)
-        if (this.extractorFn != null) {
-          await this.runStep({ name: "Extract node info", run: (n) => this.extractorFn!(n) }, nodeCtx, runCtx);
-        }
-
-        // Context summary in node scope (values are now final after extractor ran)
-        console.log(
-          "%c " + nodeCtx.nodeType + "  %c" + (nodeCtx.videoID ?? "—") + "  %cstate: " + nodeCtx.state,
-          S.typeBadge, S.videoId, NodeManager.stateStyle(nodeCtx.state),
-        );
-
-        for (const step of this.pipelineSteps) {
-          await this.runStep(step, nodeCtx, runCtx);
+        for (const execution of stepExecutions) {
+          this.renderStep(execution);
         }
 
         console.groupEnd(); // node group
@@ -500,21 +497,37 @@ class NodeManager {
   // ── Internals ────────────────────────────────────────────────────────────────
 
   /**
-   * Runs a single step with console capture:
-   *   1. Captures all console output while the step executes.
-   *   2. Determines status (success / skipped / failed).
-   *   3. Opens a collapsed group whose label has the colored status badge.
-   *   4. Replays captured logs inside that group.
+   * Executes one step and returns captured output + final status.
    */
-  private async runStep(step: NodePipelineStep, nodeCtx: NodeContext, runCtx: SelectorRunContext): Promise<void> {
+  private async executeStep(
+    step: NodePipelineStep,
+    nodeCtx: NodeContext,
+    runCtx: SelectorRunContext,
+  ): Promise<StepExecution> {
+    const capture = await this.captureStep(step, nodeCtx, runCtx);
+    return {
+      stepName: step.name,
+      status: capture.status,
+      logs: capture.logs,
+    };
+  }
+
+  private getBadgeForStatus(status: StepStatus): { style: string; label: string } {
     const S = NodeManager.styles;
-    const { logs, status } = await this.captureStep(step, nodeCtx, runCtx);
-    const [badgeStyle, badgeLabel] =
-      status === "skipped" ? [S.badgeSkipped, " Skipped "] :
-      status === "failed"  ? [S.badgeFailed,  " Failed  "] :
-                             [S.badgeSuccess,  "  OK  "];
-    console.groupCollapsed("%c" + badgeLabel + "%c ↳ " + step.name, badgeStyle, S.stepName);
-    for (const entry of logs) {
+    return match (status)
+      .with("skipped", () => ({ style: S.badgeSkipped, label:  "  Skipped " }))
+      .with("failed", () => ({ style: S.badgeFailed,  label:   "  Failed  " }))
+      .with("success", () => ({ style: S.badgeSuccess,  label: "    OK    " }))
+      .exhaustive();
+  }
+
+  /**
+   * Renders one step group with status badge and replays all captured logs.
+   */
+  private renderStep(execution: StepExecution): void {
+    const { style: badgeStyle, label: badgeLabel } = this.getBadgeForStatus(execution.status);
+    console.groupCollapsed("%c" + badgeLabel + "%c ↳ " + execution.stepName, badgeStyle, NodeManager.styles.stepName);
+    for (const entry of execution.logs) {
       (console as unknown as Record<CapturedLogMethod, (...a: unknown[]) => void>)[entry.method](...entry.args);
     }
     console.groupEnd();
@@ -555,13 +568,6 @@ class NodeManager {
     this.selectorCache.set(name, new Set(elements));
   }
 
-  /** Minimal, silent type inference for the node group label. Does not log. */
-  private static quickExtractType(element: Element): NodeType {
-    if (element.localName === "a") return "videowall";
-    if (element.querySelector("ytm-shorts-lockup-view-model-v2") !== null) return "short";
-    return "video";
-  }
-
   static stateStyle(state: NodeState): string {
     switch (state) {
       case "scanned":  return "color:#fff;background:#1f8b4c;padding:1px 5px;border-radius:3px;font-size:11px;";
@@ -578,9 +584,8 @@ class NodeManager {
     empty:     "color:#fff;background:#c53030;padding:2px 6px;border-radius:3px;",
     unchanged: "color:#888;padding:2px 6px;",
     typeBadge: "color:#fff;background:#555;padding:1px 5px;border-radius:3px;font-size:11px;",
-    nodeRef:      "color:#888;font-size:11px;",
-    videoId:   "color:#333;font-family:monospace;font-size:12px;",
-    stepName:     "color:#333;font-size:12px;",
+    videoId:   "color:#e5e7eb;background:#1f2937;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:12px;",
+    stepName:     "color:#f1f5f9;background:#1f2937;padding:1px 4px;border-radius:3px;font-size:12px;",
     badgeSuccess: "color:#fff;background:#1f8b4c;padding:1px 5px;border-radius:3px;font-size:11px;font-weight:bold;",
     badgeSkipped: "color:#333;background:#f59e0b;padding:1px 5px;border-radius:3px;font-size:11px;font-weight:bold;",
     badgeFailed:  "color:#fff;background:#c53030;padding:1px 5px;border-radius:3px;font-size:11px;font-weight:bold;",
@@ -589,7 +594,50 @@ class NodeManager {
 
 class VideoNodeDetailsManager {
   getVideoId(element: Element): string | null {
-    return getVideoIdFromElement(element);
+    console.info("getVideoIdFromElement", element);
+    // "ytd-rich-item-renderer" -> Start page (this is a container, not the actual video element. This is also used in the sidebar, but encapsulates all videos there)
+    const thumbnailElement = match (element)
+    .with({ localName: "ytd-rich-item-renderer" }, (el) => el.querySelector("ytm-shorts-lockup-view-model-v2")!== null, () => {
+      console.warn("found shorts layout element");
+      return null;
+    })
+    .with({ localName: "ytd-rich-item-renderer" }, (el) => {
+      return el.querySelector("#content>yt-lockup-view-model")?.querySelector(
+      ".yt-lockup-view-model__content-image",
+    );
+    })
+    .with({ localName: "yt-lockup-view-model" }, (el) => {
+      return el.querySelector(".ytLockupViewModelContentImage");;
+    })
+    .otherwise(() => {
+      return null;
+    });
+
+    if (thumbnailElement == null) {
+      console.warn("did not find thumbnail element");
+      return null;
+    }
+
+    console.info("thumbnailElement", thumbnailElement);
+
+    const videoID = thumbnailElement.getAttribute("href")
+      ?.replace("https://www.youtube.com", "")
+      .replace("/watch?v=", "")
+      .split("&t=")[0]
+      .split("&pp=")[0];
+
+    if (videoID == null || videoID.length === 0) {
+      console.warn("did not find thumbnail link");
+      return null;
+    }
+
+    if (videoID.includes("&list=")) {
+      console.info("found playlist link, ignoring");
+      return null;
+    }
+
+    console.info("VideoId:", videoID);
+    return videoID;
   }
 
   normalizeTitle(infoElement: JQuery<HTMLElement>) {
@@ -668,25 +716,34 @@ function getNodeManager(): NodeManager {
     .registerSelector("searchPageSelector", "ytd-video-renderer")
 
     // ── Step 0: Extractor ─────────────────────────────────────────────────────
-    // Logs land inside the step group via console capture.
-    .setExtractor((nodeCtx) => {
+    // Configuration and node-type extraction live here.
+    .registerPipelineStep("Extract node info", (nodeCtx) => {
       const el = nodeCtx.element;
+      nodeCtx.nodeType = "unknown";
 
-      if (el.localName === "a") {
-        nodeCtx.nodeType = "videowall";
-        console.log("Detected videowall link.");
-      } else if (el.querySelector("ytm-shorts-lockup-view-model-v2") !== null) {
+      if (el.querySelector("ytm-shorts-lockup-view-model-v2") !== null) {
         nodeCtx.nodeType = "short";
         nodeCtx.state = "filtered";
         console.log("Detected short — marking as filtered.");
         return "skipped";
-      } else {
+      }
+
+      if (el.localName === "a") {
+        nodeCtx.nodeType = "videowall";
+        console.log("Detected videowall link.");
+      }
+
+      if (
+        el.localName === "ytd-rich-item-renderer" ||
+        el.localName === "yt-lockup-view-model" ||
+        el.localName === "ytd-video-renderer"
+      ) {
         nodeCtx.nodeType = "video";
       }
 
       nodeCtx.videoID = videoNodeDetailsManager.getVideoId(el);
       if (nodeCtx.videoID == null) {
-        throw "Could not extract a videoID from element";
+        throw new Error("Could not extract a videoID from element.");
       } else {
         console.log("Extracted videoID:", nodeCtx.videoID);
       }
@@ -698,8 +755,7 @@ function getNodeManager(): NodeManager {
     .registerPipelineStep("Apply base style", (nodeCtx) => {
       if (nodeCtx.state === "filtered") return "skipped";
       if (!(nodeCtx.element instanceof HTMLElement)) {
-        console.warn("Element is not an HTMLElement — cannot apply styles.");
-        return "skipped";
+        throw new Error("Element is not an HTMLElement — cannot apply styles.");
       }
       videoNodeDetailsManager.applyBaseStyle(nodeCtx.element);
       videoNodeDetailsManager.applyLoadingStyle(nodeCtx.element);
@@ -735,7 +791,9 @@ function getNodeManager(): NodeManager {
     // Removes the loading indicator and applies final colors based on state.
     .registerPipelineStep("Apply formatting", (nodeCtx, runCtx) => {
       if (nodeCtx.state === "filtered") return "skipped";
-      if (!(nodeCtx.element instanceof HTMLElement)) return "skipped";
+      if (!(nodeCtx.element instanceof HTMLElement)) {
+        throw new Error("Element is not an HTMLElement — cannot apply styles.");
+      };
       const el = nodeCtx.element;
 
       // Remove the loading indicator now that data is available
@@ -947,55 +1005,6 @@ async function checkElement(
   }
 
   return false;
-}
-
-/**
- * @param {Element} element - The DOM element (or jQuery-wrapped element) to inspect.
- * @returns {string|null} The extracted video id or normalized link fragment, or null when no valid single-video id is found
- */
-function getVideoIdFromElement(element:Element) {
-  let link;
-  console.info("getVideoIdFromElement", element);
-
-  // "ytd-rich-item-renderer" -> Start page (this is a container, not the actual video element. This is also used in the sidebar, but encapsulates all videos there)
-  if (element.localName === "ytd-rich-item-renderer") {
-    if (element.querySelector("ytm-shorts-lockup-view-model-v2") !== null) {
-      console.debug("found shorts layout element");
-      return null;
-    }
-    element = element.querySelector("#content>yt-lockup-view-model");
-  } else if (element.localName === "yt-lockup-view-model") {
-    //ok
-  } else {
-    element = null;
-  }
-
-  if (element == null) {
-    console.debug("found unknown layout element");
-    return null;
-  }
-
-  let thumbnailElement = element.querySelector(
-    ".yt-lockup-view-model__content-image",
-  );
-  if (thumbnailElement == null) {
-    console.warn("did not find thumbnail element");
-    return null;
-  }
-  link = thumbnailElement.getAttribute("href");
-
-  console.info(element, "link:", link);
-  link = link
-    .replace("https://www.youtube.com", "")
-    .replace("/watch?v=", "")
-    .split("&t=")[0]
-    .split("&pp=")[0];
-  if (link.includes("&list=")) {
-    link = null;
-    console.info(element, "found playlist link, ignoring");
-  }
-  console.info(element, "VideoId:", link);
-  return link;
 }
 
 // ### https://www.youtube.com/ ###
