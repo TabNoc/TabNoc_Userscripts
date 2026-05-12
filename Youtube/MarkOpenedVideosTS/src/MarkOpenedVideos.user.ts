@@ -335,8 +335,21 @@ type SelectorRunContext = {
  */
 type NodePipelineStep = {
   name: string;
-  run: (nodeCtx: NodeContext, context: SelectorRunContext) => Promise<void> | void;
+  run: (nodeCtx: NodeContext, context: SelectorRunContext) => Promise<NodePipelineStepResult> | NodePipelineStepResult;
 };
+
+/**
+ * Return type for a pipeline step.
+ * - Return `"skipped"` to show a yellow Skipped badge.
+ * - Throw any value to show a red Failed badge.
+ * - Return `void` / `undefined` to show a green OK badge.
+ */
+type NodePipelineStepResult = "skipped" | void;
+
+type StepStatus = "success" | "skipped" | "failed";
+
+type CapturedLogMethod = "log" | "info" | "warn" | "error" | "debug" | "group" | "groupCollapsed" | "groupEnd";
+type CapturedLog = { method: CapturedLogMethod; args: unknown[] };
 
 // ─── NodeManager ───────────────────────────────────────────────────────────────
 
@@ -345,28 +358,33 @@ type NodePipelineStep = {
  *
  * Run order per interval tick:
  *   1. Each registered selector is queried and filtered.
- *   2. Selectors whose node-set has not changed since the last run are skipped
- *      (unless `force` is true).
- *   3. For each changed selector, the extractor populates every NodeContext
- *      (type / videoID / initial state) — this phase is synchronous and
- *      produces no console output itself so that its results can be used as
- *      the per-node console-group label.
- *   4. A per-node collapsed group is opened with the label
- *      `<nodeType> <videoID> state:<state> [element ref]`.
- *   5. Each registered pipeline step runs inside a nested sub-group within
- *      the node group, so all console output from that step is scoped there.
+ *   2. Selectors unchanged since the last run are skipped (unless `force`).
+ *   3. A minimal silent pre-extraction reads `localName` for the node group label.
+ *   4. Per-node group opens: `<preType>  [element]`.
+ *   5. The registered extractor runs as Step 0 "Extract node info" — ALL
+ *      console output is captured and replayed inside that step's group.
+ *   6. A context summary line (type / videoID / state) is logged in node scope.
+ *   7. Each remaining step runs the same way: output captured → step group
+ *      opened with a colored status badge → logs replayed inside.
+ *
+ * Step group badges:
+ *   [  OK  ]   green  — step returned void
+ *   [Skipped]  yellow — step returned "skipped"
+ *   [ Failed]  red    — step threw an error
  *
  * Console structure:
  *   ▸ Selector results
- *     ▸ channelPageSelector — total: 20, after filter: 18  ✦ (changed)
- *       ▸ video dQw4w9WgXcY  state: new  [element]
- *         ▸ ↳ Fetch server data
- *         ▸ ↳ Apply formatting
- *       ▸ short —  state: filtered  [element]
- *         ▸ ↳ Fetch server data  (skipped)
- *         …
+ *     ▸ channelPageSelector — total: 20, after filter: 18
+ *       ▸ video  [element]
+ *           video  dQw4w9WgXcY  state: new         ← context summary
+ *         ▸ [  OK  ] ↳ Extract node info
+ *         ▸ [  OK  ] ↳ Apply base style
+ *         ▸ [  OK  ] ↳ Fetch server data
+ *         ▸ [  OK  ] ↳ Apply formatting
+ *       ▸ short  [element]
+ *         ▸ [  OK  ] ↳ Extract node info
+ *         ▸ [Skipped] ↳ Apply base style
  *     — sidebarSelector — unchanged (5)
- *     …
  */
 class NodeManager {
   private readonly selectors: SelectorDefinition[] = [];
@@ -374,11 +392,10 @@ class NodeManager {
   /** Previous filtered element sets per selector name — used for change detection. */
   private readonly selectorCache = new Map<string, Set<Element>>();
   /**
-   * Runs synchronously for every node before the per-node group is opened.
-   * Must populate nodeCtx.nodeType, nodeCtx.videoID, and nodeCtx.state.
-   * Must NOT call console.log/info/warn (output would appear outside the node groups).
+   * Registered via `setExtractor`. Runs as Step 0 "Extract node info" inside
+   * its own step group. All console output is captured and replayed there.
    */
-  private extractor: ((nodeCtx: NodeContext) => void) | null = null;
+  private extractorFn: ((nodeCtx: NodeContext) => NodePipelineStepResult | Promise<NodePipelineStepResult>) | null = null;
 
   constructor(private readonly excludedSelector: string) {}
 
@@ -388,15 +405,21 @@ class NodeManager {
   }
 
   /**
-   * Set the extraction function.
-   * Called once per node before any pipeline step, result used for group label.
+   * Register the extraction function.
+   * Runs as the first pipeline step ("Extract node info") with full console
+   * capture — all log/info/warn/error/group calls appear inside that step group.
+   * Return `"skipped"` or throw to signal skip / failure.
    */
-  setExtractor(fn: (nodeCtx: NodeContext) => void): this {
-    this.extractor = fn;
+  setExtractor(fn: (nodeCtx: NodeContext) => NodePipelineStepResult | Promise<NodePipelineStepResult>): this {
+    this.extractorFn = fn;
     return this;
   }
 
-  /** Register a named async step that runs inside the per-node console group. */
+  /**
+   * Register a named pipeline step.
+   * Return `"skipped"` for intentional skips; throw for errors.
+   * All console output is captured and replayed inside the step's group.
+   */
   registerPipelineStep(name: string, run: NodePipelineStep["run"]): this {
     this.pipelineSteps.push({ name, run });
     return this;
@@ -426,21 +449,6 @@ class NodeManager {
 
       this.updateCache(selectorDef.name, filtered);
 
-      // ── Phase 1: synchronous extraction (no logging, populates labels) ──────
-      const nodeContexts: NodeContext[] = filtered.map((element) => ({
-        element,
-        nodeType: "unknown" as NodeType,
-        videoID: null,
-        state: "new" as NodeState,
-      }));
-
-      if (this.extractor != null) {
-        for (const nodeCtx of nodeContexts) {
-          this.extractor(nodeCtx);
-        }
-      }
-
-      // ── Open selector group ──────────────────────────────────────────────────
       const badgeStyle = filtered.length === 0 ? S.empty : S.found;
       console.groupCollapsed(
         "%c " +
@@ -453,37 +461,34 @@ class NodeManager {
         badgeStyle,
       );
 
-      let errorCount = 0;
+      for (const element of filtered) {
+        // Minimal silent pre-extraction: reads localName only — does NOT log.
+        const preType = NodeManager.quickExtractType(element);
+        const nodeCtx: NodeContext = { element, nodeType: preType, videoID: null, state: "new" };
 
-      // ── Phase 2: per-node groups + pipeline ──────────────────────────────────
-      for (const nodeCtx of nodeContexts) {
-        const stateStyle = NodeManager.stateStyle(nodeCtx.state);
+        // Open node group with minimal label; full context summary follows Step 0.
         console.groupCollapsed(
-          "%c " + nodeCtx.nodeType +
-          "  %c" + (nodeCtx.videoID ?? "—") +
-          "  %cstate: " + nodeCtx.state,
-          S.typeBadge,
-          S.videoId,
-          stateStyle,
+          "%c " + nodeCtx.nodeType + " %c",
+          S.typeBadge, S.nodeRef,
           nodeCtx.element,
         );
 
+        // Step 0: extractor (captured, same as other steps)
+        if (this.extractorFn != null) {
+          await this.runStep({ name: "Extract node info", run: (n) => this.extractorFn!(n) }, nodeCtx, runCtx);
+        }
+
+        // Context summary in node scope (values are now final after extractor ran)
+        console.log(
+          "%c " + nodeCtx.nodeType + "  %c" + (nodeCtx.videoID ?? "—") + "  %cstate: " + nodeCtx.state,
+          S.typeBadge, S.videoId, NodeManager.stateStyle(nodeCtx.state),
+        );
+
         for (const step of this.pipelineSteps) {
-          console.groupCollapsed("↳ " + step.name);
-          try {
-            await step.run(nodeCtx, runCtx);
-          } catch (err) {
-            console.error("Pipeline step error:", err);
-            errorCount++;
-          }
-          console.groupEnd();
+          await this.runStep(step, nodeCtx, runCtx);
         }
 
         console.groupEnd(); // node group
-      }
-
-      if (errorCount > 0) {
-        console.warn(errorCount + " node(s) encountered errors in this selector.");
       }
 
       console.groupEnd(); // selector group
@@ -493,6 +498,48 @@ class NodeManager {
   }
 
   // ── Internals ────────────────────────────────────────────────────────────────
+
+  /**
+   * Runs a single step with console capture:
+   *   1. Captures all console output while the step executes.
+   *   2. Determines status (success / skipped / failed).
+   *   3. Opens a collapsed group whose label has the colored status badge.
+   *   4. Replays captured logs inside that group.
+   */
+  private async runStep(step: NodePipelineStep, nodeCtx: NodeContext, runCtx: SelectorRunContext): Promise<void> {
+    const S = NodeManager.styles;
+    const { logs, status } = await this.captureStep(step, nodeCtx, runCtx);
+    const [badgeStyle, badgeLabel] =
+      status === "skipped" ? [S.badgeSkipped, " Skipped "] :
+      status === "failed"  ? [S.badgeFailed,  " Failed  "] :
+                             [S.badgeSuccess,  "  OK  "];
+    console.groupCollapsed("%c" + badgeLabel + "%c ↳ " + step.name, badgeStyle, S.stepName);
+    for (const entry of logs) {
+      (console as unknown as Record<CapturedLogMethod, (...a: unknown[]) => void>)[entry.method](...entry.args);
+    }
+    console.groupEnd();
+  }
+
+  /** Intercepts all console output while the step runs, then restores originals. */
+  private async captureStep(
+    step: NodePipelineStep, nodeCtx: NodeContext, runCtx: SelectorRunContext,
+  ): Promise<{ logs: CapturedLog[]; status: StepStatus }> {
+    const capturedLogs: CapturedLog[] = [];
+    const methods: CapturedLogMethod[] = ["log","info","warn","error","debug","group","groupCollapsed","groupEnd"];
+    const cc = console as unknown as Record<CapturedLogMethod, (...args: unknown[]) => void>;
+    const orig = {} as Record<CapturedLogMethod, (...args: unknown[]) => void>;
+    for (const m of methods) { orig[m] = cc[m].bind(console); cc[m] = (...a) => capturedLogs.push({ method: m, args: a }); }
+    let status: StepStatus = "success";
+    try {
+      if (await step.run(nodeCtx, runCtx) === "skipped") status = "skipped";
+    } catch (err) {
+      status = "failed";
+      capturedLogs.push({ method: "error", args: ["Step error:", err] });
+    } finally {
+      for (const m of methods) cc[m] = orig[m];
+    }
+    return { logs: capturedLogs, status };
+  }
 
   private hasChanged(name: string, elements: Element[]): boolean {
     const prev = this.selectorCache.get(name);
@@ -508,7 +555,14 @@ class NodeManager {
     this.selectorCache.set(name, new Set(elements));
   }
 
-  private static stateStyle(state: NodeState): string {
+  /** Minimal, silent type inference for the node group label. Does not log. */
+  private static quickExtractType(element: Element): NodeType {
+    if (element.localName === "a") return "videowall";
+    if (element.querySelector("ytm-shorts-lockup-view-model-v2") !== null) return "short";
+    return "video";
+  }
+
+  static stateStyle(state: NodeState): string {
     switch (state) {
       case "scanned":  return "color:#fff;background:#1f8b4c;padding:1px 5px;border-radius:3px;font-size:11px;";
       case "watched":  return "color:#fff;background:#2e7d32;padding:1px 5px;border-radius:3px;font-size:11px;";
@@ -524,7 +578,12 @@ class NodeManager {
     empty:     "color:#fff;background:#c53030;padding:2px 6px;border-radius:3px;",
     unchanged: "color:#888;padding:2px 6px;",
     typeBadge: "color:#fff;background:#555;padding:1px 5px;border-radius:3px;font-size:11px;",
+    nodeRef:      "color:#888;font-size:11px;",
     videoId:   "color:#333;font-family:monospace;font-size:12px;",
+    stepName:     "color:#333;font-size:12px;",
+    badgeSuccess: "color:#fff;background:#1f8b4c;padding:1px 5px;border-radius:3px;font-size:11px;font-weight:bold;",
+    badgeSkipped: "color:#333;background:#f59e0b;padding:1px 5px;border-radius:3px;font-size:11px;font-weight:bold;",
+    badgeFailed:  "color:#fff;background:#c53030;padding:1px 5px;border-radius:3px;font-size:11px;font-weight:bold;",
   };
 }
 
@@ -544,6 +603,20 @@ class VideoNodeDetailsManager {
     currentElement.style.borderRadius = "15px";
     currentElement.style.border = "1px solid #ddd";
     currentElement.style.padding = "5px";
+  }
+
+  /** Applies a dashed-outline loading indicator while server data is being fetched. */
+  applyLoadingStyle(el: HTMLElement) {
+    el.style.outline = "2px dashed #90caf9";
+    el.style.outlineOffset = "2px";
+    el.style.transition = "outline 0.2s ease";
+  }
+
+  /** Removes the loading indicator applied by `applyLoadingStyle`. */
+  removeLoadingStyle(el: HTMLElement) {
+    el.style.outline = "";
+    el.style.outlineOffset = "";
+    el.style.transition = "";
   }
 
   markScanned(currentElement: HTMLElement, ToggleState: boolean) {
@@ -595,36 +668,51 @@ function getNodeManager(): NodeManager {
     .registerSelector("searchPageSelector", "ytd-video-renderer")
 
     // ── Step 0: Extractor ─────────────────────────────────────────────────────
-    // Synchronous. Runs before the per-node console group is opened so its
-    // output populates the group label. Must not call console.log.
+    // Logs land inside the step group via console capture.
     .setExtractor((nodeCtx) => {
       const el = nodeCtx.element;
 
-      // Determine structural type
       if (el.localName === "a") {
-        // videowall link element (a.ytp-modern-videowall-still)
         nodeCtx.nodeType = "videowall";
+        console.log("Detected videowall link.");
       } else if (el.querySelector("ytm-shorts-lockup-view-model-v2") !== null) {
         nodeCtx.nodeType = "short";
-        nodeCtx.state = "filtered"; // shorts are always skipped
-        return; // no videoID extraction needed
+        nodeCtx.state = "filtered";
+        console.log("Detected short — marking as filtered.");
+        return "skipped";
       } else {
         nodeCtx.nodeType = "video";
       }
 
       nodeCtx.videoID = videoNodeDetailsManager.getVideoId(el);
+      if (nodeCtx.videoID == null) {
+        throw "Could not extract a videoID from element";
+      } else {
+        console.log("Extracted videoID:", nodeCtx.videoID);
+      }
     })
 
-    // ── Step 1: Fetch server data ─────────────────────────────────────────────
+    // ── Step 1: Apply base style ──────────────────────────────────────────────
+    // Applies border/padding and a dashed loading indicator (blue outline).
+    // The loading indicator is removed in "Apply formatting" once data is ready.
+    .registerPipelineStep("Apply base style", (nodeCtx) => {
+      if (nodeCtx.state === "filtered") return "skipped";
+      if (!(nodeCtx.element instanceof HTMLElement)) {
+        console.warn("Element is not an HTMLElement — cannot apply styles.");
+        return "skipped";
+      }
+      videoNodeDetailsManager.applyBaseStyle(nodeCtx.element);
+      videoNodeDetailsManager.applyLoadingStyle(nodeCtx.element);
+      console.log("Base style + loading indicator applied.");
+    })
+
+    // ── Step 2: Fetch server data ─────────────────────────────────────────────
     // Async. Updates nodeCtx.state based on server response.
     .registerPipelineStep("Fetch server data", async (nodeCtx) => {
-      if (nodeCtx.state === "filtered") {
-        console.log("Skipped — node is filtered (short / ad / shelf).");
-        return;
-      }
+      if (nodeCtx.state === "filtered") return "skipped";
       if (nodeCtx.videoID == null) {
-        console.log("Skipped — no videoID could be extracted.");
-        return;
+        console.log("No videoID — nothing to fetch.");
+        return "skipped";
       }
 
       const scanned = await GetVideoScanned(nodeCtx.videoID);
@@ -639,26 +727,19 @@ function getNodeManager(): NodeManager {
         nodeCtx.state = "watched";
         console.log("→ watched");
       } else {
-        // state stays "new"
         console.log("→ new (not yet watched)");
       }
     })
 
-    // ── Step 2: Apply formatting ──────────────────────────────────────────────
-    // Synchronous. Reads nodeCtx.state and applies DOM styles.
+    // ── Step 3: Apply formatting ──────────────────────────────────────────────
+    // Removes the loading indicator and applies final colors based on state.
     .registerPipelineStep("Apply formatting", (nodeCtx, runCtx) => {
-      if (!(nodeCtx.element instanceof HTMLElement)) {
-        console.log("Skipped — element is not an HTMLElement.");
-        return;
-      }
+      if (nodeCtx.state === "filtered") return "skipped";
+      if (!(nodeCtx.element instanceof HTMLElement)) return "skipped";
       const el = nodeCtx.element;
 
-      if (nodeCtx.state === "filtered") {
-        console.log("Skipped — filtered node, no formatting applied.");
-        return;
-      }
-
-      videoNodeDetailsManager.applyBaseStyle(el);
+      // Remove the loading indicator now that data is available
+      videoNodeDetailsManager.removeLoadingStyle(el);
 
       const infoElement = $(el).find(".yt-lockup-metadata-view-model__title");
       videoNodeDetailsManager.normalizeTitle(infoElement);
