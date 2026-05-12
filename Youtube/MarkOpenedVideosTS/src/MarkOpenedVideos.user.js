@@ -51,7 +51,7 @@ if (typeof unsafeWindow !== 'undefined') {
 } else if (typeof window !== 'undefined') {
   window.jQuery = window.$ = jQuery;
 }
-import {diff, unpatch} from "jsondiffpatch"
+import { diff, unpatch } from "jsondiffpatch"
 import "./String"
 
 /**
@@ -1021,6 +1021,9 @@ function testTabNocStates() {
   }
   return testState;
 }
+import { ApiAdapter } from "./api/ApiAdapter";
+
+var apiAdapter = new ApiAdapter();
 
 function SetData(keyName, value, locked, disableValueHistory) {
   try {
@@ -1037,6 +1040,7 @@ function SetData(keyName, value, locked, disableValueHistory) {
       } else {
         GM_setValueLocked(keyName, value);
       }
+      apiAdapter.setValue(keyName, value);
 
       var result;
       if (disableValueHistory !== true) {
@@ -2908,6 +2912,33 @@ function PushVideoObject(videoObjectDictionary, videoObject, save) {
       console.log("Loading videoObjectDictionary ...");
     }
   }
+
+  apiAdapter.getService().getVideo(videoObject.VideoID).then((response) => {
+    if (response.status === 404 || response.body == null) {
+      apiAdapter.getService().createOrUpdateVideo(videoObject).catch((exc) => {
+        console.error(exc);
+        alert(exc);
+      }).then((response) => {
+        if (response.ok === false) {
+          console.error(response.body, videoObject);
+          alert(response.body);
+        }
+      });
+    } else {
+      apiAdapter.getService().createOrUpdateVideo(MergeVideoObjects(
+        response.body,
+        videoObject,
+      )).catch((exc) => {
+        console.error(exc);
+        alert(exc);
+      }).then((response) => {
+        if (response.ok === false) {
+          console.error(response.body, videoObject);
+          alert(response.body);
+        }
+      });
+    }
+  });
 
   if (videoObjectDictionary[videoObject.VideoID] === undefined) {
     videoObjectDictionary[videoObject.VideoID] = videoObject;
