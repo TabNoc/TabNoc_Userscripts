@@ -16,6 +16,7 @@
   "dependencies": {
     "@types/jquery": "3",
     "jquery": "3",
-    "jsondiffpatch": "^0.7.3"
+    "jsondiffpatch": "^0.7.3",
+    "ts-pattern": "^5.9.0"
   }
 }

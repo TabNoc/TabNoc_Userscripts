@@ -3,19 +3,25 @@ import { GM, type GmXmlhttpRequestOption } from "$";
 type WatchEntry = { WatchedLength: number; Date: Date | string | null };
 type WatchEntryPayload = { WatchedLength: number; Date: string | null };
 type VideoObjectPayload = Omit<VideoObject, "Watches"> & { Watches?: WatchEntryPayload[] };
+type StringOccasion = { value: string, timestamp: string };
 export type VideoObject = {
   VideoID: string;
-  VideoTitle?: string;
-  VideoAuthor?: string;
-  VideoLength?: number;
-  Watches?: WatchEntry[];
+  VideoTitles: StringOccasion[];
+  VideoAuthors: StringOccasion[];
+  VideoLength: number;
+  Watches: WatchEntry[];
 };
 
-export interface BatchResponse<T> {
-  ok: boolean;
+export type BatchResponse<T> = SuccessBatchResponse<T> | FailureBatchResponse;
+export type SuccessBatchResponse<T> = {
+  ok: true;
   status: number;
-  body?: T;
-  error?: string;
+  body: T;
+}
+export type FailureBatchResponse = {
+  ok: false;
+  status: number;
+  error: string;
 }
 
 export class ApiService {
@@ -101,9 +107,13 @@ export class ApiService {
     for (const chunk of chunks) {
       try {
         const { status, bodyText } = await this.requestWithRetry(`/api/videos/batch`, { method: 'POST', body: { items: chunk } }, 3);
+        if (! (status >= 200 && status < 300)) {
+          results.push({ ok: false, status, error: `Request failed with status ${status}` });
+          continue;
+        }
         let body: string | Record<string, unknown> = bodyText;
         try { body = JSON.parse(bodyText) as Record<string, unknown>; } catch { /* keep as string */ }
-        results.push({ ok: status >= 200 && status < 300, status, body });
+        results.push({ ok: true, status, body });
       } catch (err) {
         results.push({ ok: false, status: 0, error: String(err) });
       }
@@ -119,9 +129,13 @@ export class ApiService {
     for (const chunk of chunks) {
       try {
         const { status, bodyText } = await this.requestWithRetry(`/api/scans/batch`, { method: 'POST', body: { ids: chunk } }, 3);
+        if (! (status >= 200 && status < 300)) {
+          results.push({ ok: false, status, error: `Request failed with status ${status}` });
+          continue;
+        }
         let body: string | Record<string, unknown> = bodyText;
         try { body = JSON.parse(bodyText) as Record<string, unknown>; } catch { /* keep as string */ }
-        results.push({ ok: status >= 200 && status < 300, status, body });
+        results.push({ ok: true, status, body });
       } catch (err) {
         results.push({ ok: false, status: 0, error: String(err) });
       }
@@ -134,15 +148,21 @@ export class ApiService {
     if (!item || !item.VideoID) throw new Error('VideoID required');
     const payload = this.toVideoObjectPayload(item);
     const { status, bodyText } = await this.requestWithRetry(`/api/VideoObjects/${encodeURIComponent(item.VideoID)}`, { method: 'PUT', body: payload }, 2);
+    if (! (status >= 200 && status < 300)) {
+      return { ok: false, status, error: `Request failed with status ${status}` };
+    }
     let body: string | Record<string, unknown> = bodyText; try { body = JSON.parse(bodyText) as Record<string, unknown>; } catch { /* keep as string */ }
-    return { ok: status >= 200 && status < 300, status, body };
+    return { ok: true, status, body };
   }
 
   async getVideo(id: string): Promise<BatchResponse<VideoObject>> {
     try {
       const { status, bodyText } = await this.requestWithRetry(`/api/VideoObjects/${encodeURIComponent(id)}`, { method: 'GET' }, 2);
+      if (! (status >= 200 && status < 300)) {
+        return { ok: false, status, error: `Request failed with status ${status}` };
+      }
       let body: VideoObject = JSON.parse(bodyText) as VideoObject;
-      return { ok: status >= 200 && status < 300, status, body };
+      return { ok: true, status, body };
     } catch (err) {
       return { ok: false, status: 0, error: String(err) };
     }
@@ -152,8 +172,11 @@ export class ApiService {
     if (!videoId) throw new Error('videoId required');
     try {
       const { status, bodyText } = await this.requestWithRetry(`/api/scans`, { method: 'POST', body: { id: videoId } }, 2);
+      if (! (status >= 200 && status < 300)) {
+        return { ok: false, status, error: `Request failed with status ${status}` };
+      }
       let body: string | Record<string, unknown> = bodyText; try { body = JSON.parse(bodyText) as Record<string, unknown>; } catch { /* keep as string */ }
-      return { ok: status >= 200 && status < 300, status, body };
+      return { ok: true, status, body };
     } catch (err) {
       return { ok: false, status: 0, error: String(err) };
     }
@@ -163,8 +186,11 @@ export class ApiService {
   async health(): Promise<BatchResponse<string | Record<string, unknown>>> {
     try {
       const { status, bodyText } = await this.requestWithRetry(`/api/health`, { method: 'GET' }, 1);
+      if (! (status >= 200 && status < 300)) {
+        return { ok: false, status, error: `Request failed with status ${status}` };
+      }
       let body: string | Record<string, unknown> = bodyText; try { body = JSON.parse(bodyText) as Record<string, unknown>; } catch { /* keep as string */ }
-      return { ok: status >= 200 && status < 300, status, body };
+      return { ok: true, status, body };
     } catch (err) {
       return { ok: false, status: 0, error: String(err) };
     }

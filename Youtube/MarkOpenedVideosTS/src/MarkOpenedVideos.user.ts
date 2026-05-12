@@ -40,6 +40,13 @@
 
 import jQuery from "jquery";
 
+// Ensure jQuery is available on the page/global scope (for other libs and inline code)
+if (typeof unsafeWindow !== 'undefined') {
+  unsafeWindow.jQuery = unsafeWindow.$ = jQuery;
+} else if (typeof window !== 'undefined') {
+  window.jQuery = window.$ = jQuery;
+}
+
 import "./String"
 
 let TabNoc = {
@@ -55,13 +62,8 @@ let TabNoc = {
 
     checkElementsInterval: null as number | null,
     lastCheckItemCount: 0,
-    lastCheckVideoIdAmount: 0,
-    lastCheckWatchedVideoAmount: 0,
-    lastCheckVideoObjectAmount: 0,
 
     LastFullScreenElement: null as HTMLElement | null,
-
-    Data: {},
 
     HasInstalledWatchingVideo: false,
     LastSaveWatchedLength: null as number | null,
@@ -102,7 +104,7 @@ let TabNoc = {
   HTML: {},
 };
 
-function execTime(func, arg1, arg2, arg3, arg4, arg5) {
+function execTime(func: Function|string, arg1?: any, arg2?: any, arg3?: any, arg4?: any, arg5?: any) {
   var start = new Date().getTime();
 
   var returnvar;
@@ -122,7 +124,7 @@ function execTime(func, arg1, arg2, arg3, arg4, arg5) {
   return returnvar;
 }
 
-function exec(func, arg1, arg2, arg3, arg4, arg5) {
+function exec(func: Function, arg1?: any, arg2?: any, arg3?: any, arg4?: any, arg5?: any) {
   try {
     return func(arg1, arg2, arg3, arg4, arg5);
   }
@@ -132,8 +134,8 @@ function exec(func, arg1, arg2, arg3, arg4, arg5) {
   }
 }
 
-function returnExec(func:Function, arg1?, arg2?, arg3?, arg4?, arg5?) {
-  return function (arg1, arg2, arg3, arg4, arg5) {
+function returnExec(func:Function) {
+  return function (arg1?: any, arg2?: any, arg3?: any, arg4?: any, arg5?: any) {
     try {
       return func(arg1, arg2, arg3, arg4, arg5);
     }
@@ -144,11 +146,11 @@ function returnExec(func:Function, arg1?, arg2?, arg3?, arg4?, arg5?) {
   };
 }
 
-function escapeRegExp(string) {
+function escapeRegExp(string: string) {
   return string.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1");
 }
 
-function replaceAll(string, find, replace) {
+function replaceAll(string: string, find: string, replace: string) {
   return string.replace(new RegExp(escapeRegExp(find), 'g'), replace);
 }
 
@@ -254,12 +256,14 @@ if (jQuery != undefined) {
 }
 
 import { ApiAdapter } from "./api/ApiAdapter";
-import { GM_registerMenuCommand, GM_xmlhttpRequest, unsafeWindow } from "$";
+import { GM_info, GM_registerMenuCommand, unsafeWindow } from "$";
+import {VideoObject} from "./api/ApiService";
+import { match } from "ts-pattern";
 
 var apiAdapter = new ApiAdapter();
 
 // ### https://www.youtube.com/ ###
-function SubscriptionPageLoader() {
+async function SubscriptionPageLoader() {
   console.log("MarkOpenedVideos.user.js loading [SubscriptionPageLoader]");
   try {
     registerTabNoc();
@@ -270,7 +274,7 @@ function SubscriptionPageLoader() {
       }),
       TabNoc.Settings.TimerInterval,
     );
-    startCheckElements(TabNoc.Variables.MarkToggleState, true);
+    await startCheckElements(TabNoc.Variables.MarkToggleState, true);
     console.log("MarkOpenedVideos.user.js executed");
 
     console.log("MarkOpenedVideos.user.js done");
@@ -291,7 +295,7 @@ function registerTabNoc() {
   });
 }
 
-function startCheckElements(ToggleState:boolean, force?: boolean) {
+async function startCheckElements(ToggleState:boolean, force?: boolean) {
   if (
     (document.hidden === false && document.hasFocus()) ||
     force === true
@@ -318,37 +322,62 @@ function startCheckElements(ToggleState:boolean, force?: boolean) {
     let searchPageSelector = "ytd-video-renderer";
     let excludedSelector =
       "ytd-ad-slot-renderer, ytd-rich-grid-slim-media, .ytd-rich-shelf-renderer";
-    let elements = Array.from(document.querySelectorAll(
-      `${channelPageSelector},${sidebarSelector},${videoFinishedSelector},${searchPageSelector}`,
-    )).filter(
-      (el) => !el.querySelector(excludedSelector),
-    );
-    console.log("elements", elements);
+
+    // Log per-selector results (grouped, colored) so it's easy to see what's missing
+    const selectors = [
+      { name: "channelPageSelector", selector: channelPageSelector },
+      { name: "sidebarSelector", selector: sidebarSelector },
+      { name: "videoFinishedSelector", selector: videoFinishedSelector },
+      { name: "searchPageSelector", selector: searchPageSelector },
+    ];
+
+    const styleHeader = "color: #fff; background: #333; padding: 2px 6px; border-radius: 3px;";
+    const styleFound = "color: #fff; background: #1f8b4c; padding: 2px 6px; border-radius: 3px;";
+    const styleEmpty = "color: #fff; background: #c53030; padding: 2px 6px; border-radius: 3px;";
+
+    console.groupCollapsed("%cSelector results", styleHeader);
+    const perSelectorFiltered: Element[] = [];
+    selectors.forEach((s) => {
+      const nodes = Array.from(document.querySelectorAll(s.selector));
+      const filtered = nodes.filter((el) => !el.querySelector(excludedSelector));
+      const badgeStyle = filtered.length === 0 ? styleEmpty : styleFound;
+
+      console.groupCollapsed("%c " + s.name + " — total: " + nodes.length + ", after filter: " + filtered.length, badgeStyle);
+      if (filtered.length > 0) {
+        const maxPreview = 5;
+        const preview = filtered.slice(0, maxPreview).map((el) => {
+          try {
+            const id = getVideoIdFromElement(el);
+            return id || (el as HTMLElement).outerHTML.substring(0, 80);
+          } catch (exc) {
+            return (el as Element).localName;
+          }
+        });
+        console.log("Sample:", preview);
+      } else {
+        console.log("%cNo elements found for selector", styleEmpty);
+      }
+      console.groupEnd();
+      perSelectorFiltered.push(...filtered);
+    });
+    console.groupEnd();
+
+    let elements = perSelectorFiltered; // preserve original variable name for downstream logic
+
+    console.log("elements count:", elements.length);
 
     force = true;
 
     if (
       force === true ||
-      TabNoc.Variables.lastCheckItemCount !== elements.length ||
-      TabNoc.Variables.lastCheckVideoIdAmount !== scannedVideoArray.length ||
-      TabNoc.Variables.lastCheckWatchedVideoAmount !==
-      watchedVideoArray.length ||
-      TabNoc.Variables.lastCheckVideoObjectAmount !==
-      GetElementCount(videoObjectDictionary)
+      TabNoc.Variables.lastCheckItemCount !== elements.length
+      //TODO: trigger when server state has changed
     ) {
-      checkElements(
-        watchedVideoArray.reverse(),
-        scannedVideoArray.reverse(),
-        videoObjectDictionary,
+      await checkElements(
         elements,
         ToggleState,
       );
 
-      TabNoc.Variables.lastCheckVideoIdAmount = scannedVideoArray.length;
-      TabNoc.Variables.lastCheckWatchedVideoAmount = watchedVideoArray.length;
-      TabNoc.Variables.lastCheckVideoObjectAmount = GetElementCount(
-        videoObjectDictionary,
-      );
       TabNoc.Variables.lastCheckItemCount = elements.length;
     }
     CheckWatchingVideo();
@@ -360,11 +389,8 @@ function startCheckElements(ToggleState:boolean, force?: boolean) {
   }
 }
 
-function checkElements(
-  watchedVideoArray,
-  scannedVideoArray,
-  videoObjectDictionary,
-  elements,
+async function checkElements(
+  elements: Element[],
   ToggleState:boolean,
 ) {
   var UnScannedElements = 0;
@@ -382,14 +408,12 @@ function checkElements(
     );
     var currentElement = elements[i];
 
+    //TODO: parallel
     UnScannedElements =
-      checkElement(
-        watchedVideoArray,
-        scannedVideoArray,
-        videoObjectDictionary,
+      (await checkElement(
         currentElement,
         ToggleState,
-      ) == true
+      )) == true
         ? UnScannedElements
         : UnScannedElements + 1;
   }
@@ -407,24 +431,18 @@ function checkElements(
   );
   console.log(
     String.format(
-      "Found {0} Elements ({1} Marked Elements | {2} UnMarked Elements) [{3} Scanned Videos | {4} Watched Videos | {5} Watched Videos(old)]",
+      "Found {0} Elements ({1} Marked Elements | {2} UnMarked Elements)",
       elements.length,
       elements.length - UnScannedElements,
       UnScannedElements,
-      scannedVideoArray.length,
-      Object.keys(videoObjectDictionary).length,
-      watchedVideoArray.length,
     ),
   );
 }
 
-function checkElement(
-  watchedVideoArray,
-  scannedVideoArray,
-  videoObjectDictionary,
-  currentElement,
-  ToggleState,
-) {
+async function checkElement(
+  currentElement: Element,
+  ToggleState: boolean,
+):Promise<boolean> {
   //return true if checkedElement is already Scanned or no videoID was found
 
   var infoElement = $(currentElement).find(
@@ -456,7 +474,7 @@ function checkElement(
   currentElement.style.padding = "5px";
   // currentElement.style.minHeight = "187px";
 
-  if (GetVideoWatched(scannedVideoArray, false, VideoID)) {
+  if (await GetVideoScanned(VideoID)) {
     if (ToggleState === true)
       $(currentElement).css("background-color", "rgb(151, 255, 139)");
     if (TabNoc.Settings.HideAlreadyWatchedVideos === true) {
@@ -464,7 +482,7 @@ function checkElement(
     }
     return true;
   } else if (
-    GetVideoWatched(watchedVideoArray, videoObjectDictionary, VideoID)
+    await GetVideoWatched(VideoID)
   ) {
     if (ToggleState === true)
       $(currentElement).css("background-color", "rgb(166, 235, 158)");
@@ -508,7 +526,7 @@ function checkElement(
  * @param {Element} element - The DOM element (or jQuery-wrapped element) to inspect.
  * @returns {string|null} The extracted video id or normalized link fragment, or null when no valid single-video id is found
  */
-function getVideoIdFromElement(element) {
+function getVideoIdFromElement(element:Element) {
   let link;
   console.info("getVideoIdFromElement", element);
 
@@ -889,8 +907,6 @@ function WatchingVideo() {
     if (TabNoc.Settings.ShowAlreadyWatchedDialog === true) {
       if (
         GetVideoWatched(
-          null,
-          null,
           JSON.parse(TabNoc.Variables.VideoStatisticsObject).VideoID,
         ) === true
       ) {
@@ -901,13 +917,13 @@ function WatchingVideo() {
         console.log("Video already watched!");
       }
     }
-    TabNoc.Variables.VideoStatisticsObject = JSON.stringify(
-      PushVideoObject(
-        null,
-        JSON.parse(TabNoc.Variables.VideoStatisticsObject),
-        true,
-      ),
-    );
+    // TabNoc.Variables.VideoStatisticsObject = JSON.stringify(
+    //   PushVideoObject(
+    //     null,
+    //     JSON.parse(TabNoc.Variables.VideoStatisticsObject),
+    //     true,
+    //   ),
+    // );
 
     Feedback.notify(
       "Aktuelles Video: " +
@@ -1006,21 +1022,6 @@ function WatchingVideoIntervalHandler(movie_player) {
 }
 
 function checkVideoWallElements() {
-  // ### ScannedVideoArray ###
-  let scannedVideoArray = GetData(
-    "ScannedVideoArray",
-    "[]",
-    true,
-  ).reverse();
-  // ### WatchedVideoArray ###
-  let watchedVideoArray = GetData(
-    "WatchedVideoArray",
-    "[]",
-    true,
-  ).reverse();
-  // ### VideoObjectDictionary ###
-  let videoObjectDictionary = GetData("VideoObjectDictionary", "{}", true);
-
   let elements = $(".ytp-videowall-still");
 
   for (let i = 0; i < elements.length; i++) {
@@ -1042,7 +1043,7 @@ function checkVideoWallElements() {
       .split("&list")[0]
       .split("&t=")[0];
 
-    if (GetVideoWatched(scannedVideoArray, false, VideoID)) {
+    if (GetVideoScanned(VideoID)) {
       if (
         currentElement.children[0].style.backgroundImage.contains(
           "linear-gradient",
@@ -1057,7 +1058,7 @@ function checkVideoWallElements() {
       }
       continue;
     } else if (
-      GetVideoWatched(watchedVideoArray, videoObjectDictionary, VideoID)
+      GetVideoWatched(VideoID)
     ) {
       if (
         currentElement.children[0].style.backgroundImage.contains(
@@ -1133,13 +1134,13 @@ function SaveVideoStatistics() {
       VideoStatisticsObject.Watches.length - 1
     ].WatchedLength = Math.round(TabNoc.Variables.WatchedLength);
 
-    TabNoc.Variables.VideoStatisticsObject = JSON.stringify(
-      PushVideoObject(
-        null,
-        JSON.parse(JSON.stringify(VideoStatisticsObject)),
-        true,
-      ),
-    );
+    // TabNoc.Variables.VideoStatisticsObject = JSON.stringify(
+    //   PushVideoObject(
+    //     null,
+    //     JSON.parse(JSON.stringify(VideoStatisticsObject)),
+    //     true,
+    //   ),
+    // );
 
     if (TabNoc.Settings.Debug === true) {
       console.groupEnd();
@@ -1151,28 +1152,28 @@ function SaveVideoStatistics() {
 }
 // ### https://www.youtube.com/watch?v=* ###
 
-function GetVideoWatched(watchedVideoArray, videoObjectDictionary, VideoID) {
-  // If videoObjectDictionary is false ignore Elements from Dictionary (only check Elements from WatchedVideoArray)
-  if (videoObjectDictionary !== false) {
-    if (videoObjectDictionary === null) {
-      videoObjectDictionary = GetData("VideoObjectDictionary", "{}", true);
-    }
-    if (videoObjectDictionary[VideoID] !== undefined) {
-      return true;
-    }
-  }
+async function GetVideoScanned(VideoID:string):Promise<boolean> {
+  return false; //TODO: implement scanned state in database and return it here
+}
 
-  // If watchedVideoArray is false ignore Elements from Array (only check Elements from VideoObjectDictionary)
-  if (watchedVideoArray !== false) {
-    if (watchedVideoArray === null || watchedVideoArray === undefined) {
-      watchedVideoArray = GetData("WatchedVideoArray", "[]", true);
-    }
-    if (watchedVideoArray.indexOf(VideoID) !== -1) {
-      console.info("found Video only in old Declarationtable");
-      return true;
-    }
-  }
-  return false;
+async function GetVideoWatched(VideoID:string):Promise<boolean> {
+  return apiAdapter.getService().getVideo(VideoID).then((response) => {
+    return match (response)
+      .with({ ok: true }, () => {
+        return true
+      })
+      .with({ ok: false, status:404 }, () => {
+        return false;
+      })
+      .with({ ok: false }, (res) => {
+        throw new Error("Error fetching video data: " + res.error);
+      })
+      .exhaustive();
+  }).catch((exc) => {
+    console.error(exc);
+    alert(exc);
+    throw exc;
+  });
 }
 
 function PushVideoObject(videoObjectDictionary, videoObject, save) {
@@ -1272,17 +1273,6 @@ function PushVideoObject(videoObjectDictionary, videoObject, save) {
   }
 
   return videoObjectDictionary[videoObject.VideoID];
-}
-
-function GetElementCount(videoObjectDictionary) {
-  if (videoObjectDictionary === null) {
-    videoObjectDictionary = GetData("VideoObjectDictionary", "{}", true);
-  }
-  var count = 0;
-  for (var i in videoObjectDictionary) {
-    count++;
-  }
-  return count;
 }
 
 function MergeVideoObjects(videoObject_1, videoObject_2) {
