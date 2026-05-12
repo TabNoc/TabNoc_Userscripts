@@ -49,24 +49,26 @@ let TabNoc = {
     WatchedLength: 0,
     HasSavedDataOnEnd: false,
 
-    CurrentVideoID: null,
+    CurrentVideoID: null as string | null,
 
-    VideoStatisticsObject: null,
+    VideoStatisticsObject: null as string | null,
 
-    checkElementsInterval: null,
+    checkElementsInterval: null as number | null,
     lastCheckItemCount: 0,
     lastCheckVideoIdAmount: 0,
     lastCheckWatchedVideoAmount: 0,
     lastCheckVideoObjectAmount: 0,
 
-    LastFullScreenElement: null,
+    LastFullScreenElement: null as HTMLElement | null,
 
     Data: {},
 
     HasInstalledWatchingVideo: false,
-    LastSaveWatchedLength: null,
+    LastSaveWatchedLength: null as number | null,
 
     EndTime: 0,
+
+    LastIntervalTime: null as number | null,
   },
 
   Settings: {
@@ -130,7 +132,7 @@ function exec(func, arg1, arg2, arg3, arg4, arg5) {
   }
 }
 
-function returnExec(func, arg1, arg2, arg3, arg4, arg5) {
+function returnExec(func:Function, arg1?, arg2?, arg3?, arg4?, arg5?) {
   return function (arg1, arg2, arg3, arg4, arg5) {
     try {
       return func(arg1, arg2, arg3, arg4, arg5);
@@ -150,84 +152,11 @@ function replaceAll(string, find, replace) {
   return string.replace(new RegExp(escapeRegExp(find), 'g'), replace);
 }
 
-var LockID = Math.floor(Math.random() * 1000000);
-
-function GM_Lock(ignoreLockedValue = false) {
-  if (GM_getValue("Lock") == undefined) {
-    GM_setValue("Lock", 0);
-  }
-  // prüfen ob alles io ist
-  if (GM_getValue("Lock") === LockID) {
-    // console.log(ignoreLockedValue);
-    if (ignoreLockedValue === false) {
-      console.log("Database already locked from this Session, continue");
-      console.log(new Error().stack);
-    }
-    return;
-  }
-  else {
-    // wait until Database is unlocked
-    while (GM_getValue("Lock") !== 0) { }
-    // set unique LockID
-    // console.info("Locking Database");
-    GM_setValue("Lock", LockID);
-  }
-}
-
-function GM_Locked() {
-  // when checking for boolean Value must compare with 2 '='
-  // when checking for LockReason must compare with 3 '='
-  if (GM_getValue("Lock") == undefined) {
-    GM_setValue("Lock", 0);
-  }
-  // prüfen ob alles io ist
-  if (GM_getValue("Lock") === 0) {
-    // Database Unlocked
-    return false;
-  }
-  else if (GM_getValue("Lock") === LockID) {
-    // Database Locked from this Instance
-    return 1;
-  }
-  else {
-    // Database Locked from other Instance
-    return true;
-  }
-}
-
-function GM_setValueLocked(name, value) {
-  // console.info("GM_setValueLocked");
-  GM_Lock(true);
-
-  // prüfen ob alles io ist
-  if (GM_getValue("Lock") === LockID) {
-    GM_setValue(name, value);
-  }
-  else {
-    alert("Desync des Lock wertes, in GM_setValueLocked");
-    GM_setValue("Lock", 0);
-    throw "Desync des Lock wertes, in GM_setValueLocked";
-  }
-}
-
-function GM_Unlock(forceUnlock = false) {
-  // aufräumen
-  if (GM_getValue("Lock") === LockID || GM_getValue("Lock") === 0 || GM_getValue("Lock") == undefined || forceUnlock === true) {
-    // console.info("Unlocking Database");
-    GM_setValue("Lock", 0);
-  }
-  else {
-    alert("Desync des Lock wertes, in GM_Unlock");
-    GM_setValue("Lock", 0);
-    throw "Desync des Lock wertes, in GM_Unlock";
-  }
-}
-
 if (String.prototype.contains === undefined) { String.prototype.contains = String.prototype.includes; }
 if (String.prototype.replaceAll === undefined) { String.prototype.replaceAll = function (search, replacement) { var target = this; return target.replace(new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), 'g'), replacement); }; }
 if (Date.prototype.timeNow === undefined) { Date.prototype.timeNow = function () { return ((this.getHours() < 10) ? "0" : "") + this.getHours() + ":" + ((this.getMinutes() < 10) ? "0" : "") + this.getMinutes() + ":" + ((this.getSeconds() < 10) ? "0" : "") + this.getSeconds(); }; }
 
-var Feedback = null;
+var Feedback:any = null;
 if (jQuery != undefined) {
   Feedback = {
     messageTimeout: null,
@@ -324,148 +253,10 @@ if (jQuery != undefined) {
   };
 }
 
-/*
-  changes = {
-    @changeLog : Array : containing ordered Timestamps
-    @data : Object : Indexes: Timestamps from @changeLog, Values: diff Data
-    @removedChangeLogEntries : Integer : Count of already deleted States
-    @currentState : Integer : Current State of the changesObject
-  }
-*/
-
-// @maxAmount: Anzahl an States
-function AddState(oldState, newState, changes, maxAmount = 10) {
-  if (oldState == null) {
-    throw new Error("NullPointerExeption: oldState not provided");
-  }
-  if (newState == null) {
-    throw new Error("NullPointerExeption: newState not provided");
-  }
-  if (changes == null) {
-    throw new Error("NullPointerExeption: changes not provided");
-  }
-  if (typeof (changes) != "object") {
-    throw new Error("InvalidTypeException: changes is not an object, instead: " + typeof (changes));
-  }
-  if (maxAmount == null) {
-    maxAmount = 10;
-  }
-  if (maxAmount < 2) {
-    throw new Error("OutOfRangeException: maxAmount must be greater than 1");
-  }
-  if (changes.changeLog == null) {
-    changes.changeLog = ([]);
-  }
-  if (changes.data == null) {
-    changes.data = ({});
-  }
-  if (changes.removedChangeLogEntries == null) {
-    changes.removedChangeLogEntries = 0;
-  }
-  var time = (new Date()).getTime();
-  let appendIndex = "";
-
-  while (changes.changeLog.indexOf(time + appendIndex) != -1) {
-    appendIndex = appendIndex == "" ? "-1" : (--appendIndex).toString();
-  }
-  changes.changeLog.push(time + appendIndex);
-  changes.data[time + appendIndex] = diff(oldState, newState);
-
-  changes.currentState = changes.changeLog.length + changes.removedChangeLogEntries;
-  while (changes.changeLog.length > maxAmount) {
-    delete changes.data[changes.changeLog.splice(0, 1)[0]];
-    changes.removedChangeLogEntries = changes.removedChangeLogEntries + 1;
-  }
-  return ({ StateTime: time + appendIndex, StateNr: changes.currentState });
-}
-
 import { ApiAdapter } from "./api/ApiAdapter";
-import { GM_addStyle, GM_getResourceText, GM_registerMenuCommand, GM_xmlhttpRequest, unsafeWindow } from "$";
+import { GM_registerMenuCommand, GM_xmlhttpRequest, unsafeWindow } from "$";
 
 var apiAdapter = new ApiAdapter();
-
-function SetData(keyName, value, locked, disableValueHistory) {
-  try {
-    var oldValue;
-    if (disableValueHistory !== true)
-      oldValue = JSON.parse(GM_getValue(keyName) || "{}");
-    if (oldValue == null) {
-      oldValue = ({});
-    }
-
-    if (JSON.stringify(oldValue) != value) {
-      if (locked == true) {
-        GM_setValue(keyName, value);
-      } else {
-        GM_setValueLocked(keyName, value);
-      }
-      apiAdapter.setValue(keyName, value);
-
-      var result;
-      if (disableValueHistory !== true) {
-        let changes = JSON.parse(GM_getValue("changes") || "{}");
-        changes[keyName] = changes[keyName] || ({});
-        const MaxAmount = 50;
-
-        result = AddState(oldValue, JSON.parse(value), changes[keyName], MaxAmount);
-
-        GM_setValue("changes", JSON.stringify(changes));
-      }
-      if (TabNoc.Settings.Debug === true) {
-        console.log("SetData(" + keyName + ", " + value + ", " + locked + ", " + disableValueHistory + ") -> " + result);
-      }
-    }
-  } catch (exc) {
-    console.error(exc);
-    alert(exc);
-  }
-}
-
-function GetData(keyName, defaultValue, evalValue) {
-  try {
-    var data = GM_getValue(keyName);
-
-    if (data == null || data === "") {
-      data = defaultValue;
-    }
-
-    if (TabNoc.Settings.Debug === true) {
-      console.log("GetData(" + keyName + ", " + defaultValue + ", " + evalValue + ") -> " + data);
-    }
-
-    if (evalValue === true) {
-      try {
-        data = JSON.parse(data);
-      } catch (exc) {
-        ErrorHandler(exc, "Die Daten von >" + keyName + "< aus der Datenbank konnten nicht ausgewertet werden");
-      }
-    }
-    return data;
-  }
-  catch (exc) {
-    ErrorHandler(exc);
-    throw exc;
-  }
-}
-
-
-
-
-
-
-function ErrorHandler(exc, msg) {
-  GM_Lock();
-  //TODO: write Message, error and Timestamp to Database
-  GM_Unlock();
-
-  if (msg != null && msg != "") {
-    console.error(msg + ":\r\n\r\n" + exc);
-    alert(msg + ":\r\n\r\n" + exc);
-  } else {
-    console.error(exc);
-    alert(exc);
-  }
-}
 
 // ### https://www.youtube.com/ ###
 function SubscriptionPageLoader() {
@@ -500,23 +291,11 @@ function registerTabNoc() {
   });
 }
 
-function startCheckElements(ToggleState, force) {
+function startCheckElements(ToggleState:boolean, force?: boolean) {
   if (
     (document.hidden === false && document.hasFocus()) ||
-    force === true ||
-    true
+    force === true
   ) {
-    // ### ScannedVideoArray ###
-    let scannedVideoArray = GetData("ScannedVideoArray", "[]", true);
-    // ### WatchedVideoArray ###
-    let watchedVideoArray = GetData("WatchedVideoArray", "[]", true);
-    // ### VideoObjectDictionary ###
-    let videoObjectDictionary = GetData(
-      "VideoObjectDictionary",
-      "{}",
-      true,
-    );
-
     var start = new Date().getTime();
 
     var widthElement = $("ytd-two-column-browse-results-renderer");
@@ -539,10 +318,9 @@ function startCheckElements(ToggleState, force) {
     let searchPageSelector = "ytd-video-renderer";
     let excludedSelector =
       "ytd-ad-slot-renderer, ytd-rich-grid-slim-media, .ytd-rich-shelf-renderer";
-    let elements = document.querySelectorAll(
+    let elements = Array.from(document.querySelectorAll(
       `${channelPageSelector},${sidebarSelector},${videoFinishedSelector},${searchPageSelector}`,
-    );
-    elements = Array.from(elements).filter(
+    )).filter(
       (el) => !el.querySelector(excludedSelector),
     );
     console.log("elements", elements);
@@ -587,7 +365,7 @@ function checkElements(
   scannedVideoArray,
   videoObjectDictionary,
   elements,
-  ToggleState,
+  ToggleState:boolean,
 ) {
   var UnScannedElements = 0;
   console.log("Initialised Scan");
@@ -778,7 +556,7 @@ function getVideoIdFromElement(element) {
 // ### https://www.youtube.com/ ###
 
 // ### https://www.youtube.com/watch?v=* ###
-function CheckWatchingVideo(forcedOperation) {
+function CheckWatchingVideo(forcedOperation?: "install" | "uninstall" | null) {
   // if (TabNoc.Settings.Debug === true) {
   var start = new Date().getTime();
   // }
@@ -1860,34 +1638,6 @@ function MergeVideoObjects(videoObject_1, videoObject_2) {
 }
 
 function Main() {
-  var count = 0;
-  while (GM_Locked() == true) {
-    setTimeout(function () {
-      if (document.getElementById("movie_player") != null) {
-        document.getElementById("movie_player").pauseVideo();
-      }
-    }, 0);
-    count = count + 1;
-    alert(
-      "Der Aktuelle Sperrzustand der Datenbank ist positiv, dies wird durch Fehlermeldungen während der Ausführung ausgelöst oder ist nur eine kurzweilige erscheinung. \r\n\r\n Bitte Meldung bestätigen!",
-    );
-    if (count >= 2) {
-      if (
-        confirm(
-          "Soll der Sperrzustand der Datenbank aufgehoben werden [empfohlen]?",
-        ) === true
-      ) {
-        GM_Unlock(true);
-      }
-    }
-    if (count > 10) {
-      alert(
-        "Der Sperrzustand der Datenbank wurde nicht aufgehoben, bitte manuell überprüfen!",
-      );
-      return;
-    }
-  }
-
   console.log('$("#app-drawer"): ', $("#app-drawer"));
   if (
     !(
