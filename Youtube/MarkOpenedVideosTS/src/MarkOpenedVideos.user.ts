@@ -42,39 +42,63 @@ import jQuery from "jquery";
 
 import "./String"
 
-function getTabNoc_GMVersion() {
-  return { Version: "2.0.2", Date: "21.05.2017" };
-}
+let TabNoc = {
+  Variables: {
+    MarkToggleState: true,
 
-if (unsafeWindow.TabNoc_GM == undefined) {
-  var TabNoc_GM = {};
+    WatchedLength: 0,
+    HasSavedDataOnEnd: false,
 
-  unsafeWindow.TabNoc_GM = cloneInto(TabNoc_GM, unsafeWindow, {
-    wrapReflectors: true
-  });
-  exportFunction(returnExec(function (arg1, arg2, arg3) { return GM_getValue(arg1, arg2, arg3); }), unsafeWindow.TabNoc_GM, {
-    defineAs: "getValue"
-  });
-  exportFunction(returnExec(function (arg1, arg2, arg3) { return GM_setValue(arg1, arg2, arg3); }), unsafeWindow.TabNoc_GM, {
-    defineAs: "setValue"
-  });
-  exportFunction(returnExec(function (arg1, arg2, arg3) { return GM_deleteValue(arg1, arg2, arg3); }), unsafeWindow.TabNoc_GM, {
-    defineAs: "deleteValue"
-  });
-  exportFunction(returnExec(function (arg1, arg2, arg3) { return GM_listValues(arg1, arg2, arg3); }), unsafeWindow.TabNoc_GM, {
-    defineAs: "listValues"
-  });
+    CurrentVideoID: null,
 
-  exportFunction(exec, unsafeWindow.TabNoc_GM, {
-    defineAs: "exec"
-  });
-  exportFunction(execTime, unsafeWindow.TabNoc_GM, {
-    defineAs: "execTime"
-  });
-  exportFunction(returnExec, unsafeWindow.TabNoc_GM, {
-    defineAs: "returnExec"
-  });
-}
+    VideoStatisticsObject: null,
+
+    checkElementsInterval: null,
+    lastCheckItemCount: 0,
+    lastCheckVideoIdAmount: 0,
+    lastCheckWatchedVideoAmount: 0,
+    lastCheckVideoObjectAmount: 0,
+
+    LastFullScreenElement: null,
+
+    Data: {},
+
+    HasInstalledWatchingVideo: false,
+    LastSaveWatchedLength: null,
+
+    EndTime: 0,
+  },
+
+  Settings: {
+    SavingEnabled: true,
+    TimerInterval: 5000,
+    UninterestingVideos: ["Recht für YouTuber:"],
+    NotWantedVideos: [
+      "Arumba Plays DOTA",
+      "Europa Universalis IV",
+      "Let's Play Crusader Kings 2",
+      "Challenge WBS",
+      "Let's Play Civilization VI",
+      "Let's Play Galactic Civilizations 3",
+      "The Binding of Isaac ",
+      "Civilization 6",
+      "Endless Space",
+      "Galactic Cililisations 3",
+      "Civilization V",
+      "Let's Play Stellaris",
+      "SPAZ2",
+      "EU4",
+      "Factorio S7E",
+      "Lets Play S9 E",
+    ],
+    DeleteNotWantedVideos: false,
+    HideAlreadyWatchedVideos: false,
+    ShowAlreadyWatchedDialog: false,
+    Debug: false,
+  },
+
+  HTML: {},
+};
 
 function execTime(func, arg1, arg2, arg3, arg4, arg5) {
   var start = new Date().getTime();
@@ -125,7 +149,6 @@ function escapeRegExp(string) {
 function replaceAll(string, find, replace) {
   return string.replace(new RegExp(escapeRegExp(find), 'g'), replace);
 }
-
 
 var LockID = Math.floor(Math.random() * 1000000);
 
@@ -200,53 +223,10 @@ function GM_Unlock(forceUnlock = false) {
   }
 }
 
-console.log("TabNoc.js: Readed TabNoc_GM " + getTabNoc_GMVersion().Version + " by TabNoc (namespace: " + GM_info.script.name + ")");
-function getTabNocVersion() {
-  return { Version: "1.2.4", Date: "11.01.2018" };
-}
 if (String.prototype.contains === undefined) { String.prototype.contains = String.prototype.includes; }
 if (String.prototype.replaceAll === undefined) { String.prototype.replaceAll = function (search, replacement) { var target = this; return target.replace(new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), 'g'), replacement); }; }
 if (Date.prototype.timeNow === undefined) { Date.prototype.timeNow = function () { return ((this.getHours() < 10) ? "0" : "") + this.getHours() + ":" + ((this.getMinutes() < 10) ? "0" : "") + this.getMinutes() + ":" + ((this.getSeconds() < 10) ? "0" : "") + this.getSeconds(); }; }
 
-function getTabNoc() {
-  var ScriptName = GM_info.script.name;
-
-  if (unsafeWindow.TabNoc_ == null) {
-    unsafeWindow.TabNoc_ = cloneInto({}, unsafeWindow, {
-      wrapReflectors: true
-    });
-  }
-  if (unsafeWindow.TabNoc_[ScriptName] == null) {
-    unsafeWindow.TabNoc_[ScriptName] = cloneInto({}, unsafeWindow.TabNoc_, {
-      wrapReflectors: true
-    });
-  }
-  return unsafeWindow.TabNoc_[ScriptName];
-}
-var TabNoc = null;
-
-function setTabNoc(obj) {
-  var ScriptName = GM_info.script.name;
-  console.log("TabNoc.js.setTabNoc(): Adding " + ScriptName + " to TabNoc.js");
-
-  if (unsafeWindow.TabNoc_ == null) {
-    // console.log("Adding " + ScriptName + ": unsafeWindow.TabNoc_ is null");
-    unsafeWindow.TabNoc_ = cloneInto({}, unsafeWindow, {
-      wrapReflectors: true
-    });
-  }
-  if (unsafeWindow.TabNoc_[ScriptName] == null) {
-    // console.log("Adding " + ScriptName + ": unsafeWindow.TabNoc_[ScriptName] is null");
-    unsafeWindow.TabNoc_[ScriptName] = cloneInto({}, unsafeWindow.TabNoc_, {
-      wrapReflectors: true
-    });
-  }
-
-  unsafeWindow.TabNoc_[ScriptName] = cloneInto(obj, unsafeWindow.TabNoc_, {
-    wrapReflectors: true, cloneFunctions: true
-  });
-  TabNoc = unsafeWindow.TabNoc_[GM_info.script.name];
-}
 var Feedback = null;
 if (jQuery != undefined) {
   Feedback = {
@@ -344,225 +324,6 @@ if (jQuery != undefined) {
   };
 }
 
-console.log("TabNoc.js: Readed TabNoc_Config " + getTabNocVersion().Version + " by TabNoc (namespace: " + GM_info.script.name + ")");
-
-function ImportData(allData, entriesArray) {
-  let element = null;
-  if (typeof (GetData) != "function") {
-    throw new Error("GetData is not Implemented but required for ImportData!");
-  }
-  if (typeof (SetData) != "function") {
-    throw new Error("SetData is not Implemented but required for ImportData!");
-  }
-  if (typeof (GM_Lock) != "function") {
-    throw new Error("GM_Lock is not Implemented but required for ImportData!");
-  }
-  if (typeof (GM_Unlock) != "function") {
-    throw new Error("GM_Unlock is not Implemented but required for ImportData!");
-  }
-  if (typeof (UpdateDataBase) != "function") {
-    throw new Error("UpdateDataBase is not Implemented but required for ImportData!");
-  }
-
-  try {
-    if (typeof (allData) == "object" && allData !== null) {
-      element = allData;
-    } else if (allData === true) {
-      element = JSON.parse(prompt("Bitte die exportierten Daten eintragen"));
-    } else {
-      element = ({});
-      for (let entryID in entriesArray) {
-        let entry = entriesArray[entryID];
-        element[entry.Name] = JSON.parse(prompt("Please insert new " + entry.Name + " Data"));
-      }
-    }
-
-    for (let entryID in entriesArray) {
-      let entry = entriesArray[entryID];
-      element[entry.Name + "-Version"] = element[entry.Name + "-Version"] || entry.defaultVersion;
-    }
-
-    UpdateDataBase(({
-      lock: (function () { }),
-      unlock: (function () { }),
-      getValue: (function (key) {
-        return element[key];
-      }),
-      setValue: (function (key, value) {
-        element[key] = value;
-      })
-    }), true);
-
-    let errorList = ([]);
-
-    for (let entryID in entriesArray) {
-      let entry = entriesArray[entryID];
-      if (element[entry.Name + "-Version"] !== GetData(entry.Name + "-Version")) {
-        errorList.push("Die Version der Datenbanktabelle " + entry.Name + " passt nicht (importierte Version: " + element[entry.Name + "-Version"] + ", lokale Version: " + GetData(entry.Name + "-Version") + ")");
-      }
-    }
-
-    if (errorList.length !== 0) {
-      msg = "Das Importieren kann nicht durchgeführt werden, da:\r\n";
-      for (let i in errorList) {
-        msg = msg + "\r\n\t- " + errorList[i];
-      }
-      alert(msg);
-      throw new Error("ImportData impossible!");
-    }
-
-    if (confirm("Sollen die Daten mit den Aktuellen Daten zusammengeführt werden?") !== true) {
-      throw new Error("Das Importieren der Daten wurde durch den Benutzer abgebrochen");
-    }
-
-    for (let entryID in entriesArray) {
-      let entry = entriesArray[entryID];
-      element[entry.Name] = JSON.parse(element[entry.Name]);
-    }
-
-    GM_Lock();
-    for (let entryID in entriesArray) {
-      let entry = entriesArray[entryID];
-      if (element[entry.Name] == undefined) {
-        element[entry.Name] = JSON.parse(entry.defaultValue);
-      }
-      if (typeof (element[entry.Name]) != "object") {
-        throw new Error("element." + entry.Name + "(Value: " + element[entry.Name] + ") is not an Object, Import impossible!");
-      }
-    }
-
-    element.currentData = ({});
-    element.count = ({});
-
-    for (let entryID in entriesArray) {
-      let entry = entriesArray[entryID];
-      element.currentData[entry.Name] = GetData(entry.Name, entry.defaultValue, true);
-      element.currentData[entry.Name + "Count"] = 0;
-    }
-
-    let newDataStorage = ({});
-
-    for (let entryID in entriesArray) {
-      let entry = entriesArray[entryID];
-      element.currentData[entry.Name] = GetData(entry.Name, entry.defaultValue, true);
-      element.count[entry.Name] = 0;
-      newDataStorage[entry.Name] = JSON.parse(entry.defaultValue);
-    }
-
-    for (let entryID in entriesArray) {
-      let entry = entriesArray[entryID];
-      if (TabNoc.Settings.Debug) {
-        console.info("Importing stored " + entry.Name);
-      }
-      for (let i in element.currentData[entry.Name]) {
-        entry.ImportAction(newDataStorage, entry, element.currentData[entry.Name][i], i);
-        element.count[entry.Name]++;
-      }
-      if (TabNoc.Settings.Debug) {
-        console.info("Importing new " + entry.Name);
-        console.info(element[entry.Name]);
-      }
-      for (let i in element[entry.Name]) {
-        entry.ImportAction(newDataStorage, entry, element[entry.Name][i], i);
-        element.count[entry.Name]++;
-      }
-    }
-
-    let changes = false;
-    let msg = "Das Importieren wurde erfolgreich abgeschlossen!\r\n";
-    for (let entryID in entriesArray) {
-      let entry = entriesArray[entryID];
-      msg += entry.Name + ":\r\n";
-      msg += "\tEs wurden " + element.count[entry.Name] + " Elemente aktualisiert (";
-      msg += "gespeicherte Datenmenge: " + JSON.stringify(element.currentData[entry.Name]).length + "B (" + Object.keys(element.currentData[entry.Name]).length + ") | ";
-      msg += "importierte Datenmenge: " + JSON.stringify(element[entry.Name]).length + "B (" + Object.keys(element[entry.Name]).length + ") | ";
-      msg += "neue Datenmenge: " + JSON.stringify(newDataStorage[entry.Name]).length + "B) (" + Object.keys(newDataStorage[entry.Name]).length + ")\r\n";
-      msg += "Delta:\r\n";
-      if (JSON.stringify(newDataStorage[entry.Name]) != JSON.stringify(element.currentData[entry.Name])) {
-        changes = true;
-      }
-    }
-
-    alert(msg);
-
-    if (changes == false) {
-      alert("Es wurde keine Änderung der Daten durch das Importieren durchgeführt\r\n\t\tSpeichern nicht erforderlich");
-    } else {
-      if (confirm("Sollen die Änderungen gespeichert werden?") === true) {
-        for (let entryID in entriesArray) {
-          let entry = entriesArray[entryID];
-          SetData(entry.Name, JSON.stringify(newDataStorage[entry.Name]));
-        }
-      }
-    }
-  } catch (exc) {
-    console.error(exc);
-    alert("Das Importieren ist fehlgeschlagen!\r\n" + exc);
-    throw (exc);
-  }
-  finally {
-    GM_Unlock();
-  }
-}
-
-setTabNoc({
-  Variables: {
-    MarkToggleState: true,
-
-    WatchedLength: 0,
-    HasSavedDataOnEnd: false,
-
-    CurrentVideoID: null,
-
-    VideoStatisticsObject: null,
-
-    checkElementsInterval: null,
-    lastCheckItemCount: 0,
-    lastCheckVideoIdAmount: 0,
-    lastCheckWatchedVideoAmount: 0,
-    lastCheckVideoObjectAmount: 0,
-
-    LastFullScreenElement: null,
-
-    Data: {},
-
-    HasInstalledWatchingVideo: false,
-    LastSaveWatchedLength: null,
-
-    EndTime: 0,
-  },
-
-  Settings: {
-    SavingEnabled: true,
-    TimerInterval: 5000,
-    UninterestingVideos: ["Recht für YouTuber:"],
-    NotWantedVideos: [
-      "Arumba Plays DOTA",
-      "Europa Universalis IV",
-      "Let's Play Crusader Kings 2",
-      "Challenge WBS",
-      "Let's Play Civilization VI",
-      "Let's Play Galactic Civilizations 3",
-      "The Binding of Isaac ",
-      "Civilization 6",
-      "Endless Space",
-      "Galactic Cililisations 3",
-      "Civilization V",
-      "Let's Play Stellaris",
-      "SPAZ2",
-      "EU4",
-      "Factorio S7E",
-      "Lets Play S9 E",
-    ],
-    DeleteNotWantedVideos: false,
-    HideAlreadyWatchedVideos: false,
-    ShowAlreadyWatchedDialog: false,
-    Debug: false,
-  },
-
-  HTML: {},
-});
-
 /*
   changes = {
     @changeLog : Array : containing ordered Timestamps
@@ -619,7 +380,7 @@ function AddState(oldState, newState, changes, maxAmount = 10) {
 }
 
 import { ApiAdapter } from "./api/ApiAdapter";
-import { GM_addStyle, GM_getResourceText, GM_xmlhttpRequest, unsafeWindow } from "$";
+import { GM_addStyle, GM_getResourceText, GM_registerMenuCommand, GM_xmlhttpRequest, unsafeWindow } from "$";
 
 var apiAdapter = new ApiAdapter();
 
@@ -734,108 +495,9 @@ function registerTabNoc() {
     startCheckElements(true, true);
   });
 
-  GM_registerMenuCommand("CreateHistoryDialog", function () {
-    CreateHistoryDialog(GetData("changes", "[]", true));
-  });
-
-  GM_registerMenuCommand("ManuelleSyncronisation", function () {
-    Syncronisieren("");
-  });
-
-  GM_registerMenuCommand("ImportData", function () {
-    ImportData(null, TabNoc.Variables.ImportDataProperties);
-  });
-
-  GM_registerMenuCommand("ExportData", function () {
-    $.prompt(ImportExportDialog);
-  });
-
-  GM_registerMenuCommand("ExportAllData", function () {
-    var element = {};
-    element.WatchedVideoArray = GetData("WatchedVideoArray", "[]", true);
-    element.ScannedVideoArray = GetData("ScannedVideoArray", "[]", true);
-    element.VideoObjectDictionary = GetData(
-      "VideoObjectDictionary",
-      "{}",
-      true,
-    );
-    element["VideoObjectDictionary-Version"] = GetData(
-      "VideoObjectDictionary-Version",
-      0,
-      true,
-    );
-    element["WatchedVideoArray-Version"] = GetData(
-      "WatchedVideoArray-Version",
-      0,
-      true,
-    );
-    element["ScannedVideoArray-Version"] = GetData(
-      "ScannedVideoArray-Version",
-      0,
-      true,
-    );
-    prompt("Bitte die Exportierten Daten kopieren", JSON.stringify(element));
-  });
-
-  GM_registerMenuCommand("ImportAllData", function () {
-    ImportData(true, TabNoc.Variables.ImportDataProperties);
-  });
-
   GM_registerMenuCommand("Markieren", function () {
     startCheckElements(!TabNoc.Variables.MarkToggleState);
   });
-
-  TabNoc.Variables.ImportDataProperties = [
-    {
-      Name: "VideoObjectDictionary",
-      defaultVersion: 2,
-      defaultValue: "{}",
-      ImportAction: function (dataStorage, currentEntry, importElement) {
-        PushVideoObject(
-          dataStorage[currentEntry.Name],
-          JSON.parse(JSON.stringify(importElement)),
-          false,
-        );
-      },
-    },
-    {
-      Name: "WatchedVideoArray",
-      defaultVersion: 0,
-      defaultValue: "[]",
-      ImportAction: function (dataStorage, currentEntry, importElement) {
-        if (
-          GetVideoWatched(
-            dataStorage[currentEntry.Name],
-            dataStorage.VideoObjectDictionary,
-            importElement,
-          ) === false
-        ) {
-          dataStorage[currentEntry.Name].push(importElement);
-        }
-      },
-    },
-    {
-      Name: "ScannedVideoArray",
-      defaultVersion: 0,
-      defaultValue: "[]",
-      ImportAction: function (dataStorage, currentEntry, importElement) {
-        if (
-          GetVideoWatched(
-            dataStorage[currentEntry.Name],
-            dataStorage.VideoObjectDictionary,
-            importElement,
-          ) === false &&
-          GetVideoWatched(
-            dataStorage.WatchedVideoArray,
-            false,
-            importElement,
-          ) === false
-        ) {
-          dataStorage[currentEntry.Name].push(importElement);
-        }
-      },
-    },
-  ];
 }
 
 function startCheckElements(ToggleState, force) {
