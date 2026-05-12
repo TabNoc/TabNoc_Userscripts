@@ -12,4 +12,6 @@ This file provides guidance to agents when working with code in this repository.
 - Storage pattern/gotcha: use provided `SetData`/`GetData` helpers — they wrap GM_* storage and a lock (`GM_Lock` / `GM_Unlock`) and maintain a `changes` history. Replacing direct `GM_setValue`/`GM_getValue` will break history/locking.
 - Database migrations are interactive and forward-only: `UpdateDataBase()` runs interactive `alert`/`confirm` flows and can throw — treat schema changes cautiously.
 - String prototype polyfills live in `src/String.js` (adds String.format, contains alias, replaceAll fallback). Keep them intact when modifying runtime behaviour.
-- When editing code, remember the bundler (vite + vite-plugin-monkey) produces the final userscript; local runtime differs from node — test in a browser userscript runtime (Tampermonkey/Firefox) rather than Node.
+ - When editing code, remember the bundler (vite + vite-plugin-monkey) produces the final userscript; local runtime differs from node — test in a browser userscript runtime (Tampermonkey/Firefox) rather than Node.
+ - Never introduce safety-net implementations (like `fetch` fallbacks or environment shims) without first asking the user if they are required. Prefer the concrete runtime assumptions of this repo (Grease-/Tampermonkey userscript) over extra abstraction.
+ - Minimise usage of `any` and `unknown` as much as possible. Always check whether a cleaner, typed version exists (e.g. types from `vite-plugin-monkey`) before falling back to loose types.

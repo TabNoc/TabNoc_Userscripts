@@ -1,16 +1,7 @@
-/*
-  ApiService - TypeScript
-  - RESTful collection/resource style
-  - batching helpers
-  - retries with exponential backoff + jitter
-  - uses GM_xmlhttpRequest when available, falls back to fetch
-*/
+import { GM } from "$";
 
-export type WatchEntry = {
-  WatchedLength: number;
-  Date: string | null; // ISO string or "unknown"
-};
 
+type WatchEntry = { WatchedLength: number; Date: string | null };
 export type VideoObject = {
   VideoID: string;
   VideoTitle?: string;
@@ -26,161 +17,136 @@ export type BatchResponse = {
   error?: string;
 };
 
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-function chunk<T>(arr: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
-
 export class ApiService {
   baseUrl: string;
-  defaultBatchSize = 100;
-  maxRetries = 4;
-  authHeader?: string;
+  headers: Record<string, string> = { "Content-Type": "application/json" };
 
   constructor(baseUrl = "") {
-    this.baseUrl = baseUrl.replace(/\/+$/, "");
-  }
+    this.baseUrl = baseUrl.replace(/\/$/, "");
 
-  setBasicAuth(user: string, pass: string) {
-    this.authHeader = "Basic " + btoa(`${user}:${pass}`);
-  }
-
-  setBearer(token: string) {
-    this.authHeader = `Bearer ${token}`;
-  }
-
-  private buildHeaders(extra?: Record<string, string>) {
-    const h: Record<string, string> = {
-      "Content-Type": "application/json",
-      ...(extra || {}),
-    };
-    if (this.authHeader) h["Authorization"] = this.authHeader;
-    return h;
-  }
-
-  private async transport(path: string, opts: { method: string; body?: any; headers?: Record<string, string>; timeout?: number; }): Promise<{ status: number; text: string }> {
-    const url = (path.startsWith("http") ? path : `${this.baseUrl}${path}`);
-    const bodyText = opts.body == null ? undefined : (typeof opts.body === "string" ? opts.body : JSON.stringify(opts.body));
-
-    // Prefer GM_xmlhttpRequest when available (userscript environment)
-    if (typeof (globalThis as any).GM_xmlhttpRequest === "function") {
-      return new Promise((resolve, reject) => {
-        try {
-          (globalThis as any).GM_xmlhttpRequest({
-            method: opts.method,
-            url,
-            data: bodyText,
-            headers: opts.headers || this.buildHeaders(),
-            timeout: opts.timeout || 60_000,
-            onload: (res: any) => resolve({ status: res.status, text: res.responseText }),
-            onerror: (err: any) => reject(err),
-            ontimeout: (err: any) => reject(err),
-            onabort: (err: any) => reject(err),
-          });
-        } catch (e) {
-          reject(e);
-        }
-      });
+    if (!GM || typeof GM.xmlHttpRequest !== "function") {
+      throw new Error("GM.xmlHttpRequest is not available in this environment");
     }
-
-    // fallback to fetch
-    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-    const timeout = opts.timeout || 60_000;
-    if (controller) setTimeout(() => controller!.abort(), timeout);
-    const res = await fetch(url, {
-      method: opts.method,
-      headers: opts.headers || this.buildHeaders(),
-      body: bodyText,
-      signal: controller ? controller.signal : undefined,
-    });
-    const text = await res.text();
-    return { status: res.status, text };
   }
 
-  private async requestWithRetry(path: string, opts: { method: string; body?: any; headers?: Record<string, string>; timeout?: number }, retries = this.maxRetries): Promise<{ status: number; bodyText: string }> {
+  // low-level transport: use GM.xmlHttpRequest (userscript runtime only)
+  private async transport(path: string, opts: { method?: string; body?: any; timeoutMs?: number } = {}): Promise<{ status: number; bodyText: string; body?: any }> {
+    const url = this.baseUrl + path;
+    const method = (opts.method || "GET").toUpperCase();
+    const timeoutMs = opts.timeoutMs || 60000;
+
+    const req: any = {
+      method,
+      url,
+      headers: this.headers,
+      timeout: timeoutMs,
+      responseType: "text",
+      data:
+        opts.body !== undefined
+          ? typeof opts.body === "string"
+            ? opts.body
+            : JSON.stringify(opts.body)
+          : undefined,
+    };
+
+    const res = await GM.xmlHttpRequest(req as any);
+    const bodyText = typeof res.response === "string" ? res.response : "";
+    return { status: res.status, bodyText };
+  }
+
+  // request with retries (exponential backoff + jitter)
+  async requestWithRetry(path: string, opts: { method?: string; body?: any; timeoutMs?: number } = {}, retries = 3): Promise<{ status: number; bodyText: string; body?: any }> {
     let attempt = 0;
+    const baseDelay = 300; // ms
     while (true) {
       try {
-        const res = await this.transport(path, opts);
-        return { status: res.status, bodyText: res.text };
+        return await this.transport(path, opts);
       } catch (err) {
         attempt++;
         if (attempt > retries) throw err;
-        const backoff = Math.min(5_000 * Math.pow(2, attempt - 1), 30_000);
-        const jitter = Math.random() * 300;
-        await sleep(backoff + jitter);
+        const jitter = Math.floor(Math.random() * 200);
+        const delay = Math.pow(2, attempt) * baseDelay + jitter;
+        await new Promise((r) => setTimeout(r, delay));
       }
     }
   }
 
-  // Collection endpoints - batching helpers
-  async uploadVideosBatch(items: VideoObject[], batchSize = this.defaultBatchSize): Promise<BatchResponse[]> {
-    const groups = chunk(items, batchSize);
-    const out: BatchResponse[] = [];
-    for (const g of groups) {
-      try {
-        const { status, bodyText } = await this.requestWithRetry(`/api/videos/batch`, { method: "POST", body: { items: g }, headers: this.buildHeaders() });
-        let body = null;
-        try { body = JSON.parse(bodyText); } catch { body = bodyText; }
-        out.push({ ok: status >= 200 && status < 300, status, body });
-      } catch (e: any) {
-        out.push({ ok: false, status: 0, error: String(e) });
-      }
-    }
+  // chunk helper
+  private chunk<T>(arr: T[], size: number): T[][] {
+    const out: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
     return out;
   }
 
-  async uploadScansBatch(ids: string[], batchSize = this.defaultBatchSize): Promise<BatchResponse[]> {
-    const groups = chunk(ids, batchSize);
-    const out: BatchResponse[] = [];
-    for (const g of groups) {
+  // Upload many video objects in batches
+  async uploadVideosBatch(items: VideoObject[], batchSize = 100): Promise<BatchResponse[]> {
+    if (!Array.isArray(items) || items.length === 0) return [];
+    const chunks = this.chunk(items, batchSize);
+    const results: BatchResponse[] = [];
+    for (const chunk of chunks) {
       try {
-        const { status, bodyText } = await this.requestWithRetry(`/api/scans/batch`, { method: "POST", body: { ids: g }, headers: this.buildHeaders() });
-        let body = null;
-        try { body = JSON.parse(bodyText); } catch { body = bodyText; }
-        out.push({ ok: status >= 200 && status < 300, status, body });
-      } catch (e: any) {
-        out.push({ ok: false, status: 0, error: String(e) });
+        const { status, bodyText } = await this.requestWithRetry(`/api/videos/batch`, { method: 'POST', body: { items: chunk } }, 3);
+        let body: any;
+        try { body = JSON.parse(bodyText); } catch (e) { body = bodyText; }
+        results.push({ ok: status >= 200 && status < 300, status, body });
+      } catch (err: any) {
+        results.push({ ok: false, status: 0, error: String(err) });
       }
     }
-    return out;
+    return results;
   }
 
-  // Single resource helpers
+  // Upload arrays of video ids as "scans"
+  async uploadScansBatch(ids: string[], batchSize = 500): Promise<BatchResponse[]> {
+    if (!Array.isArray(ids) || ids.length === 0) return [];
+    const chunks = this.chunk(ids, batchSize);
+    const results: BatchResponse[] = [];
+    for (const chunk of chunks) {
+      try {
+        const { status, bodyText } = await this.requestWithRetry(`/api/scans/batch`, { method: 'POST', body: { ids: chunk } }, 3);
+        let body: any;
+        try { body = JSON.parse(bodyText); } catch (e) { body = bodyText; }
+        results.push({ ok: status >= 200 && status < 300, status, body });
+      } catch (err: any) {
+        results.push({ ok: false, status: 0, error: String(err) });
+      }
+    }
+    return results;
+  }
+
+  // single resource operations
   async createOrUpdateVideo(item: VideoObject): Promise<BatchResponse> {
-    const id = encodeURIComponent(item.VideoID);
+    if (!item || !item.VideoID) throw new Error('VideoID required');
     try {
-      const { status, bodyText } = await this.requestWithRetry(`/api/videos/${id}`, { method: "PUT", body: item, headers: this.buildHeaders() });
-      let body = null; try { body = JSON.parse(bodyText); } catch { body = bodyText; }
+      const { status, bodyText } = await this.requestWithRetry(`/api/videos/${encodeURIComponent(item.VideoID)}`, { method: 'PUT', body: item }, 2);
+      let body: any; try { body = JSON.parse(bodyText); } catch (e) { body = bodyText; }
       return { ok: status >= 200 && status < 300, status, body };
-    } catch (e: any) {
-      return { ok: false, status: 0, error: String(e) };
+    } catch (err: any) {
+      return { ok: false, status: 0, error: String(err) };
     }
   }
 
   async addScan(videoId: string): Promise<BatchResponse> {
+    if (!videoId) throw new Error('videoId required');
     try {
-      const { status, bodyText } = await this.requestWithRetry(`/api/scans`, { method: "POST", body: { id: videoId }, headers: this.buildHeaders() });
-      let body = null; try { body = JSON.parse(bodyText); } catch { body = bodyText; }
+      const { status, bodyText } = await this.requestWithRetry(`/api/scans`, { method: 'POST', body: { id: videoId } }, 2);
+      let body: any; try { body = JSON.parse(bodyText); } catch (e) { body = bodyText; }
       return { ok: status >= 200 && status < 300, status, body };
-    } catch (e: any) {
-      return { ok: false, status: 0, error: String(e) };
+    } catch (err: any) {
+      return { ok: false, status: 0, error: String(err) };
     }
   }
 
-  // Health check / small helpers
+  // simple health probe
   async health(): Promise<{ ok: boolean; status: number; body?: any }> {
     try {
-      const { status, bodyText } = await this.requestWithRetry(`/api/health`, { method: "GET" });
-      let body = null; try { body = JSON.parse(bodyText); } catch { body = bodyText; }
+      const { status, bodyText } = await this.requestWithRetry(`/api/health`, { method: 'GET' }, 1);
+      let body: any; try { body = JSON.parse(bodyText); } catch (e) { body = bodyText; }
       return { ok: status >= 200 && status < 300, status, body };
-    } catch (e: any) {
-      return { ok: false, status: 0, body: String(e) };
+    } catch (err: any) {
+      return { ok: false, status: 0, body: String(err) };
     }
   }
 }
+
+export default ApiService;
