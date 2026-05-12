@@ -1022,6 +1022,7 @@ function testTabNocStates() {
   return testState;
 }
 import { ApiAdapter } from "./api/ApiAdapter";
+import { GM_addStyle, GM_getResourceText, unsafeWindow } from "$";
 
 var apiAdapter = new ApiAdapter();
 
