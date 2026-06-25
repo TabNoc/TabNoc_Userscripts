@@ -89,12 +89,13 @@ export class ApiService {
     if (!item.Watches) return item as VideoObjectPayload;
     return {
       ...item,
-      Watches: item.Watches.map((entry) => ({
+      Watches: item.Watches.filter((entry) => (entry.Date !== "unknown" && entry.Date !== null) || entry.WatchedLength !== null).map((entry) => ({
         ...entry,
         Date:
-          entry.Date == null
+          entry.Date == null || entry.Date === "unknown"
             ? null
             : new Date(entry.Date).toISOString(),
+        WatchedLength: Math.round(entry.WatchedLength),
       })),
     };
   }
@@ -108,7 +109,7 @@ export class ApiService {
       try {
         const { status, bodyText } = await this.requestWithRetry(`/api/videos/batch`, { method: 'POST', body: { items: chunk } }, 3);
         if (! (status >= 200 && status < 300)) {
-          results.push({ ok: false, status, error: `Request failed with status ${status}` });
+          results.push({ ok: false, status, error: `Request failed with status ${status}\n\n${bodyText}` });
           continue;
         }
         let body: string | Record<string, unknown> = bodyText;
@@ -130,7 +131,7 @@ export class ApiService {
       try {
         const { status, bodyText } = await this.requestWithRetry(`/api/scans/batch`, { method: 'POST', body: { ids: chunk } }, 3);
         if (! (status >= 200 && status < 300)) {
-          results.push({ ok: false, status, error: `Request failed with status ${status}` });
+          results.push({ ok: false, status, error: `Request failed with status ${status}\n\n${bodyText}` });
           continue;
         }
         let body: string | Record<string, unknown> = bodyText;
@@ -149,7 +150,7 @@ export class ApiService {
     const payload = this.toVideoObjectPayload(item);
     const { status, bodyText } = await this.requestWithRetry(`/api/VideoObjects/${encodeURIComponent(item.VideoID)}`, { method: 'PUT', body: payload }, 2);
     if (! (status >= 200 && status < 300)) {
-      return { ok: false, status, error: `Request failed with status ${status}` };
+      return { ok: false, status, error: `Request failed with status ${status}\n\n${bodyText}` };
     }
     let body: string | Record<string, unknown> = bodyText; try { body = JSON.parse(bodyText) as Record<string, unknown>; } catch { /* keep as string */ }
     return { ok: true, status, body };
@@ -159,7 +160,7 @@ export class ApiService {
     try {
       const { status, bodyText } = await this.requestWithRetry(`/api/VideoObjects/${encodeURIComponent(id)}`, { method: 'GET' }, 2);
       if (! (status >= 200 && status < 300)) {
-        return { ok: false, status, error: `Request failed with status ${status}` };
+        return { ok: false, status, error: `Request failed with status ${status}\n\n${bodyText}` };
       }
       let body: VideoObject = JSON.parse(bodyText) as VideoObject;
       return { ok: true, status, body };
@@ -173,7 +174,7 @@ export class ApiService {
     try {
       const { status, bodyText } = await this.requestWithRetry(`/api/scans`, { method: 'POST', body: { id: videoId } }, 2);
       if (! (status >= 200 && status < 300)) {
-        return { ok: false, status, error: `Request failed with status ${status}` };
+        return { ok: false, status, error: `Request failed with status ${status}\n\n${bodyText}` };
       }
       let body: string | Record<string, unknown> = bodyText; try { body = JSON.parse(bodyText) as Record<string, unknown>; } catch { /* keep as string */ }
       return { ok: true, status, body };
@@ -187,7 +188,7 @@ export class ApiService {
     try {
       const { status, bodyText } = await this.requestWithRetry(`/api/health`, { method: 'GET' }, 1);
       if (! (status >= 200 && status < 300)) {
-        return { ok: false, status, error: `Request failed with status ${status}` };
+        return { ok: false, status, error: `Request failed with status ${status}\n\n${bodyText}` };
       }
       let body: string | Record<string, unknown> = bodyText; try { body = JSON.parse(bodyText) as Record<string, unknown>; } catch { /* keep as string */ }
       return { ok: true, status, body };

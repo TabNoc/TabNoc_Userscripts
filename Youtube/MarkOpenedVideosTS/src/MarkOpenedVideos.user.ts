@@ -63,8 +63,6 @@ let TabNoc = {
     checkElementsInterval: null as number | null,
     lastCheckItemCount: 0,
 
-    LastFullScreenElement: null as HTMLElement | null,
-
     HasInstalledWatchingVideo: false,
     LastSaveWatchedLength: null as number | null,
 
@@ -167,13 +165,13 @@ if (jQuery != undefined) {
       clearTimeout(Feedback.messageTimeout);
       Feedback.messageTimeout = null;
 
-      if (document.getElementById("feedback") != null) {
-        element = document.getElementById("feedback");
+      if (document.getElementById("myFeedback") != null) {
+        element = document.getElementById("myFeedback");
         $(element).off();
       }
       else {
         element = document.createElement("div");
-        element.id = "feedback";
+        element.id = "myFeedback";
         element.title = "Dismiss";
         element.setAttribute("style", "position: fixed; top: 10px; text-align: center; width: 100%; z-index: 2147483647;");
         element.innerHTML = '<span style="border-radius: 5px; cursor: pointer; color: #fff; padding: 3px 6px; font-size: 16px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); text-shadow: 0 1px rgba(0, 0, 0, 0.2);"></span>';
@@ -188,7 +186,7 @@ if (jQuery != undefined) {
       }
     }),
     hideMessage: (function () {
-      var element = document.getElementById("feedback");
+      var element = document.getElementById("myFeedback");
       if (element != null) {
         if (Feedback.messageTimeout != null) {
           clearTimeout(Feedback.messageTimeout);
@@ -292,6 +290,74 @@ function registerTabNoc() {
 
   GM_registerMenuCommand("Markieren", function () {
     startCheckElements(!TabNoc.Variables.MarkToggleState);
+  });
+
+  GM_registerMenuCommand("Upload Data", async function () {
+    const data: any = JSON.parse(prompt("Please enter the data to import:", "") || "{}");
+    if (data == null || typeof data !== "object" || Object.keys(data).length === 0) {
+      alert("No data entered. Import cancelled.");
+      return;
+    }
+    const VideoObjectDictionary: Map<string, VideoObject> = data["VideoObjectDictionary"];
+
+    if (VideoObjectDictionary == null) {
+      alert("Invalid data format. Import cancelled.");
+      return;
+    }
+
+    Feedback.showProgress(0, "Initialised Upload");
+    let i = 0;
+    const count = Object.keys(VideoObjectDictionary).length;
+
+    let promises = [];
+    for (const [videoId, videoObject] of Object.entries(VideoObjectDictionary)) {
+      console.log(`Uploading Element ${i + 1}/${count}: ${videoId}`, videoObject);
+      Feedback.showProgress(
+        (i / count) * 100,
+        `Uploading Element ${i + 1}/${count}: ${videoId}`,
+        5000
+      );
+      i++;
+      const local_i = i;
+      promises.push(apiAdapter.getService().createOrUpdateVideo(videoObject).then((response) => {
+        return match (response)
+          .with({ ok: true }, () => {
+            console.trace(`Uploaded Element ${local_i + 1}/${count}: ${videoId}`);
+            return true
+          })
+          .with({ ok: false }, (res) => {
+            throw new Error("Error uploading video data: " + res.error);
+          })
+          .exhaustive();
+      }).catch((exc) => {
+        console.error(exc);
+        alert(exc);
+        throw exc;
+      }));
+
+      if (promises.length >= 100) {
+        await Promise.all(promises).then(() => {
+          promises = [];
+          console.log("Finished Batch.");
+        }).catch((exc) => {
+          console.error(exc);
+          alert(exc);
+          throw exc;
+        });
+      }
+    }
+
+
+      //await new Promise((resolve) => setTimeout(resolve, 100)); // Small delay to avoid blocking the UI
+    
+      Feedback.showProgress(
+        100,
+        "Finished Uploading " + count + " elements",
+        60000,
+        function () {
+          Feedback.hideMessage();
+        },
+      );
   });
 }
 
@@ -597,19 +663,24 @@ class VideoNodeDetailsManager {
     console.info("getVideoIdFromElement", element);
     // "ytd-rich-item-renderer" -> Start page (this is a container, not the actual video element. This is also used in the sidebar, but encapsulates all videos there)
     const thumbnailElement = match (element)
-    .with({ localName: "ytd-rich-item-renderer" }, (el) => el.querySelector("ytm-shorts-lockup-view-model-v2")!== null, () => {
+    .with({ localName: "ytd-rich-item-renderer" }, (el) => el.querySelector("ytm-shorts-lockup-view-model-v2") !== null, () => {
       console.warn("found shorts layout element");
       return null;
     })
-    .with({ localName: "ytd-rich-item-renderer" }, (el) => {
-      return el.querySelector("#content>yt-lockup-view-model")?.querySelector(
-      ".yt-lockup-view-model__content-image",
-    );
+    .with({ localName: "ytd-rich-item-renderer" }, (el) => el.querySelector("#content>yt-lockup-view-model>.ytLockupViewModelHost>a") !== null, (el) => {
+      console.info("found start page element");
+      return el.querySelector("#content>yt-lockup-view-model>.ytLockupViewModelHost>a");
     })
     .with({ localName: "yt-lockup-view-model" }, (el) => {
+      console.info("found something (old) 2" );
       return el.querySelector(".ytLockupViewModelContentImage");;
     })
+    .with({ localName: "a", className: "ytp-modern-videowall-still ytp-suggestion-set" }, (el) => {
+      console.info("found videowall element" );
+      return el;
+    })
     .otherwise(() => {
+      console.warn("no match case for element defined");
       return null;
     });
 
@@ -1169,7 +1240,7 @@ function remainingTimeOutput(RemainingTimeString, BufferSize) {
   }
 }
 
-function WatchingVideo() {
+async function WatchingVideo() {
   if (TabNoc.Settings.Debug === true) {
     console.groupCollapsed("WatchingVideo");
     console.log(
@@ -1229,13 +1300,7 @@ function WatchingVideo() {
         console.log("Video already watched!");
       }
     }
-    // TabNoc.Variables.VideoStatisticsObject = JSON.stringify(
-    //   PushVideoObject(
-    //     null,
-    //     JSON.parse(TabNoc.Variables.VideoStatisticsObject),
-    //     true,
-    //   ),
-    // );
+    TabNoc.Variables.VideoStatisticsObject = JSON.stringify(await PushVideoObject(JSON.parse(TabNoc.Variables.VideoStatisticsObject)));
 
     Feedback.notify(
       "Aktuelles Video: " +
@@ -1284,8 +1349,6 @@ function WatchingVideoIntervalHandler(movie_player) {
       TabNoc.Variables.LastIntervalTime = new Date().getTime();
     } else {
       TabNoc.Variables.LastIntervalTime = null;
-
-      checkVideoWallElements();
     }
     if (
       movie_player.getPlayerState() == 0 &&
@@ -1304,21 +1367,6 @@ function WatchingVideoIntervalHandler(movie_player) {
     }
     // ############################### TabNoc.Variables.WatchedLengthInterval ###############################
 
-    //TODO: have I deleted something???
-    // check Fullscreen state Change
-    if (
-      (document.mozFullScreenElement == null &&
-        TabNoc.Variables.LastFullScreenElement != null) ||
-      (document.mozFullScreenElement != null &&
-        document.mozFullScreenElement.getAttribute("id") !=
-        TabNoc.Variables.LastFullScreenElement)
-    ) {
-      TabNoc.Variables.LastFullScreenElement =
-        document.mozFullScreenElement &&
-        document.mozFullScreenElement.getAttribute("id");
-      checkVideoWallElements();
-    }
-
     // ############################### TabNoc.Variables.VideoChangeCheckInterval ###############################
     if (
       movie_player.getVideoData().video_id != TabNoc.Variables.CurrentVideoID
@@ -1333,7 +1381,7 @@ function WatchingVideoIntervalHandler(movie_player) {
   }
 }
 
-function SaveVideoStatistics() {
+async function SaveVideoStatistics() {
   if (TabNoc.Settings.Debug === true) {
     console.groupCollapsed("SaveVideoStatistics");
     console.log(
@@ -1356,13 +1404,7 @@ function SaveVideoStatistics() {
       VideoStatisticsObject.Watches.length - 1
     ].WatchedLength = Math.round(TabNoc.Variables.WatchedLength);
 
-    // TabNoc.Variables.VideoStatisticsObject = JSON.stringify(
-    //   PushVideoObject(
-    //     null,
-    //     JSON.parse(JSON.stringify(VideoStatisticsObject)),
-    //     true,
-    //   ),
-    // );
+    TabNoc.Variables.VideoStatisticsObject = JSON.stringify(await PushVideoObject(JSON.parse(JSON.stringify(VideoStatisticsObject))));
 
     if (TabNoc.Settings.Debug === true) {
       console.groupEnd();
@@ -1384,7 +1426,7 @@ async function GetVideoWatched(VideoID:string):Promise<boolean> {
       .with({ ok: true }, () => {
         return true
       })
-      .with({ ok: false, status:404 }, () => {
+      .with({ ok: false, status: 404 }, () => {
         return false;
       })
       .with({ ok: false }, (res) => {
@@ -1398,106 +1440,65 @@ async function GetVideoWatched(VideoID:string):Promise<boolean> {
   });
 }
 
-function PushVideoObject(videoObjectDictionary, videoObject, save) {
+async function PushVideoObject(videoObject: VideoObject) : Promise<VideoObject> {
   if (TabNoc.Settings.Debug === true) {
     console.log("Pushing ...", JSON.parse(JSON.stringify(videoObject)));
   }
   if (typeof videoObject !== "object") {
     throw "WrongTypeException:Only Objects can be Pushed into the Database.";
   }
-  if (videoObjectDictionary === null) {
-    GM_Lock();
-    videoObjectDictionary = GetData("VideoObjectDictionary", "{}", true);
-    save = true;
-    if (TabNoc.Settings.Debug === true) {
-      console.log("Loading videoObjectDictionary ...");
-    }
-  }
-
-  apiAdapter.getService().getVideo(videoObject.VideoID).then((response) => {
-    if (response.status === 404 || response.body == null) {
-      apiAdapter.getService().createOrUpdateVideo(videoObject).catch((exc) => {
-        console.error(exc);
-        alert(exc);
-      }).then((response) => {
-        if (response.ok === false) {
-          console.error(response.body, videoObject);
-          alert(response.body);
-        }
-      });
-    } else {
-      apiAdapter.getService().createOrUpdateVideo(MergeVideoObjects(
-        response.body,
-        videoObject,
-      )).catch((exc) => {
-        console.error(exc);
-        alert(exc);
-      }).then((response) => {
-        if (response.ok === false) {
-          console.error(response.body, videoObject);
-          alert(response.body);
-        }
-      });
-    }
+  return apiAdapter.getService().getVideo(videoObject.VideoID).then((response) => {
+    return match (response)
+      .with({ ok: true }, (res) => {
+        const merged = MergeVideoObjects(
+          res.body,
+          videoObject,
+        )
+        apiAdapter.getService().createOrUpdateVideo(merged).then((response) => {
+          return match (response)
+            .with({ ok: true }, () => {
+              console.info("Video data successfully updated for videoID:", videoObject.VideoID);
+            })
+            .with({ ok: false }, (res) => {
+              throw new Error("Error fetching video data: " + res.error);
+            })
+            .exhaustive();
+        }).catch((exc) => {
+          console.error(exc);
+          alert(exc);
+          throw exc;
+        });
+        return merged;
+      })
+      .with({ ok: false, status: 404 }, () => {
+        apiAdapter.getService().createOrUpdateVideo(videoObject).then((response) => {
+          return match (response)
+            .with({ ok: true }, () => {
+              console.info("Video data successfully added for videoID:", videoObject.VideoID);
+            })
+            .with({ ok: false }, (res) => {
+              throw new Error("Error fetching video data: " + res.error);
+            })
+            .exhaustive();
+        }).catch((exc) => {
+          console.error(exc);
+          alert(exc);
+          throw exc;
+        });
+        return videoObject;
+      })
+      .with({ ok: false }, (res) => {
+        throw new Error("Error fetching video data: " + res.error);
+      })
+      .exhaustive();
+  }).catch((exc) => {
+    console.error(exc);
+    alert(exc);
+    throw exc;
   });
-
-  if (videoObjectDictionary[videoObject.VideoID] === undefined) {
-    videoObjectDictionary[videoObject.VideoID] = videoObject;
-    if (TabNoc.Settings.Debug === true) {
-      // console.log("... Pushed");
-    }
-  } else {
-    videoObjectDictionary[videoObject.VideoID] = MergeVideoObjects(
-      videoObjectDictionary[videoObject.VideoID],
-      videoObject,
-    );
-    if (TabNoc.Settings.Debug === true) {
-      console.log(
-        JSON.parse(
-          JSON.stringify(videoObjectDictionary[videoObject.VideoID]),
-        ),
-        "... Merged PushRequest",
-      );
-    }
-  }
-
-  if (videoObjectDictionary[videoObject.VideoID] == null) {
-    console.log(
-      "deleted ID: >" +
-      videoObject.VideoID +
-      "<. The Value was " +
-      videoObjectDictionary[videoObject.VideoID],
-    );
-    delete videoObjectDictionary[videoObject.VideoID];
-  }
-
-  if (videoObject.VideoID == null) {
-    console.log(
-      "deleted ID: >" +
-      videoObject.VideoID +
-      "<. The Value was " +
-      videoObjectDictionary[videoObject.VideoID],
-    );
-    delete videoObjectDictionary[videoObject.VideoID];
-  }
-
-  if (save === true) {
-    SetData(
-      "VideoObjectDictionary",
-      JSON.stringify(videoObjectDictionary),
-      true,
-      false,
-    );
-    GM_Unlock();
-    if (TabNoc.Settings.Debug === true) {
-      console.log("Saveing videoObjectDictionary ...");
-    }
-  }
-
-  return videoObjectDictionary[videoObject.VideoID];
 }
 
-function MergeVideoObjects(videoObject_1, videoObject_2) {
+function MergeVideoObjects(videoObject_1: VideoObject, videoObject_2: VideoObject) : VideoObject | null {
   const forceMerge = true;
   if (TabNoc.Settings.Debug === true) {
     console.log("Merging ...");
