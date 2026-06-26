@@ -55,7 +55,6 @@ let TabNoc = {
     MarkToggleState: true,
 
     WatchedLength: 0,
-    HasSavedDataOnEnd: false,
 
     CurrentVideoID: null as string | null,
 
@@ -66,13 +65,8 @@ let TabNoc = {
     lastCheckItemCount: 0,
 
     HasInstalledWatchingVideo: false,
-    LastSaveWatchedLength: null as number | null,
 
     EndTime: 0,
-
-    LastIntervalTime: null as number | null,
-    LastPlayerState: null as number | null,
-    LastKnownCurrentTime: null as number | null,
   },
 
   Settings: {
@@ -350,9 +344,12 @@ function getActiveMoviePlayer() {
 import { ApiAdapter } from "./api/ApiAdapter";
 import { GM_info, GM_registerMenuCommand, unsafeWindow } from "$";
 import {VideoObject, VideoOpenStatus} from "./api/ApiService";
+import type { VideoStatsState } from "./video-stats/WatchSessionTypes";
+import { createVideoStatsTracker } from "./video-stats/VideoStatsTrackerFactory";
 import { match } from "ts-pattern";
 
 var apiAdapter = new ApiAdapter();
+let currentVideoStatsTracker: ReturnType<typeof createVideoStatsTracker> | null = null;
 
 // ### https://www.youtube.com/ ###
 async function SubscriptionPageLoader() {
@@ -1072,8 +1069,6 @@ function CheckWatchingVideo(forcedOperation?: "install" | "uninstall" | null) {
     movie_player.getVideoData().title != "" &&
     (movie_player.getVideoData().video_quality != undefined || isCurrentPageShort());
 
-  console.log(movie_player, moviePlayerExistsWithVideo, TabNoc.Variables.HasInstalledWatchingVideo);
-
   if (
     (moviePlayerExistsWithVideo == true &&
       TabNoc.Variables.HasInstalledWatchingVideo == false) ||
@@ -1093,13 +1088,9 @@ function CheckWatchingVideo(forcedOperation?: "install" | "uninstall" | null) {
   ) {
     SaveVideoStatistics();
 
-    TabNoc.Variables.LastSaveWatchedLength = null;
     TabNoc.Variables.VideoStatisticsObject = null;
     TabNoc.Variables.WatchedLength = 0;
-    TabNoc.Variables.HasSavedDataOnEnd = false;
-    TabNoc.Variables.LastIntervalTime = null;
-    TabNoc.Variables.LastPlayerState = null;
-    TabNoc.Variables.LastKnownCurrentTime = null;
+    currentVideoStatsTracker = null;
 
     TabNoc.Variables.HasInstalledWatchingVideo = false;
   }
@@ -1375,7 +1366,7 @@ async function WatchingVideo() {
     const existingStatus = await GetVideoOpenStatus(videoData.video_id);
 
     // prepare Current VideoStatisticsObject
-    TabNoc.Variables.VideoStatisticsObject = JSON.stringify({
+    const createdVideoStatsState: VideoStatsState = {
       VideoID: videoData.video_id,
       VideoTitle: videoData.title,
       VideoAuthor: videoData.author,
@@ -1387,7 +1378,10 @@ async function WatchingVideo() {
         },
       ],
       VideoLength: Math.floor(activePlayer.getDuration()),
-    });
+    };
+
+    currentVideoStatsTracker = createVideoStatsTracker(createdVideoStatsState);
+    TabNoc.Variables.VideoStatisticsObject = JSON.stringify(createdVideoStatsState);
 
     if (TabNoc.Settings.Debug === true) {
       console.log(
@@ -1462,71 +1456,38 @@ function WatchingVideoIntervalHandler(movie_player) {
     } else {
       remainingTimeManager(movie_player);
     }
-    // ############################### TabNoc.Variables.WatchedLengthInterval ###############################
-    const playerState = Number(movie_player.getPlayerState());
-    const currentTime = Number(movie_player.getCurrentTime?.()) || 0;
+    if (currentVideoStatsTracker != null && TabNoc.Variables.VideoStatisticsObject != null) {
+      const actions = currentVideoStatsTracker.tick(
+        {
+          playerState: Number(movie_player.getPlayerState()),
+          currentTimeSeconds: Number(movie_player.getCurrentTime?.()) || 0,
+          playbackRate: Math.max(0.1, Number(movie_player.getPlaybackRate?.()) || 1),
+        },
+        new Date().getTime(),
+      );
 
-    if (playerState === 2 && TabNoc.Variables.LastPlayerState === 1) {
-      const videoStatisticsObject = TabNoc.Variables.VideoStatisticsObject == null
-        ? null
-        : JSON.parse(TabNoc.Variables.VideoStatisticsObject);
-      const watches = videoStatisticsObject?.Watches;
-      const currentWatchSession = Array.isArray(watches) ? watches[watches.length - 1] : null;
-      console.debug("Current watch session paused:", {
-        VideoID: videoStatisticsObject?.VideoID,
-        Session: currentWatchSession,
-        WatchedLengthCurrent: Math.round(TabNoc.Variables.WatchedLength),
-      });
-    }
+      const state = currentVideoStatsTracker.getVideoStatsState();
+      TabNoc.Variables.WatchedLength = currentVideoStatsTracker.getActiveWatchSeconds();
+      TabNoc.Variables.VideoStatisticsObject = JSON.stringify(state);
 
-    if (
-      playerState === 1 &&
-      TabNoc.Variables.LastPlayerState === 1 &&
-      TabNoc.Variables.LastKnownCurrentTime != null &&
-      currentTime + 0.25 < TabNoc.Variables.LastKnownCurrentTime &&
-      TabNoc.Variables.WatchedLength > 0
-    ) {
-      accumulateWatchedTime(movie_player);
-      SaveVideoStatistics();
-      beginNextWatchSession();
-    }
+      for (const action of actions) {
+        if (action.type === "pause-log") {
+          console.debug("Current watch session paused:", {
+            VideoID: state.VideoID,
+            Session: action.payload.session,
+            WatchedLengthCurrent: action.payload.watchedLengthCurrent,
+          });
+        }
 
-    if (
-      playerState === 1 &&
-      TabNoc.Variables.LastPlayerState === 0 &&
-      TabNoc.Variables.HasSavedDataOnEnd === true
-    ) {
-      beginNextWatchSession();
-    }
-
-    if (playerState == 1 /*Playing*/) {
-      if (TabNoc.Variables.LastIntervalTime != null) {
-        accumulateWatchedTime(movie_player);
-      } else {
-        TabNoc.Variables.LastIntervalTime = new Date().getTime();
+        if (action.type === "save") {
+          SaveVideoStatistics().then(() => {
+            if (currentVideoStatsTracker != null) {
+              currentVideoStatsTracker.onAfterSave();
+            }
+          });
+        }
       }
-      TabNoc.Variables.HasSavedDataOnEnd = false;
-    } else {
-      accumulateWatchedTime(movie_player);
-      TabNoc.Variables.LastIntervalTime = null;
     }
-    if (
-      playerState == 0 &&
-      TabNoc.Variables.LastPlayerState !== 0 &&
-      TabNoc.Variables.HasSavedDataOnEnd === false
-    ) {
-      SaveVideoStatistics();
-
-      TabNoc.Variables.HasSavedDataOnEnd = true;
-    }
-    if (
-      TabNoc.Variables.LastSaveWatchedLength + 14 <
-      TabNoc.Variables.WatchedLength
-    ) {
-      SaveVideoStatistics();
-      TabNoc.Variables.LastSaveWatchedLength = TabNoc.Variables.WatchedLength;
-    }
-    // ############################### TabNoc.Variables.WatchedLengthInterval ###############################
 
     // ############################### TabNoc.Variables.VideoChangeCheckInterval ###############################
     if (
@@ -1536,8 +1497,6 @@ function WatchingVideoIntervalHandler(movie_player) {
       CheckWatchingVideo("install");
     }
 
-    TabNoc.Variables.LastPlayerState = playerState;
-    TabNoc.Variables.LastKnownCurrentTime = currentTime;
     // ############################### TabNoc.Variables.VideoChangeCheckInterval ###############################
   } catch (exc) {
     console.error(exc);
@@ -1561,14 +1520,21 @@ async function SaveVideoStatistics() {
     return false;
   }
   try {
-    let VideoStatisticsObject = JSON.parse(
+    let videoStatisticsObject = JSON.parse(
       TabNoc.Variables.VideoStatisticsObject,
-    );
-    VideoStatisticsObject.Watches[
-      VideoStatisticsObject.Watches.length - 1
-    ].WatchedLength = Math.round(TabNoc.Variables.WatchedLength);
+    ) as VideoStatsState;
 
-    TabNoc.Variables.VideoStatisticsObject = JSON.stringify(await PushVideoObject(JSON.parse(JSON.stringify(VideoStatisticsObject))));
+    if (currentVideoStatsTracker != null) {
+      currentVideoStatsTracker.setActiveWatchSeconds(TabNoc.Variables.WatchedLength);
+      videoStatisticsObject = currentVideoStatsTracker.getVideoStatsState();
+    }
+
+    TabNoc.Variables.VideoStatisticsObject = JSON.stringify(await PushVideoObject(JSON.parse(JSON.stringify(videoStatisticsObject))));
+
+    if (currentVideoStatsTracker != null) {
+      currentVideoStatsTracker.replaceVideoStatsState(JSON.parse(TabNoc.Variables.VideoStatisticsObject));
+      currentVideoStatsTracker.onAfterSave();
+    }
 
     if (TabNoc.Settings.Debug === true) {
       console.groupEnd();
@@ -1577,43 +1543,6 @@ async function SaveVideoStatistics() {
     console.error(exc);
     alert(exc);
   }
-}
-
-function beginNextWatchSession() {
-  if (TabNoc.Variables.VideoStatisticsObject == null) {
-    return;
-  }
-
-  const videoStatisticsObject = JSON.parse(TabNoc.Variables.VideoStatisticsObject);
-  const watches = videoStatisticsObject.Watches as Array<{ WatchedLength: number; Date: string | null }>;
-  const lastWatch = watches[watches.length - 1];
-
-  if (lastWatch == null || lastWatch.WatchedLength >= 0) {
-    watches.push({
-      WatchedLength: -99,
-      Date: new Date().toString(),
-    });
-  }
-
-  videoStatisticsObject.Watches = watches;
-  TabNoc.Variables.VideoStatisticsObject = JSON.stringify(videoStatisticsObject);
-  TabNoc.Variables.WatchedLength = 0;
-  TabNoc.Variables.LastIntervalTime = null;
-  TabNoc.Variables.LastSaveWatchedLength = 0;
-  TabNoc.Variables.HasSavedDataOnEnd = false;
-}
-
-function accumulateWatchedTime(movie_player) {
-  if (TabNoc.Variables.LastIntervalTime == null) {
-    return;
-  }
-
-  const now = new Date().getTime();
-  const playbackRate = Math.max(0.1, Number(movie_player.getPlaybackRate?.()) || 1);
-  const deltaSeconds = Math.max(0, (now - TabNoc.Variables.LastIntervalTime) / 1000);
-
-  TabNoc.Variables.WatchedLength = TabNoc.Variables.WatchedLength + (deltaSeconds * playbackRate);
-  TabNoc.Variables.LastIntervalTime = now;
 }
 // ### https://www.youtube.com/watch?v=* ###
 
