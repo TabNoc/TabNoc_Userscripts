@@ -19,6 +19,7 @@ export default defineConfig({
           'http*://www.youtube.com/@*/*/videos*',
           'http*://www.youtube.com/@*/*/featured*',
           'http*://www.youtube.com/watch?*v=*',
+          'http*://www.youtube.com/shorts/*',
           'http*://www.youtube.com/results?*',
           'http*://www.youtube.com/feed/history',
           'http*://www.youtube.com/'

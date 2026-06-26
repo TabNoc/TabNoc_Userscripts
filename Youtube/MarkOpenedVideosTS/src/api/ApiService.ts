@@ -9,7 +9,14 @@ export type VideoObject = {
   VideoTitles: StringOccasion[];
   VideoAuthors: StringOccasion[];
   VideoLength: number;
+  IsShort: boolean;
   Watches: WatchEntry[];
+};
+
+export type VideoOpenStatus = {
+  Exists: boolean;
+  HasHighWatchtime: boolean;
+  AdjustedWatchRatio: number;
 };
 
 export type BatchResponse<T> = SuccessBatchResponse<T> | FailureBatchResponse;
@@ -163,6 +170,19 @@ export class ApiService {
         return { ok: false, status, error: `Request failed with status ${status}\n\n${bodyText}` };
       }
       let body: VideoObject = JSON.parse(bodyText) as VideoObject;
+      return { ok: true, status, body };
+    } catch (err) {
+      return { ok: false, status: 0, error: String(err) };
+    }
+  }
+
+  async getVideoStatus(id: string): Promise<BatchResponse<VideoOpenStatus>> {
+    try {
+      const { status, bodyText } = await this.requestWithRetry(`/api/VideoObjects/${encodeURIComponent(id)}/status`, { method: 'GET' }, 2);
+      if (! (status >= 200 && status < 300)) {
+        return { ok: false, status, error: `Request failed with status ${status}\n\n${bodyText}` };
+      }
+      const body: VideoOpenStatus = JSON.parse(bodyText) as VideoOpenStatus;
       return { ok: true, status, body };
     } catch (err) {
       return { ok: false, status: 0, error: String(err) };

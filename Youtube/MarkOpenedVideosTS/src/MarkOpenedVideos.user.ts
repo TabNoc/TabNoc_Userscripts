@@ -10,6 +10,7 @@
 // @include     http*://www.youtube.com/@*/*/videos*
 // @include     http*://www.youtube.com/@*/*/featured*
 // @include     http*://www.youtube.com/watch?*v=*
+// @include     http*://www.youtube.com/shorts/*
 // @include     http*://www.youtube.com/results?*
 // @include     http*://www.youtube.com/feed/history
 // @include     http*://www.youtube.com/
@@ -178,7 +179,11 @@ if (jQuery != undefined) {
         document.body.appendChild(element);
       }
       element.children[0].textContent = message.replaceAll("\r\n", "<br>");
-      element.children[0].style.backgroundColor = ((type == "notify") ? "#00A550" : "#C41E3A");
+      element.children[0].style.backgroundColor = type == "notify"
+        ? "#00A550"
+        : type == "warning"
+          ? "#d0a100"
+          : "#C41E3A";
       $(element).on("click", onClickFunction || Feedback.hideMessage);
 
       if (time) {
@@ -253,9 +258,95 @@ if (jQuery != undefined) {
   };
 }
 
+type FeedbackMessageType = "notify" | "warning" | "error";
+
+const activeFeedbackState: {
+  timeoutId: number | null;
+  onVisibilityChange: (() => void) | null;
+  onWindowFocus: (() => void) | null;
+  onWindowBlur: (() => void) | null;
+} = {
+  timeoutId: null,
+  onVisibilityChange: null,
+  onWindowFocus: null,
+  onWindowBlur: null,
+};
+
+function clearActiveFeedbackTracking(hideMessage: boolean) {
+  if (activeFeedbackState.timeoutId != null) {
+    clearTimeout(activeFeedbackState.timeoutId);
+    activeFeedbackState.timeoutId = null;
+  }
+
+  if (activeFeedbackState.onVisibilityChange != null) {
+    document.removeEventListener("visibilitychange", activeFeedbackState.onVisibilityChange);
+    activeFeedbackState.onVisibilityChange = null;
+  }
+
+  if (activeFeedbackState.onWindowFocus != null) {
+    window.removeEventListener("focus", activeFeedbackState.onWindowFocus);
+    activeFeedbackState.onWindowFocus = null;
+  }
+
+  if (activeFeedbackState.onWindowBlur != null) {
+    window.removeEventListener("blur", activeFeedbackState.onWindowBlur);
+    activeFeedbackState.onWindowBlur = null;
+  }
+
+  if (hideMessage && Feedback != null) {
+    Feedback.hideMessage();
+  }
+}
+
+function showNotificationUntilActiveFor(
+  message: string,
+  type: FeedbackMessageType,
+  requiredActiveMs: number = 15000,
+) {
+  if (Feedback == null) {
+    return;
+  }
+
+  clearActiveFeedbackTracking(false);
+  Feedback.showMessage(message, type, null, () => {});
+
+  const scheduleActiveTimeout = () => {
+    if (activeFeedbackState.timeoutId != null) {
+      clearTimeout(activeFeedbackState.timeoutId);
+      activeFeedbackState.timeoutId = null;
+    }
+
+    if (document.hidden === false && document.hasFocus()) {
+      activeFeedbackState.timeoutId = window.setTimeout(() => {
+        clearActiveFeedbackTracking(true);
+      }, requiredActiveMs);
+    }
+  };
+
+  activeFeedbackState.onVisibilityChange = scheduleActiveTimeout;
+  activeFeedbackState.onWindowFocus = scheduleActiveTimeout;
+  activeFeedbackState.onWindowBlur = scheduleActiveTimeout;
+
+  document.addEventListener("visibilitychange", scheduleActiveTimeout);
+  window.addEventListener("focus", scheduleActiveTimeout);
+  window.addEventListener("blur", scheduleActiveTimeout);
+
+  scheduleActiveTimeout();
+}
+
+function isCurrentPageShort(): boolean {
+  const pathName = unsafeWindow.location?.pathname ?? "";
+  return pathName.startsWith("/shorts/");
+}
+
+function getActiveMoviePlayer() {
+  return unsafeWindow.document.getElementById("movie_player")
+    ?? unsafeWindow.document.getElementById("shorts-player");
+}
+
 import { ApiAdapter } from "./api/ApiAdapter";
 import { GM_info, GM_registerMenuCommand, unsafeWindow } from "$";
-import {VideoObject} from "./api/ApiService";
+import {VideoObject, VideoOpenStatus} from "./api/ApiService";
 import { match } from "ts-pattern";
 
 var apiAdapter = new ApiAdapter();
@@ -268,10 +359,12 @@ async function SubscriptionPageLoader() {
 
     TabNoc.Variables.checkElementsInterval = setInterval(
       returnExec(function () {
+        CheckWatchingVideo();
         startCheckElements(TabNoc.Variables.MarkToggleState);
       }),
       TabNoc.Settings.TimerInterval,
     );
+    CheckWatchingVideo();
     await startCheckElements(TabNoc.Variables.MarkToggleState, true);
     console.log("MarkOpenedVideos.user.js executed");
 
@@ -661,41 +754,44 @@ class NodeManager {
 class VideoNodeDetailsManager {
   getVideoId(element: Element): string | null {
     console.info("getVideoIdFromElement", element);
-    // "ytd-rich-item-renderer" -> Start page (this is a container, not the actual video element. This is also used in the sidebar, but encapsulates all videos there)
-    const thumbnailElement = match (element)
-    .with({ localName: "ytd-rich-item-renderer" }, (el) => el.querySelector("ytm-shorts-lockup-view-model-v2") !== null, () => {
-      console.warn("found shorts layout element");
-      return null;
-    })
-    .with({ localName: "ytd-rich-item-renderer" }, (el) => el.querySelector("#content>yt-lockup-view-model>.ytLockupViewModelHost>a") !== null, (el) => {
-      console.info("found start page element");
-      return el.querySelector("#content>yt-lockup-view-model>.ytLockupViewModelHost>a");
-    })
-    .with({ localName: "yt-lockup-view-model" }, (el) => {
-      console.info("found something (old) 2" );
-      return el.querySelector(".ytLockupViewModelContentImage");;
-    })
-    .with({ localName: "a", className: "ytp-modern-videowall-still ytp-suggestion-set" }, (el) => {
-      console.info("found videowall element" );
-      return el;
-    })
-    .otherwise(() => {
-      console.warn("no match case for element defined");
-      return null;
-    });
+    const candidateLinks = match (element)
+      .with({ localName: "a", className: "ytp-modern-videowall-still ytp-suggestion-set" }, (el) => [el])
+      .otherwise((el) => {
+        return [
+          el.querySelector("#content>yt-lockup-view-model>.ytLockupViewModelHost>a"),
+          el.querySelector(".ytLockupViewModelContentImage"),
+          el.querySelector("a#thumbnail"),
+          el.querySelector("a.yt-simple-endpoint[href*='/watch?v=']"),
+          el.querySelector("a.yt-simple-endpoint[href*='/shorts/']"),
+          el.querySelector("a[href*='/watch?v=']"),
+          el.querySelector("a[href*='/shorts/']"),
+        ];
+      });
 
-    if (thumbnailElement == null) {
-      console.warn("did not find thumbnail element");
+    const thumbnailElement = candidateLinks.find((candidate) => candidate != null) as Element | undefined;
+    const href = thumbnailElement?.getAttribute("href") ?? "";
+
+    if (href.length === 0) {
+      console.warn("did not find thumbnail link");
       return null;
     }
 
-    console.info("thumbnailElement", thumbnailElement);
+    let videoID: string | undefined;
 
-    const videoID = thumbnailElement.getAttribute("href")
-      ?.replace("https://www.youtube.com", "")
-      .replace("/watch?v=", "")
-      .split("&t=")[0]
-      .split("&pp=")[0];
+    if (href.includes("/shorts/")) {
+      videoID = href
+        .replace("https://www.youtube.com", "")
+        .split("/shorts/")[1]
+        ?.split("?")[0]
+        ?.split("/")[0];
+    } else {
+      videoID = href
+        .replace("https://www.youtube.com", "")
+        .replace("/watch?v=", "")
+        .split("&t=")[0]
+        .split("&pp=")[0]
+        .split("&")[0];
+    }
 
     if (videoID == null || videoID.length === 0) {
       console.warn("did not find thumbnail link");
@@ -779,7 +875,7 @@ function getNodeManager(): NodeManager {
   if (nodeManager != null) return nodeManager;
 
   nodeManager = new NodeManager(
-    "ytd-ad-slot-renderer, ytd-rich-grid-slim-media, .ytd-rich-shelf-renderer",
+    "ytd-ad-slot-renderer, .ytd-rich-shelf-renderer",
   )
     .registerSelector("channelPageSelector", "ytd-rich-item-renderer")
     .registerSelector("sidebarSelector", "yt-lockup-view-model.ytd-item-section-renderer")
@@ -792,11 +888,12 @@ function getNodeManager(): NodeManager {
       const el = nodeCtx.element;
       nodeCtx.nodeType = "unknown";
 
-      if (el.querySelector("ytm-shorts-lockup-view-model-v2") !== null) {
+      if (
+        el.querySelector("ytm-shorts-lockup-view-model-v2") !== null ||
+        el.querySelector("a[href*='/shorts/']") !== null
+      ) {
         nodeCtx.nodeType = "short";
-        nodeCtx.state = "filtered";
-        console.log("Detected short — marking as filtered.");
-        return "skipped";
+        console.log("Detected short.");
       }
 
       if (el.localName === "a") {
@@ -804,11 +901,11 @@ function getNodeManager(): NodeManager {
         console.log("Detected videowall link.");
       }
 
-      if (
+      if (nodeCtx.nodeType === "unknown" && (
         el.localName === "ytd-rich-item-renderer" ||
         el.localName === "yt-lockup-view-model" ||
         el.localName === "ytd-video-renderer"
-      ) {
+      )) {
         nodeCtx.nodeType = "video";
       }
 
@@ -945,8 +1042,6 @@ async function startCheckElements(ToggleState:boolean, force?: boolean) {
 
     await getNodeManager().run({ ToggleState }, force === true);
 
-    CheckWatchingVideo();
-
     var time = new Date().getTime() - start;
     if (time > 5) {
       console.log("startCheckElements() Execution time: " + time);
@@ -961,14 +1056,13 @@ function CheckWatchingVideo(forcedOperation?: "install" | "uninstall" | null) {
   // if (TabNoc.Settings.Debug === true) {
   var start = new Date().getTime();
   // }
-  var movie_player = unsafeWindow.document.getElementById("movie_player");
+  var movie_player = getActiveMoviePlayer();
   var moviePlayerExistsWithVideo =
     movie_player != null &&
     movie_player.getVideoData != undefined &&
     movie_player.getVideoData().video_id != undefined &&
-    movie_player.getVideoData().author != "" &&
     movie_player.getVideoData().title != "" &&
-    movie_player.getVideoData().video_quality != undefined;
+    (movie_player.getVideoData().video_quality != undefined || isCurrentPageShort());
 
   if (
     (moviePlayerExistsWithVideo == true &&
@@ -1259,26 +1353,28 @@ async function WatchingVideo() {
       SaveVideoStatistics();
     };
 
+    const activePlayer = getActiveMoviePlayer();
+    if (activePlayer == null) {
+      throw new Error("No active player found");
+    }
+
+    const videoData = activePlayer.getVideoData();
+
+    const existingStatus = await GetVideoOpenStatus(videoData.video_id);
+
     // prepare Current VideoStatisticsObject
     TabNoc.Variables.VideoStatisticsObject = JSON.stringify({
-      VideoID: unsafeWindow.document
-        .getElementById("movie_player")
-        .getVideoData().video_id,
-      VideoTitle: unsafeWindow.document
-        .getElementById("movie_player")
-        .getVideoData().title,
-      VideoAuthor: unsafeWindow.document
-        .getElementById("movie_player")
-        .getVideoData().author,
+      VideoID: videoData.video_id,
+      VideoTitle: videoData.title,
+      VideoAuthor: videoData.author,
+      IsShort: isCurrentPageShort(),
       Watches: [
         {
           WatchedLength: -99,
           Date: new Date().toString(),
         },
       ],
-      VideoLength: Math.floor(
-        unsafeWindow.document.getElementById("movie_player").getDuration(),
-      ),
+      VideoLength: Math.floor(activePlayer.getDuration()),
     });
 
     if (TabNoc.Settings.Debug === true) {
@@ -1302,14 +1398,30 @@ async function WatchingVideo() {
     }
     TabNoc.Variables.VideoStatisticsObject = JSON.stringify(await PushVideoObject(JSON.parse(TabNoc.Variables.VideoStatisticsObject)));
 
-    Feedback.notify(
-      "Aktuelles Video: " +
-      JSON.parse(TabNoc.Variables.VideoStatisticsObject).VideoTitle,
-      2000,
-    );
+    const currentVideoTitle = JSON.parse(TabNoc.Variables.VideoStatisticsObject).VideoTitle;
+
+    if (existingStatus.Exists) {
+      if (existingStatus.HasHighWatchtime) {
+        showNotificationUntilActiveFor(
+          "Bereits geoeffnet (>50% gesehen): " + currentVideoTitle,
+          "error",
+        );
+      } else {
+        showNotificationUntilActiveFor(
+          "Bereits geoeffnet (<50% gesehen): " + currentVideoTitle,
+          "warning",
+        );
+      }
+    } else {
+      showNotificationUntilActiveFor(
+        "Aktuelles Video: " + currentVideoTitle,
+        "notify",
+      );
+    }
+
     console.info(
       "Aktuelles Video: " +
-      JSON.parse(TabNoc.Variables.VideoStatisticsObject).VideoTitle +
+      currentVideoTitle +
       " ID: " +
       JSON.parse(TabNoc.Variables.VideoStatisticsObject).VideoID,
     );
@@ -1341,9 +1453,10 @@ function WatchingVideoIntervalHandler(movie_player) {
     // ############################### TabNoc.Variables.WatchedLengthInterval ###############################
     if (movie_player.getPlayerState() == 1 /*Playing*/) {
       if (TabNoc.Variables.LastIntervalTime != null) {
+        const playbackRate = Math.max(0.1, Number(movie_player.getPlaybackRate?.()) || 1);
         TabNoc.Variables.WatchedLength =
           TabNoc.Variables.WatchedLength +
-          (new Date().getTime() - TabNoc.Variables.LastIntervalTime) / 1000;
+          ((new Date().getTime() - TabNoc.Variables.LastIntervalTime) / 1000) * playbackRate;
       }
       TabNoc.Variables.HasSavedDataOnEnd = false;
       TabNoc.Variables.LastIntervalTime = new Date().getTime();
@@ -1421,16 +1534,19 @@ async function GetVideoScanned(VideoID:string):Promise<boolean> {
 }
 
 async function GetVideoWatched(VideoID:string):Promise<boolean> {
-  return apiAdapter.getService().getVideo(VideoID).then((response) => {
+  return GetVideoOpenStatus(VideoID).then((response) => {
+    return response.Exists;
+  });
+}
+
+async function GetVideoOpenStatus(VideoID:string):Promise<VideoOpenStatus> {
+  return apiAdapter.getService().getVideoStatus(VideoID).then((response) => {
     return match (response)
-      .with({ ok: true }, () => {
-        return true
-      })
-      .with({ ok: false, status: 404 }, () => {
-        return false;
+      .with({ ok: true }, (res) => {
+        return res.body;
       })
       .with({ ok: false }, (res) => {
-        throw new Error("Error fetching video data: " + res.error);
+        throw new Error("Error fetching video status: " + res.error);
       })
       .exhaustive();
   }).catch((exc) => {
@@ -1768,6 +1884,12 @@ function MergeVideoObjects(videoObject_1: VideoObject, videoObject_2: VideoObjec
           );
           videoObject_1.VideoLength = JSON.parse(VideoLength);
           videoObject_2.VideoLength = JSON.parse(VideoLength);
+          break;
+
+        case "IsShort":
+          const isShort = Boolean(videoObject_1.IsShort) || Boolean(videoObject_2.IsShort);
+          videoObject_1.IsShort = isShort;
+          videoObject_2.IsShort = isShort;
           break;
 
         case "VideoTitle":
