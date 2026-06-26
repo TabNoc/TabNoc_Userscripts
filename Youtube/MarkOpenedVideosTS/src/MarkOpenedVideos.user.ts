@@ -336,6 +336,66 @@ import { match } from "ts-pattern";
 
 var apiAdapter = new ApiAdapter();
 const videoStatsManager = new VideoStatsManager(apiAdapter);
+let hasRegisteredPageLeaveSessionStopHandlers = false;
+let isStoppingSessionFromPageLeave = false;
+
+function readPlayerSnapshot(movie_player) {
+  return {
+    playerState: Number(movie_player.getPlayerState()),
+    currentTimeSeconds: Number(movie_player.getCurrentTime?.()) || 0,
+    playbackRate: Math.max(0.1, Number(movie_player.getPlaybackRate?.()) || 1),
+  };
+}
+
+function flushCurrentVideoStatsTick(movie_player?): void {
+  if (!videoStatsManager.hasActiveSession()) {
+    return;
+  }
+
+  const activePlayer = movie_player ?? getActiveMoviePlayer();
+  if (activePlayer == null) {
+    return;
+  }
+
+  videoStatsManager.handleTick(readPlayerSnapshot(activePlayer), new Date().getTime());
+}
+
+function stopVideoSessionForPageLeave(reason: string): void {
+  if (isStoppingSessionFromPageLeave || !videoStatsManager.hasActiveSession()) {
+    return;
+  }
+
+  isStoppingSessionFromPageLeave = true;
+
+  try {
+    flushCurrentVideoStatsTick();
+  } catch (exc) {
+    console.error("Error flushing video stats on page leave", reason, exc);
+  }
+
+  videoStatsManager.stopSession().catch((exc) => {
+    console.error(exc);
+  }).finally(() => {
+    isStoppingSessionFromPageLeave = false;
+    TabNoc.Variables.HasInstalledWatchingVideo = false;
+  });
+}
+
+function ensurePageLeaveSessionStopHandlersInstalled(): void {
+  if (hasRegisteredPageLeaveSessionStopHandlers) {
+    return;
+  }
+
+  hasRegisteredPageLeaveSessionStopHandlers = true;
+
+  unsafeWindow.addEventListener("beforeunload", () => {
+    stopVideoSessionForPageLeave("beforeunload");
+  });
+
+  unsafeWindow.addEventListener("pagehide", () => {
+    stopVideoSessionForPageLeave("pagehide");
+  });
+}
 
 // ### https://www.youtube.com/ ###
 async function SubscriptionPageLoader() {
@@ -1072,6 +1132,7 @@ function CheckWatchingVideo(forcedOperation?: "install" | "uninstall" | null) {
       TabNoc.Variables.HasInstalledWatchingVideo == true) ||
     forcedOperation == "uninstall"
   ) {
+    flushCurrentVideoStatsTick(movie_player);
     videoStatsManager.stopSession().catch((exc) => {
       console.error(exc);
       alert(exc);
@@ -1335,13 +1396,7 @@ async function WatchingVideo() {
     throw new Error("Video stats session is already active");
   }
   try {
-    // TODO: use addEventListener
-    document.body.onbeforeunload = function () {
-      videoStatsManager.stopSession().catch((exc) => {
-        console.error(exc);
-        alert(exc);
-      });
-    };
+    ensurePageLeaveSessionStopHandlersInstalled();
 
     const activePlayer = getActiveMoviePlayer();
     if (activePlayer == null) {

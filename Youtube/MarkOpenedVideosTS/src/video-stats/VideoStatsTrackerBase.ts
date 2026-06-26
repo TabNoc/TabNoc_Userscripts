@@ -23,6 +23,7 @@ export abstract class VideoStatsTrackerBase {
 
   tick(snapshot: PlayerSnapshot, nowMs: number): TrackerTransitionAction[] {
     const actions: TrackerTransitionAction[] = [];
+    const isPauseTransition = snapshot.playerState === 2 && this.trackerState.lastPlayerState === 1;
 
     this.logger.debug("Tick", {
       state: snapshot.playerState,
@@ -31,7 +32,10 @@ export abstract class VideoStatsTrackerBase {
       activeWatchSeconds: this.trackerState.activeWatchSeconds,
     });
 
-    if (snapshot.playerState === 2 && this.trackerState.lastPlayerState === 1) {
+    if (isPauseTransition) {
+      this.accumulateSinceLastTick(nowMs, snapshot.playbackRate);
+      this.updateCurrentSession(Math.round(this.trackerState.activeWatchSeconds));
+      actions.push({ type: "save", reason: "paused" });
       actions.push({
         type: "pause-log",
         payload: {
@@ -67,8 +71,17 @@ export abstract class VideoStatsTrackerBase {
       }
       this.trackerState.hasSavedOnStoppedState = false;
     } else {
-      this.accumulateSinceLastTick(nowMs, snapshot.playbackRate);
+      if (!isPauseTransition) {
+        this.accumulateSinceLastTick(nowMs, snapshot.playbackRate);
+      }
       this.trackerState.lastTickAtMs = null;
+
+      if (this.trackerState.activeWatchSeconds === 0) {
+        const current = this.getCurrentSession();
+        if (current != null && current.WatchedLength < 0) {
+          current.WatchedLength = 0;
+        }
+      }
     }
 
     if (
@@ -101,6 +114,10 @@ export abstract class VideoStatsTrackerBase {
 
   getActiveWatchSeconds(): number {
     return this.trackerState.activeWatchSeconds;
+  }
+
+  hasObservedPlaybackSnapshot(): boolean {
+    return this.trackerState.lastPlayerState != null;
   }
 
   replaceVideoObject(nextState: VideoObject): void {

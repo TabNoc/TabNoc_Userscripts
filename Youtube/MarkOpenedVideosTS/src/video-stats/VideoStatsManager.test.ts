@@ -102,6 +102,19 @@ class BlockingQueueApi implements IVideoStatsApi {
   }
 }
 
+class RecordingApi implements IVideoStatsApi {
+  public savedStates: VideoObject[] = [];
+
+  async getVideoStatus(_id: string): Promise<BatchResponse<VideoOpenStatus>> {
+    return { ok: true, status: 200, body: { Exists: false, HasHighWatchtime: false, AdjustedWatchRatio: 0 } };
+  }
+
+  async createOrUpdateVideo(item: VideoObject): Promise<BatchResponse<string | Record<string, unknown>>> {
+    this.savedStates.push(JSON.parse(JSON.stringify(item)) as VideoObject);
+    return { ok: true, status: 204, body: "" };
+  }
+}
+
 describe("VideoStatsManager", () => {
   it("owns session state and persists on begin + stop", async () => {
     await SilentConsole.run(async () => {
@@ -214,6 +227,114 @@ describe("VideoStatsManager", () => {
 
       expect(firstQueuedWatch).toBe(15);
       expect(secondQueuedWatch).toBe(31);
+    });
+  });
+
+  it("saves a visible-not-played session as 0 on stop", async () => {
+    await SilentConsole.run(async () => {
+      const api = new RecordingApi();
+      const manager = new VideoStatsManager(api, new SilentLogger());
+
+      await manager.beginSession({
+        videoId: "visible-no-play",
+        videoTitle: "Visible",
+        videoAuthor: "Author",
+        videoLength: 120,
+        isShort: false,
+      });
+
+      manager.handleTick({ playerState: 2, currentTimeSeconds: 0, playbackRate: 1 }, 1000);
+      await manager.stopSession();
+
+      const finalSaved = api.savedStates[api.savedStates.length - 1];
+      expect(finalSaved.Watches.length).toBe(1);
+      expect(finalSaved.Watches[0]?.WatchedLength).toBe(0);
+    });
+  });
+
+  it("saves started-and-paused session with watched seconds", async () => {
+    await SilentConsole.run(async () => {
+      const api = new RecordingApi();
+      const manager = new VideoStatsManager(api, new SilentLogger());
+
+      await manager.beginSession({
+        videoId: "pause-after-play",
+        videoTitle: "Pause",
+        videoAuthor: "Author",
+        videoLength: 300,
+        isShort: false,
+      });
+
+      manager.handleTick({ playerState: 1, currentTimeSeconds: 0, playbackRate: 1 }, 0);
+      manager.handleTick({ playerState: 2, currentTimeSeconds: 7, playbackRate: 1 }, 7000);
+      await manager.stopSession();
+
+      const finalSaved = api.savedStates[api.savedStates.length - 1];
+      expect(finalSaved.Watches.length).toBe(1);
+      expect(finalSaved.Watches[0]?.WatchedLength).toBe(7);
+    });
+  });
+
+  it("saves current watched seconds when session is stopped while still playing", async () => {
+    await SilentConsole.run(async () => {
+      const api = new RecordingApi();
+      const manager = new VideoStatsManager(api, new SilentLogger());
+
+      await manager.beginSession({
+        videoId: "close-while-playing",
+        videoTitle: "Close",
+        videoAuthor: "Author",
+        videoLength: 300,
+        isShort: false,
+      });
+
+      manager.handleTick({ playerState: 1, currentTimeSeconds: 0, playbackRate: 1 }, 0);
+      manager.handleTick({ playerState: 1, currentTimeSeconds: 7, playbackRate: 1 }, 7000);
+      await manager.stopSession();
+
+      const finalSaved = api.savedStates[api.savedStates.length - 1];
+      expect(finalSaved.Watches.length).toBe(1);
+      expect(finalSaved.Watches[0]?.WatchedLength).toBe(7);
+    });
+  });
+
+  it("keeps initial session as -99 when never focused/played", async () => {
+    await SilentConsole.run(async () => {
+      const api = new RecordingApi();
+      const manager = new VideoStatsManager(api, new SilentLogger());
+
+      await manager.beginSession({
+        videoId: "never-focused",
+        videoTitle: "Background",
+        videoAuthor: "Author",
+        videoLength: 240,
+        isShort: false,
+      });
+
+      await manager.stopSession();
+
+      const finalSaved = api.savedStates[api.savedStates.length - 1];
+      expect(finalSaved.Watches.length).toBe(1);
+      expect(finalSaved.Watches[0]?.WatchedLength).toBe(-99);
+    });
+  });
+
+  it("keeps initial session as -99 when never focused/played event, without stopping session", async () => {
+    await SilentConsole.run(async () => {
+      const api = new RecordingApi();
+      const manager = new VideoStatsManager(api, new SilentLogger());
+
+      await manager.beginSession({
+        videoId: "never-focused",
+        videoTitle: "Background",
+        videoAuthor: "Author",
+        videoLength: 240,
+        isShort: false,
+      });
+
+      const finalSaved = api.savedStates[api.savedStates.length - 1];
+      expect(finalSaved.Watches.length).toBe(1);
+      expect(finalSaved.Watches[0]?.WatchedLength).toBe(-99);
     });
   });
 });

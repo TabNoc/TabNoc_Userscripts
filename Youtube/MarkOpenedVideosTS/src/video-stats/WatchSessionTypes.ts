@@ -16,6 +16,6 @@ export type PlayerSnapshot = {
 };
 
 export type TrackerTransitionAction =
-  | { type: "save"; reason: "stopped" | "checkpoint" | "loop" }
+  | { type: "save"; reason: "stopped" | "paused" | "checkpoint" | "loop" }
   | { type: "next-session"; reason: "loop" | "resume-after-stop" }
   | { type: "pause-log"; payload: { session: WatchEntry | null; watchedLengthCurrent: number } };

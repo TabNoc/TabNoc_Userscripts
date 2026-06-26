@@ -43,6 +43,16 @@ describe("VideoStatsTracker", () => {
     expect(Math.round(tracker.getActiveWatchSeconds())).toBe(10);
   });
 
+  it("emits save on pause", () => {
+    const tracker = new RegularVideoStatsTracker(createState(false), new NoopLogger());
+
+    tracker.tick({ playerState: 1, currentTimeSeconds: 0, playbackRate: 1 }, 0);
+    const actions = tracker.tick({ playerState: 2, currentTimeSeconds: 4, playbackRate: 1 }, 4000);
+
+    expect(actions.some((a) => a.type === "save" && a.reason === "paused")).toBe(true);
+    expect(actions.some((a) => a.type === "pause-log")).toBe(true);
+  });
+
   it("accounts for playback-rate changes over time", () => {
     const tracker = new RegularVideoStatsTracker(createState(false), new NoopLogger());
 
@@ -82,7 +92,7 @@ describe("VideoStatsTracker", () => {
 
     expect(tracker.getMutableVideoObjectRef().Watches.length).toBe(2);
     expect(Math.round(tracker.getActiveWatchSeconds())).toBe(3);
-    expect(tracker.getMutableVideoObjectRef().Watches[1].WatchedLength).toBe(-99);
+    expect(tracker.getMutableVideoObjectRef().Watches[1].WatchedLength).toBeGreaterThanOrEqual(0);
   });
 
   it("splits short sessions when looping through buffering state", () => {
@@ -150,18 +160,18 @@ describe("VideoStatsTracker", () => {
   describe("transition matrix", () => {
     it.each([
       {
-        name: "regular: playing->paused emits pause-log only",
+        name: "regular: playing->paused emits pause-log + paused save",
         kind: "regular" as TrackerKind,
         first: { playerState: 1, currentTimeSeconds: 1, playbackRate: 1 },
         second: { playerState: 2, currentTimeSeconds: 1.2, playbackRate: 1 },
-        expected: { pauseLog: true, nextSession: false, saveStopped: false, saveLoop: false },
+        expected: { pauseLog: true, nextSession: false, saveStopped: false, savePaused: true, saveLoop: false },
       },
       {
         name: "regular: playing->stopped emits stopped save",
         kind: "regular" as TrackerKind,
         first: { playerState: 1, currentTimeSeconds: 3, playbackRate: 1 },
         second: { playerState: 0, currentTimeSeconds: 3.1, playbackRate: 1 },
-        expected: { pauseLog: false, nextSession: false, saveStopped: true, saveLoop: false },
+        expected: { pauseLog: false, nextSession: false, saveStopped: true, savePaused: false, saveLoop: false },
       },
       {
         name: "regular: stopped->playing emits resume next-session",
@@ -173,7 +183,7 @@ describe("VideoStatsTracker", () => {
         ],
         first: { playerState: 0, currentTimeSeconds: 2, playbackRate: 1 },
         second: { playerState: 1, currentTimeSeconds: 2, playbackRate: 1 },
-        expected: { pauseLog: false, nextSession: true, saveStopped: false, saveLoop: false },
+        expected: { pauseLog: false, nextSession: true, saveStopped: false, savePaused: false, saveLoop: false },
       },
       {
         name: "short: playing backward seek emits loop split + loop save",
@@ -184,7 +194,7 @@ describe("VideoStatsTracker", () => {
         ],
         first: { playerState: 1, currentTimeSeconds: 4, playbackRate: 1 },
         second: { playerState: 1, currentTimeSeconds: 0.1, playbackRate: 1 },
-        expected: { pauseLog: false, nextSession: true, saveStopped: false, saveLoop: true },
+        expected: { pauseLog: false, nextSession: true, saveStopped: false, savePaused: false, saveLoop: true },
       },
       {
         name: "regular: playing backward seek does not split",
@@ -195,7 +205,7 @@ describe("VideoStatsTracker", () => {
         ],
         first: { playerState: 1, currentTimeSeconds: 4, playbackRate: 1 },
         second: { playerState: 1, currentTimeSeconds: 0.1, playbackRate: 1 },
-        expected: { pauseLog: false, nextSession: false, saveStopped: false, saveLoop: false },
+        expected: { pauseLog: false, nextSession: false, saveStopped: false, savePaused: false, saveLoop: false },
       },
     ])("$name", ({ kind, before, first, second, expected }) => {
       const tracker = createTracker(kind);
@@ -223,6 +233,7 @@ describe("VideoStatsTracker", () => {
       expect(actions.some((a) => a.type === "pause-log")).toBe(expected.pauseLog);
       expect(actions.some((a) => a.type === "next-session")).toBe(expected.nextSession);
       expect(actions.some((a) => a.type === "save" && a.reason === "stopped")).toBe(expected.saveStopped);
+      expect(actions.some((a) => a.type === "save" && a.reason === "paused")).toBe(expected.savePaused);
       expect(actions.some((a) => a.type === "save" && a.reason === "loop")).toBe(expected.saveLoop);
     });
   });

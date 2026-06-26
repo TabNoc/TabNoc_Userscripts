@@ -3,7 +3,7 @@ import { createVideoStatsTracker } from "./VideoStatsTrackerFactory";
 import { ConsoleWatchSessionLogger, type WatchSessionLogger } from "./WatchSessionLogger";
 import type { PlayerSnapshot, TrackerTransitionAction } from "./WatchSessionTypes";
 
-type SaveReason = "session-start" | "session-stop" | "stopped" | "checkpoint" | "loop";
+type SaveReason = "session-start" | "session-stop" | "stopped" | "paused" | "checkpoint" | "loop";
 type QueuedSaveReason = Exclude<SaveReason, "session-start">;
 type SaveSnapshot = {
   tracker: ReturnType<typeof createVideoStatsTracker>;
@@ -99,14 +99,14 @@ export class VideoStatsManager {
       }
     }
 
-    const reasons = actions
-      .filter((action): action is Extract<TrackerTransitionAction, { type: "save" }> => action.type === "save")
-      .map((action) => action.reason);
+    const saveActions = actions.filter(
+      (action): action is Extract<TrackerTransitionAction, { type: "save" }> => action.type === "save",
+    );
 
-    if (reasons.length > 0) {
+    for (const action of saveActions) {
       const snapshot = this.snapshotCurrentState();
       if (snapshot != null) {
-        this.enqueueSave(reasons[0], snapshot);
+        this.enqueueSave(action.reason, snapshot);
       }
     }
   }
@@ -135,6 +135,19 @@ export class VideoStatsManager {
   async stopSession(): Promise<void> {
     if (!this.hasActiveSession()) {
       return;
+    }
+
+    const tracker = this.tracker;
+    if (tracker != null) {
+      const state = tracker.getMutableVideoObjectRef();
+      const currentSession = state.Watches[state.Watches.length - 1] ?? null;
+      if (
+        currentSession != null &&
+        currentSession.WatchedLength < 0 &&
+        tracker.hasObservedPlaybackSnapshot()
+      ) {
+        currentSession.WatchedLength = Math.max(0, Math.round(tracker.getActiveWatchSeconds()));
+      }
     }
 
     const snapshot = this.snapshotCurrentState();
