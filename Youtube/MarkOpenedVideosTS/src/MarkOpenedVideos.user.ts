@@ -62,6 +62,7 @@ let TabNoc = {
     VideoStatisticsObject: null as string | null,
 
     checkElementsInterval: null as number | null,
+    checkWatchingVideoInterval: null as number | null,
     lastCheckItemCount: 0,
 
     HasInstalledWatchingVideo: false,
@@ -70,11 +71,14 @@ let TabNoc = {
     EndTime: 0,
 
     LastIntervalTime: null as number | null,
+    LastPlayerState: null as number | null,
+    LastKnownCurrentTime: null as number | null,
   },
 
   Settings: {
     SavingEnabled: true,
     TimerInterval: 5000,
+    WatchTimerInterval: 750,
     UninterestingVideos: ["Recht für YouTuber:"],
     NotWantedVideos: [
       "Arumba Plays DOTA",
@@ -340,8 +344,7 @@ function isCurrentPageShort(): boolean {
 }
 
 function getActiveMoviePlayer() {
-  return unsafeWindow.document.getElementById("movie_player")
-    ?? unsafeWindow.document.getElementById("shorts-player");
+  return isCurrentPageShort() ? unsafeWindow.document.getElementById("shorts-player") : unsafeWindow.document.getElementById("movie_player");
 }
 
 import { ApiAdapter } from "./api/ApiAdapter";
@@ -359,10 +362,15 @@ async function SubscriptionPageLoader() {
 
     TabNoc.Variables.checkElementsInterval = setInterval(
       returnExec(function () {
-        CheckWatchingVideo();
         startCheckElements(TabNoc.Variables.MarkToggleState);
       }),
       TabNoc.Settings.TimerInterval,
+    );
+    TabNoc.Variables.checkWatchingVideoInterval = setInterval(
+      returnExec(function () {
+        CheckWatchingVideo();
+      }),
+      TabNoc.Settings.WatchTimerInterval,
     );
     CheckWatchingVideo();
     await startCheckElements(TabNoc.Variables.MarkToggleState, true);
@@ -1064,6 +1072,8 @@ function CheckWatchingVideo(forcedOperation?: "install" | "uninstall" | null) {
     movie_player.getVideoData().title != "" &&
     (movie_player.getVideoData().video_quality != undefined || isCurrentPageShort());
 
+  console.log(movie_player, moviePlayerExistsWithVideo, TabNoc.Variables.HasInstalledWatchingVideo);
+
   if (
     (moviePlayerExistsWithVideo == true &&
       TabNoc.Variables.HasInstalledWatchingVideo == false) ||
@@ -1088,6 +1098,8 @@ function CheckWatchingVideo(forcedOperation?: "install" | "uninstall" | null) {
     TabNoc.Variables.WatchedLength = 0;
     TabNoc.Variables.HasSavedDataOnEnd = false;
     TabNoc.Variables.LastIntervalTime = null;
+    TabNoc.Variables.LastPlayerState = null;
+    TabNoc.Variables.LastKnownCurrentTime = null;
 
     TabNoc.Variables.HasInstalledWatchingVideo = false;
   }
@@ -1451,20 +1463,56 @@ function WatchingVideoIntervalHandler(movie_player) {
       remainingTimeManager(movie_player);
     }
     // ############################### TabNoc.Variables.WatchedLengthInterval ###############################
-    if (movie_player.getPlayerState() == 1 /*Playing*/) {
+    const playerState = Number(movie_player.getPlayerState());
+    const currentTime = Number(movie_player.getCurrentTime?.()) || 0;
+
+    if (playerState === 2 && TabNoc.Variables.LastPlayerState === 1) {
+      const videoStatisticsObject = TabNoc.Variables.VideoStatisticsObject == null
+        ? null
+        : JSON.parse(TabNoc.Variables.VideoStatisticsObject);
+      const watches = videoStatisticsObject?.Watches;
+      const currentWatchSession = Array.isArray(watches) ? watches[watches.length - 1] : null;
+      console.debug("Current watch session paused:", {
+        VideoID: videoStatisticsObject?.VideoID,
+        Session: currentWatchSession,
+        WatchedLengthCurrent: Math.round(TabNoc.Variables.WatchedLength),
+      });
+    }
+
+    if (
+      playerState === 1 &&
+      TabNoc.Variables.LastPlayerState === 1 &&
+      TabNoc.Variables.LastKnownCurrentTime != null &&
+      currentTime + 0.25 < TabNoc.Variables.LastKnownCurrentTime &&
+      TabNoc.Variables.WatchedLength > 0
+    ) {
+      accumulateWatchedTime(movie_player);
+      SaveVideoStatistics();
+      beginNextWatchSession();
+    }
+
+    if (
+      playerState === 1 &&
+      TabNoc.Variables.LastPlayerState === 0 &&
+      TabNoc.Variables.HasSavedDataOnEnd === true
+    ) {
+      beginNextWatchSession();
+    }
+
+    if (playerState == 1 /*Playing*/) {
       if (TabNoc.Variables.LastIntervalTime != null) {
-        const playbackRate = Math.max(0.1, Number(movie_player.getPlaybackRate?.()) || 1);
-        TabNoc.Variables.WatchedLength =
-          TabNoc.Variables.WatchedLength +
-          ((new Date().getTime() - TabNoc.Variables.LastIntervalTime) / 1000) * playbackRate;
+        accumulateWatchedTime(movie_player);
+      } else {
+        TabNoc.Variables.LastIntervalTime = new Date().getTime();
       }
       TabNoc.Variables.HasSavedDataOnEnd = false;
-      TabNoc.Variables.LastIntervalTime = new Date().getTime();
     } else {
+      accumulateWatchedTime(movie_player);
       TabNoc.Variables.LastIntervalTime = null;
     }
     if (
-      movie_player.getPlayerState() == 0 &&
+      playerState == 0 &&
+      TabNoc.Variables.LastPlayerState !== 0 &&
       TabNoc.Variables.HasSavedDataOnEnd === false
     ) {
       SaveVideoStatistics();
@@ -1487,6 +1535,9 @@ function WatchingVideoIntervalHandler(movie_player) {
       CheckWatchingVideo("uninstall");
       CheckWatchingVideo("install");
     }
+
+    TabNoc.Variables.LastPlayerState = playerState;
+    TabNoc.Variables.LastKnownCurrentTime = currentTime;
     // ############################### TabNoc.Variables.VideoChangeCheckInterval ###############################
   } catch (exc) {
     console.error(exc);
@@ -1526,6 +1577,43 @@ async function SaveVideoStatistics() {
     console.error(exc);
     alert(exc);
   }
+}
+
+function beginNextWatchSession() {
+  if (TabNoc.Variables.VideoStatisticsObject == null) {
+    return;
+  }
+
+  const videoStatisticsObject = JSON.parse(TabNoc.Variables.VideoStatisticsObject);
+  const watches = videoStatisticsObject.Watches as Array<{ WatchedLength: number; Date: string | null }>;
+  const lastWatch = watches[watches.length - 1];
+
+  if (lastWatch == null || lastWatch.WatchedLength >= 0) {
+    watches.push({
+      WatchedLength: -99,
+      Date: new Date().toString(),
+    });
+  }
+
+  videoStatisticsObject.Watches = watches;
+  TabNoc.Variables.VideoStatisticsObject = JSON.stringify(videoStatisticsObject);
+  TabNoc.Variables.WatchedLength = 0;
+  TabNoc.Variables.LastIntervalTime = null;
+  TabNoc.Variables.LastSaveWatchedLength = 0;
+  TabNoc.Variables.HasSavedDataOnEnd = false;
+}
+
+function accumulateWatchedTime(movie_player) {
+  if (TabNoc.Variables.LastIntervalTime == null) {
+    return;
+  }
+
+  const now = new Date().getTime();
+  const playbackRate = Math.max(0.1, Number(movie_player.getPlaybackRate?.()) || 1);
+  const deltaSeconds = Math.max(0, (now - TabNoc.Variables.LastIntervalTime) / 1000);
+
+  TabNoc.Variables.WatchedLength = TabNoc.Variables.WatchedLength + (deltaSeconds * playbackRate);
+  TabNoc.Variables.LastIntervalTime = now;
 }
 // ### https://www.youtube.com/watch?v=* ###
 
