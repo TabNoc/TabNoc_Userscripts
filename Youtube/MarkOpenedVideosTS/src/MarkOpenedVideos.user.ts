@@ -54,11 +54,7 @@ let TabNoc = {
   Variables: {
     MarkToggleState: true,
 
-    WatchedLength: 0,
-
     CurrentVideoID: null as string | null,
-
-    VideoStatisticsObject: null as string | null,
 
     checkElementsInterval: null as number | null,
     checkWatchingVideoInterval: null as number | null,
@@ -141,14 +137,6 @@ function returnExec(func:Function) {
       console.error(exc);
     }
   };
-}
-
-function escapeRegExp(string: string) {
-  return string.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1");
-}
-
-function replaceAll(string: string, find: string, replace: string) {
-  return string.replace(new RegExp(escapeRegExp(find), 'g'), replace);
 }
 
 if (String.prototype.contains === undefined) { String.prototype.contains = String.prototype.includes; }
@@ -343,13 +331,11 @@ function getActiveMoviePlayer() {
 
 import { ApiAdapter } from "./api/ApiAdapter";
 import { GM_info, GM_registerMenuCommand, unsafeWindow } from "$";
-import {VideoObject, VideoOpenStatus} from "./api/ApiService";
-import type { VideoStatsState } from "./video-stats/WatchSessionTypes";
-import { createVideoStatsTracker } from "./video-stats/VideoStatsTrackerFactory";
+import { VideoStatsManager } from "./video-stats/VideoStatsManager";
 import { match } from "ts-pattern";
 
 var apiAdapter = new ApiAdapter();
-let currentVideoStatsTracker: ReturnType<typeof createVideoStatsTracker> | null = null;
+const videoStatsManager = new VideoStatsManager(apiAdapter);
 
 // ### https://www.youtube.com/ ###
 async function SubscriptionPageLoader() {
@@ -1086,11 +1072,10 @@ function CheckWatchingVideo(forcedOperation?: "install" | "uninstall" | null) {
       TabNoc.Variables.HasInstalledWatchingVideo == true) ||
     forcedOperation == "uninstall"
   ) {
-    SaveVideoStatistics();
-
-    TabNoc.Variables.VideoStatisticsObject = null;
-    TabNoc.Variables.WatchedLength = 0;
-    currentVideoStatsTracker = null;
+    videoStatsManager.stopSession().catch((exc) => {
+      console.error(exc);
+      alert(exc);
+    });
 
     TabNoc.Variables.HasInstalledWatchingVideo = false;
   }
@@ -1342,18 +1327,20 @@ async function WatchingVideo() {
     console.groupCollapsed("WatchingVideo");
     console.log(
       "WatchingVideo()->old:",
-      JSON.parse(TabNoc.Variables.VideoStatisticsObject),
-      TabNoc.Variables.VideoStatisticsObject,
+      videoStatsManager.getCurrentState(),
     );
   }
-  if (TabNoc.Variables.VideoStatisticsObject != null) {
-    alert("TabNoc.Variables.VideoStatisticsObject ist nicht null");
-    throw new Error("TabNoc.Variables.VideoStatisticsObject ist nicht null");
+  if (videoStatsManager.hasActiveSession()) {
+    alert("Video stats session is already active");
+    throw new Error("Video stats session is already active");
   }
   try {
     // TODO: use addEventListener
     document.body.onbeforeunload = function () {
-      SaveVideoStatistics();
+      videoStatsManager.stopSession().catch((exc) => {
+        console.error(exc);
+        alert(exc);
+      });
     };
 
     const activePlayer = getActiveMoviePlayer();
@@ -1363,38 +1350,27 @@ async function WatchingVideo() {
 
     const videoData = activePlayer.getVideoData();
 
-    const existingStatus = await GetVideoOpenStatus(videoData.video_id);
+    const existingStatusPromise = videoStatsManager.getVideoOpenStatus(videoData.video_id);
 
-    // prepare Current VideoStatisticsObject
-    const createdVideoStatsState: VideoStatsState = {
-      VideoID: videoData.video_id,
-      VideoTitle: videoData.title,
-      VideoAuthor: videoData.author,
-      IsShort: isCurrentPageShort(),
-      Watches: [
-        {
-          WatchedLength: -99,
-          Date: new Date().toString(),
-        },
-      ],
-      VideoLength: Math.floor(activePlayer.getDuration()),
-    };
-
-    currentVideoStatsTracker = createVideoStatsTracker(createdVideoStatsState);
-    TabNoc.Variables.VideoStatisticsObject = JSON.stringify(createdVideoStatsState);
+    await videoStatsManager.beginSession({
+      videoId: videoData.video_id,
+      videoTitle: videoData.title,
+      videoAuthor: videoData.author,
+      isShort: isCurrentPageShort(),
+      videoLength: Math.floor(activePlayer.getDuration()),
+    });
 
     if (TabNoc.Settings.Debug === true) {
       console.log(
-        "WatchingVideo()->new: " + TabNoc.Variables.VideoStatisticsObject,
+        "WatchingVideo()->new:",
+        videoStatsManager.getCurrentState(),
       );
     }
 
+    const existingStatus = await existingStatusPromise;
+
     if (TabNoc.Settings.ShowAlreadyWatchedDialog === true) {
-      if (
-        GetVideoWatched(
-          JSON.parse(TabNoc.Variables.VideoStatisticsObject).VideoID,
-        ) === true
-      ) {
+      if (existingStatus.Exists) {
         setTimeout(function () {
           alert("watched");
           Feedback.showMessage("Watched!", "error", 60000);
@@ -1402,9 +1378,8 @@ async function WatchingVideo() {
         console.log("Video already watched!");
       }
     }
-    TabNoc.Variables.VideoStatisticsObject = JSON.stringify(await PushVideoObject(JSON.parse(TabNoc.Variables.VideoStatisticsObject)));
 
-    const currentVideoTitle = JSON.parse(TabNoc.Variables.VideoStatisticsObject).VideoTitle;
+    const currentVideoTitle = videoStatsManager.getCurrentState()?.VideoTitle ?? videoData.title;
 
     if (existingStatus.Exists) {
       if (existingStatus.HasHighWatchtime) {
@@ -1429,7 +1404,7 @@ async function WatchingVideo() {
       "Aktuelles Video: " +
       currentVideoTitle +
       " ID: " +
-      JSON.parse(TabNoc.Variables.VideoStatisticsObject).VideoID,
+      (videoStatsManager.getCurrentState()?.VideoID ?? videoData.video_id),
     );
   } catch (exc) {
     console.error(exc);
@@ -1456,38 +1431,14 @@ function WatchingVideoIntervalHandler(movie_player) {
     } else {
       remainingTimeManager(movie_player);
     }
-    if (currentVideoStatsTracker != null && TabNoc.Variables.VideoStatisticsObject != null) {
-      const actions = currentVideoStatsTracker.tick(
-        {
-          playerState: Number(movie_player.getPlayerState()),
-          currentTimeSeconds: Number(movie_player.getCurrentTime?.()) || 0,
-          playbackRate: Math.max(0.1, Number(movie_player.getPlaybackRate?.()) || 1),
-        },
-        new Date().getTime(),
-      );
-
-      const state = currentVideoStatsTracker.getVideoStatsState();
-      TabNoc.Variables.WatchedLength = currentVideoStatsTracker.getActiveWatchSeconds();
-      TabNoc.Variables.VideoStatisticsObject = JSON.stringify(state);
-
-      for (const action of actions) {
-        if (action.type === "pause-log") {
-          console.debug("Current watch session paused:", {
-            VideoID: state.VideoID,
-            Session: action.payload.session,
-            WatchedLengthCurrent: action.payload.watchedLengthCurrent,
-          });
-        }
-
-        if (action.type === "save") {
-          SaveVideoStatistics().then(() => {
-            if (currentVideoStatsTracker != null) {
-              currentVideoStatsTracker.onAfterSave();
-            }
-          });
-        }
-      }
-    }
+    videoStatsManager.handleTick(
+      {
+        playerState: Number(movie_player.getPlayerState()),
+        currentTimeSeconds: Number(movie_player.getCurrentTime?.()) || 0,
+        playbackRate: Math.max(0.1, Number(movie_player.getPlaybackRate?.()) || 1),
+      },
+      new Date().getTime(),
+    );
 
     // ############################### TabNoc.Variables.VideoChangeCheckInterval ###############################
     if (
@@ -1504,489 +1455,16 @@ function WatchingVideoIntervalHandler(movie_player) {
   }
 }
 
-async function SaveVideoStatistics() {
-  if (TabNoc.Settings.Debug === true) {
-    console.groupCollapsed("SaveVideoStatistics");
-    console.log(
-      "SaveVideoStatistics()->" + TabNoc.Variables.VideoStatisticsObject,
-    );
-  }
-  if (TabNoc.Variables.VideoStatisticsObject == null) {
-    alert(
-      new Error(
-        "Eigentlich würde ich hier gerne eine Fehlermeldung schreiben, wann tritt der Zustand denn immer auf?",
-      ),
-    );
-    return false;
-  }
-  try {
-    let videoStatisticsObject = JSON.parse(
-      TabNoc.Variables.VideoStatisticsObject,
-    ) as VideoStatsState;
-
-    if (currentVideoStatsTracker != null) {
-      currentVideoStatsTracker.setActiveWatchSeconds(TabNoc.Variables.WatchedLength);
-      videoStatisticsObject = currentVideoStatsTracker.getVideoStatsState();
-    }
-
-    TabNoc.Variables.VideoStatisticsObject = JSON.stringify(await PushVideoObject(JSON.parse(JSON.stringify(videoStatisticsObject))));
-
-    if (currentVideoStatsTracker != null) {
-      currentVideoStatsTracker.replaceVideoStatsState(JSON.parse(TabNoc.Variables.VideoStatisticsObject));
-      currentVideoStatsTracker.onAfterSave();
-    }
-
-    if (TabNoc.Settings.Debug === true) {
-      console.groupEnd();
-    }
-  } catch (exc) {
-    console.error(exc);
-    alert(exc);
-  }
-}
 // ### https://www.youtube.com/watch?v=* ###
 
-async function GetVideoScanned(VideoID:string):Promise<boolean> {
+async function GetVideoScanned(_VideoID:string):Promise<boolean> {
   return false; //TODO: implement scanned state in database and return it here
 }
 
 async function GetVideoWatched(VideoID:string):Promise<boolean> {
-  return GetVideoOpenStatus(VideoID).then((response) => {
+  return videoStatsManager.getVideoOpenStatus(VideoID).then((response) => {
     return response.Exists;
   });
-}
-
-async function GetVideoOpenStatus(VideoID:string):Promise<VideoOpenStatus> {
-  return apiAdapter.getService().getVideoStatus(VideoID).then((response) => {
-    return match (response)
-      .with({ ok: true }, (res) => {
-        return res.body;
-      })
-      .with({ ok: false }, (res) => {
-        throw new Error("Error fetching video status: " + res.error);
-      })
-      .exhaustive();
-  }).catch((exc) => {
-    console.error(exc);
-    alert(exc);
-    throw exc;
-  });
-}
-
-async function PushVideoObject(videoObject: VideoObject) : Promise<VideoObject> {
-  if (TabNoc.Settings.Debug === true) {
-    console.log("Pushing ...", JSON.parse(JSON.stringify(videoObject)));
-  }
-  if (typeof videoObject !== "object") {
-    throw "WrongTypeException:Only Objects can be Pushed into the Database.";
-  }
-  return apiAdapter.getService().getVideo(videoObject.VideoID).then((response) => {
-    return match (response)
-      .with({ ok: true }, (res) => {
-        const merged = MergeVideoObjects(
-          res.body,
-          videoObject,
-        )
-        apiAdapter.getService().createOrUpdateVideo(merged).then((response) => {
-          return match (response)
-            .with({ ok: true }, () => {
-              console.info("Video data successfully updated for videoID:", videoObject.VideoID);
-            })
-            .with({ ok: false }, (res) => {
-              throw new Error("Error fetching video data: " + res.error);
-            })
-            .exhaustive();
-        }).catch((exc) => {
-          console.error(exc);
-          alert(exc);
-          throw exc;
-        });
-        return merged;
-      })
-      .with({ ok: false, status: 404 }, () => {
-        apiAdapter.getService().createOrUpdateVideo(videoObject).then((response) => {
-          return match (response)
-            .with({ ok: true }, () => {
-              console.info("Video data successfully added for videoID:", videoObject.VideoID);
-            })
-            .with({ ok: false }, (res) => {
-              throw new Error("Error fetching video data: " + res.error);
-            })
-            .exhaustive();
-        }).catch((exc) => {
-          console.error(exc);
-          alert(exc);
-          throw exc;
-        });
-        return videoObject;
-      })
-      .with({ ok: false }, (res) => {
-        throw new Error("Error fetching video data: " + res.error);
-      })
-      .exhaustive();
-  }).catch((exc) => {
-    console.error(exc);
-    alert(exc);
-    throw exc;
-  });
-}
-
-function MergeVideoObjects(videoObject_1: VideoObject, videoObject_2: VideoObject) : VideoObject | null {
-  const forceMerge = true;
-  if (TabNoc.Settings.Debug === true) {
-    console.log("Merging ...");
-  }
-  videoObject_1 = JSON.parse(JSON.stringify(videoObject_1));
-  videoObject_2 = JSON.parse(JSON.stringify(videoObject_2));
-
-  let namesArray = [];
-  for (let i in videoObject_1) {
-    if (namesArray.indexOf(i) === -1) {
-      namesArray.push(i);
-    }
-  }
-  for (let i in videoObject_2) {
-    if (namesArray.indexOf(i) === -1) {
-      namesArray.push(i);
-    }
-  }
-
-  for (let i in namesArray) {
-    let objectIndex = namesArray[i];
-    if (
-      videoObject_1[objectIndex] === undefined ||
-      videoObject_2[objectIndex] === undefined
-    ) {
-      console.error(
-        objectIndex,
-        videoObject_1,
-        videoObject_2,
-        videoObject_1[objectIndex],
-        videoObject_2[objectIndex],
-      );
-      if (
-        confirm(
-          "Beim zusammenführen zwei unterschiedlicher Versionen wurden undefinierte Einträge gefunden. Sollen diese gelöscht werden?",
-        ) == true
-      ) {
-        let canContinue = false;
-        switch (objectIndex) {
-          case "VideoID":
-            if (videoObject_1[objectIndex] === undefined) {
-              videoObject_1 = null;
-            }
-            if (videoObject_2[objectIndex] === undefined) {
-              videoObject_2 = null;
-            }
-            canContinue = false;
-            break;
-
-          default:
-            console.error(
-              "Es wurde keine Behandlung für das Fehlen dieser Information (" +
-              objectIndex +
-              ") definiert",
-            );
-            console.log(videoObject_1);
-            console.log(videoObject_2);
-            alert(
-              "Es wurde keine Behandlung für das Fehlen dieser Information (" +
-              objectIndex +
-              ") definiert!\r\nSiehe Konsole für mehr Informationen.",
-            );
-            throw new Error("NotDefinedException");
-        }
-        if (canContinue == false) {
-          break;
-        }
-      } else {
-        throw new Error(
-          "videoObject_1[objectIndex] or videoObject_2[objectIndex] is undefined",
-        );
-      }
-    }
-    if (
-      JSON.stringify(videoObject_1[objectIndex]) !==
-      JSON.stringify(videoObject_2[objectIndex]) ||
-      (forceMerge == true && objectIndex == "Watches")
-    ) {
-      switch (objectIndex) {
-        case "Watches":
-          let newArray = [];
-          for (let index1_i in videoObject_1.Watches) {
-            if (videoObject_1.Watches == null) {
-              continue;
-            }
-            if (videoObject_1.Watches[index1_i] == null) {
-              continue;
-            }
-
-            let found = false;
-            for (let index2_i in videoObject_2.Watches) {
-              if (
-                videoObject_1.Watches[index1_i].Date == "unknown" &&
-                videoObject_1.Watches[index1_i].WatchedLength == -99
-              ) {
-                found = true;
-                break;
-              }
-
-              // beide identisch
-              if (
-                JSON.stringify(videoObject_1.Watches[index1_i]) ===
-                JSON.stringify(videoObject_2.Watches[index2_i])
-              ) {
-                newArray.push(
-                  JSON.parse(JSON.stringify(videoObject_1.Watches[index1_i])),
-                );
-                delete videoObject_2.Watches[index2_i];
-                found = true;
-                continue;
-              }
-
-              // check if the Dates are valid
-              if (
-                isNaN(
-                  new Date(videoObject_1.Watches[index1_i].Date).getTime(),
-                ) === true
-              ) {
-                if (videoObject_1.Watches[index1_i].WatchedLength < 0) {
-                  // das Element wird NICHT in das neue Object eingefügt (der Wert wird gelöscht)
-                  found = true;
-                  break;
-                }
-                if (videoObject_1.Watches[index1_i].Date != "unknown") {
-                  console.info("Wrong index1_i: " + index1_i);
-                  console.error(videoObject_1.Watches);
-                  alert(videoObject_1.Watches[index1_i].Date);
-                  throw new Error("The converted Date is not a Date Object");
-                }
-              }
-              if (
-                isNaN(
-                  new Date(videoObject_2.Watches[index2_i].Date).getTime(),
-                ) === true
-              ) {
-                if (videoObject_2.Watches[index2_i].Date != "unknown") {
-                  console.info("Wrong index2_i: " + index2_i);
-                  console.error(videoObject_2.Watches);
-                  alert(videoObject_2.Watches[index2_i].Date);
-                  throw new Error("The converted Date is not a Date Object");
-                }
-              }
-
-              if (
-                new Date(videoObject_1.Watches[index1_i].Date).getTime() ===
-                new Date(videoObject_2.Watches[index2_i].Date).getTime() ||
-                (isNaN(
-                  new Date(videoObject_1.Watches[index1_i].Date).getTime(),
-                ) === true &&
-                  isNaN(
-                    new Date(videoObject_2.Watches[index2_i].Date).getTime(),
-                  ))
-              ) {
-                // Same Date and Time from Website Call or both are NaN, thats the same, choose the highest WatchedLength
-                videoObject_1.Watches[index1_i].WatchedLength = Math.max(
-                  videoObject_1.Watches[index1_i].WatchedLength,
-                  videoObject_2.Watches[index2_i].WatchedLength,
-                );
-                newArray.push(
-                  JSON.parse(JSON.stringify(videoObject_1.Watches[index1_i])),
-                );
-                delete videoObject_2.Watches[index2_i];
-                found = true;
-              }
-            }
-
-            if (found === false) {
-              // Der Eintrag ist nur im ersten Element vorhanden -> hinzufügen
-              newArray.push(
-                JSON.parse(JSON.stringify(videoObject_1.Watches[index1_i])),
-              );
-            }
-          }
-          if (videoObject_2.Watches.length !== 0) {
-            // ich füge diese Elemente jetzt erstmal dazu, weiß nicht so genau ob ich noch einen Fehler haben könnte
-            for (var j in videoObject_2.Watches) {
-              if (videoObject_2.Watches[j] != null) {
-                newArray.push(
-                  JSON.parse(JSON.stringify(videoObject_2.Watches[j])),
-                );
-              }
-            }
-          }
-
-          let changed = false;
-          let count = 0;
-          do {
-            changed = false;
-            count++;
-            // Ab hier ist das Array fertig gemerged, jetzt wird aufgeräumt
-            for (let index1 in newArray) {
-              for (let index2 in newArray) {
-                if (index1 == index2) {
-                  continue;
-                }
-
-                // Wenn die beiden Zeitstempel weniger als 120 sekunden auseinander liegen
-                if (
-                  Math.abs(
-                    Math.floor(
-                      new Date(newArray[index1].Date).getTime() -
-                      new Date(newArray[index2].Date).getTime(),
-                    ) / 1000,
-                  ) < 120
-                ) {
-                  // Dann nutze den früheren Zeitstempel
-
-                  newArray[index1].Date = new Date(
-                    Math.min(
-                      new Date(newArray[index1].Date).getTime(),
-                      new Date(newArray[index2].Date).getTime(),
-                    ),
-                  ).toString();
-                  newArray[index1].WatchedLength = Math.max(
-                    newArray[index1].WatchedLength,
-                    newArray[index2].WatchedLength,
-                  );
-
-                  if (
-                    isNaN(new Date(newArray[index1].Date).getTime()) === true
-                  ) {
-                    alert(newArray[index1]);
-                    throw new Error(
-                      "The converted Date is not a Date Object",
-                    );
-                  }
-
-                  newArray.splice(index2, 1);
-
-                  changed = true;
-                  break;
-                }
-                // Wenn die beiden Zeitstempel NaN sind und WatchedLength gleich ist -> eines entfernen
-                if (
-                  isNaN(new Date(newArray[index1].Date).getTime()) === true &&
-                  isNaN(new Date(newArray[index2].Date).getTime()) === true
-                ) {
-                  // Dann lösche den 2. Eintrag
-
-                  newArray.splice(index2, 1);
-
-                  changed = true;
-                  break;
-                }
-              }
-              if (changed == true) {
-                break;
-              }
-            }
-            if (count > 100) {
-              alert("Error in MergeWatches, did not finish after 100 tries");
-              throw new Error(
-                "Error in MergeWatches, did not finish after 100 tries",
-              );
-            }
-          } while (changed === true);
-
-          // gleichstellen, damit vergleich funktioniert
-          videoObject_1.Watches = JSON.parse(JSON.stringify(newArray));
-          videoObject_2.Watches = JSON.parse(JSON.stringify(newArray));
-          break;
-
-        case "VideoLength":
-          var VideoLength = Math.max(
-            videoObject_1.VideoLength,
-            videoObject_2.VideoLength,
-          );
-          videoObject_1.VideoLength = JSON.parse(VideoLength);
-          videoObject_2.VideoLength = JSON.parse(VideoLength);
-          break;
-
-        case "IsShort":
-          const isShort = Boolean(videoObject_1.IsShort) || Boolean(videoObject_2.IsShort);
-          videoObject_1.IsShort = isShort;
-          videoObject_2.IsShort = isShort;
-          break;
-
-        case "VideoTitle":
-          if (videoObject_1.VideoTitle === "") {
-            videoObject_2.VideoTitle = videoObject_1.VideoTitle;
-          } else if (videoObject_2.VideoTitle === "") {
-            videoObject_1.VideoTitle = videoObject_2.VideoTitle;
-          } else {
-            if (
-              confirm(
-                String.format(
-                  'Beim Zusammenführen von 2 unterschiedlichen Informationen über das Video "{0}" wurden unterschiede festgestellt die nicht Automatisch behoben werden konnten.\r\n\r\n\tEintrag 1:\r\nVideoTitel: {1}\r\n\r\n\tEintrag 2 :\r\nVideoTitel: {2}\r\n(Der erste Eintrag ist meist der ältere)\r\n\r\nSoll der 1. Eintrag verwendet werden?',
-                  videoObject_1.VideoID,
-                  videoObject_1.VideoTitle,
-                  videoObject_2.VideoTitle,
-                ),
-              ) === true
-            ) {
-              videoObject_1.VideoTitle = videoObject_2.VideoTitle;
-            } else {
-              videoObject_2.VideoTitle = videoObject_1.VideoTitle;
-            }
-          }
-          break;
-
-        case "VideoAuthor":
-          if (videoObject_1.VideoAuthor === "") {
-            videoObject_2.VideoAuthor = videoObject_1.VideoAuthor;
-          } else if (videoObject_2.VideoAuthor === "") {
-            videoObject_1.VideoAuthor = videoObject_2.VideoAuthor;
-          } else {
-            if (
-              confirm(
-                String.format(
-                  'Beim Zusammenführen von 2 unterschiedlichen Informationen über das Video "{0}" wurden unterschiede festgestellt die nicht Automatisch behoben werden konnten.\r\n\r\n\tEintrag 1:\r\nYoutube-Kanal: {1}\r\n\r\n\tEintrag 2 :\r\nYoutube-Kanal: {2}\r\n(Der erste Eintrag ist meist der ältere)\r\n\r\nSoll der 1. Eintrag verwendet werden?',
-                  videoObject_1.VideoID,
-                  videoObject_1.VideoAuthor,
-                  videoObject_2.VideoAuthor,
-                ),
-              ) === true
-            ) {
-              videoObject_1.VideoAuthor = videoObject_2.VideoAuthor;
-            } else {
-              videoObject_2.VideoAuthor = videoObject_1.VideoAuthor;
-            }
-          }
-          break;
-
-        default:
-          // console.error("Für diesen Spezialfall des Objekts \"" + objectIndex + "\" wurde kein automatisches Zusammenführen definiert!");
-          // console.log(videoObject_1);
-          // console.log(videoObject_2);
-          // alert("Für diesen Spezialfall des Objekts \"" + objectIndex + "\" wurde kein automatisches Zusammenführen definiert!\r\nSiehe Konsole für mehr Informationen.");
-          // throw "NotDefinedException"
-          console.error(
-            "Für diesen Unterschied wurde kein automatisches Zusammenführen definiert![" +
-            objectIndex +
-            "]",
-          );
-          console.log(videoObject_1);
-          console.log(videoObject_2);
-          alert(
-            "Für diesen Unterschied wurde kein automatisches Zusammenführen definiert!\r\nSiehe Konsole für mehr Informationen.",
-          );
-          throw new Error("NotDefinedException");
-      }
-    }
-  }
-
-  if (JSON.stringify(videoObject_1) != JSON.stringify(videoObject_2)) {
-    console.error(
-      "JSON.stringify(videoObject_1) != JSON.stringify(videoObject_2)",
-      videoObject_1,
-      videoObject_2,
-    );
-  }
-  if (videoObject_1 == null) {
-    return null;
-  }
-  return JSON.parse(JSON.stringify(videoObject_1));
 }
 
 function Main() {

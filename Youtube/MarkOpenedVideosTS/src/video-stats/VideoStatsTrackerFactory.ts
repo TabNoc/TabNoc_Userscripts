@@ -1,16 +1,12 @@
 import { ConsoleWatchSessionLogger } from "./WatchSessionLogger";
-import type { VideoStatsState } from "./WatchSessionTypes";
+import type { VideoObject } from "../api/ApiService";
 import { ShortVideoStatsTracker } from "./ShortVideoStatsTracker";
 import { RegularVideoStatsTracker } from "./RegularVideoStatsTracker";
 
-export function createVideoStatsTracker(videoStatsState: VideoStatsState) {
-  const logger = new ConsoleWatchSessionLogger(
-    videoStatsState.IsShort ? "ShortVideoTracker" : "RegularVideoTracker",
-  );
-
-  if (videoStatsState.IsShort) {
-    return new ShortVideoStatsTracker(videoStatsState, logger);
+export function createVideoStatsTracker(videoObject: VideoObject) {
+  if (videoObject.IsShort) {
+    return new ShortVideoStatsTracker(videoObject, new ConsoleWatchSessionLogger("ShortVideoTracker"));
   }
 
-  return new RegularVideoStatsTracker(videoStatsState, logger);
+  return new RegularVideoStatsTracker(videoObject, new ConsoleWatchSessionLogger("RegularVideoTracker"));
 }

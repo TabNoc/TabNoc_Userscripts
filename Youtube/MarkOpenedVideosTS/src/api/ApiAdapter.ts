@@ -1,6 +1,8 @@
 import ApiService from "./ApiService";
+import type { VideoObject } from "./ApiService";
+import type { IVideoStatsApi } from "../video-stats/VideoStatsManager";
 
-export class ApiAdapter {
+export class ApiAdapter implements IVideoStatsApi {
     private apiService: ApiService;
     public setValue(key: string, value: string): void {
         // Placeholder for actual API call to set the value on the server
@@ -17,6 +19,14 @@ export class ApiAdapter {
 
     public getService(): ApiService {
         return this.apiService;
+    }
+
+    public async getVideoStatus(id: string) {
+        return this.apiService.getVideoStatus(id);
+    }
+
+    public async createOrUpdateVideo(item: VideoObject) {
+        return this.apiService.createOrUpdateVideo(item);
     }
 
     constructor() {

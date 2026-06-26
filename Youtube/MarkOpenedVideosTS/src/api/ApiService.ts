@@ -1,13 +1,17 @@
 import { GM, type GmXmlhttpRequestOption } from "$";
 
-type WatchEntry = { WatchedLength: number; Date: Date | string | null };
+export type WatchEntry = { WatchedLength: number; Date: Date | string | null };
 type WatchEntryPayload = { WatchedLength: number; Date: string | null };
 type VideoObjectPayload = Omit<VideoObject, "Watches"> & { Watches?: WatchEntryPayload[] };
-type StringOccasion = { value: string, timestamp: string };
+//type StringOccasion = { value: string, timestamp: string };
 export type VideoObject = {
   VideoID: string;
+  VideoTitle: string;
+  VideoAuthor: string;
+  /*
   VideoTitles: StringOccasion[];
   VideoAuthors: StringOccasion[];
+  */ 
   VideoLength: number;
   IsShort: boolean;
   Watches: WatchEntry[];

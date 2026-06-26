@@ -1,18 +1,4 @@
-export type SessionDate = string | null;
-
-export type WatchSession = {
-  WatchedLength: number;
-  Date: SessionDate;
-};
-
-export type VideoStatsState = {
-  VideoID: string;
-  VideoTitle: string;
-  VideoAuthor: string;
-  VideoLength: number;
-  IsShort: boolean;
-  Watches: WatchSession[];
-};
+import type { WatchEntry } from "../api/ApiService";
 
 export type TrackerState = {
   activeWatchSeconds: number;
@@ -32,4 +18,4 @@ export type PlayerSnapshot = {
 export type TrackerTransitionAction =
   | { type: "save"; reason: "stopped" | "checkpoint" | "loop" }
   | { type: "next-session"; reason: "loop" | "resume-after-stop" }
-  | { type: "pause-log"; payload: { session: WatchSession | null; watchedLengthCurrent: number } };
+  | { type: "pause-log"; payload: { session: WatchEntry | null; watchedLengthCurrent: number } };

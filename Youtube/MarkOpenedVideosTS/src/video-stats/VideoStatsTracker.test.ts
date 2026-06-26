@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ShortVideoStatsTracker } from "./ShortVideoStatsTracker";
 import { RegularVideoStatsTracker } from "./RegularVideoStatsTracker";
-import type { VideoStatsState } from "./WatchSessionTypes";
+import type { VideoObject } from "../api/ApiService";
 import type { WatchSessionLogger } from "./WatchSessionLogger";
 
 class NoopLogger implements WatchSessionLogger {
@@ -11,7 +11,7 @@ class NoopLogger implements WatchSessionLogger {
   error(): void {}
 }
 
-function createState(isShort: boolean): VideoStatsState {
+function createState(isShort: boolean): VideoObject {
   return {
     VideoID: "video-id",
     VideoTitle: "title",
@@ -62,8 +62,8 @@ describe("VideoStatsTracker", () => {
 
     expect(actions.some((a) => a.type === "next-session" && a.reason === "loop")).toBe(true);
     expect(actions.some((a) => a.type === "save" && a.reason === "loop")).toBe(true);
-    expect(tracker.getVideoStatsState().Watches.length).toBe(2);
-    expect(tracker.getVideoStatsState().Watches[0].WatchedLength).toBeGreaterThanOrEqual(4);
+    expect(tracker.getMutableVideoObjectRef().Watches.length).toBe(2);
+    expect(tracker.getMutableVideoObjectRef().Watches[0].WatchedLength).toBeGreaterThanOrEqual(4);
     expect(Math.round(tracker.getActiveWatchSeconds())).toBe(0);
   });
 
@@ -80,9 +80,34 @@ describe("VideoStatsTracker", () => {
     tracker.tick({ playerState: 1, currentTimeSeconds: 0.6, playbackRate: 1 }, 5500);
     tracker.tick({ playerState: 1, currentTimeSeconds: 2.6, playbackRate: 1 }, 7500);
 
-    expect(tracker.getVideoStatsState().Watches.length).toBe(2);
+    expect(tracker.getMutableVideoObjectRef().Watches.length).toBe(2);
     expect(Math.round(tracker.getActiveWatchSeconds())).toBe(3);
-    expect(tracker.getVideoStatsState().Watches[1].WatchedLength).toBe(-99);
+    expect(tracker.getMutableVideoObjectRef().Watches[1].WatchedLength).toBe(-99);
+  });
+
+  it("splits short sessions when looping through buffering state", () => {
+    const tracker = new ShortVideoStatsTracker(createState(true), new NoopLogger());
+
+    tracker.tick({ playerState: 1, currentTimeSeconds: 0, playbackRate: 1 }, 0);
+    tracker.tick({ playerState: 1, currentTimeSeconds: 145.99, playbackRate: 1 }, 145_990);
+
+    const actions = tracker.tick({ playerState: 3, currentTimeSeconds: 0.17, playbackRate: 1 }, 146_740);
+
+    expect(actions.some((a) => a.type === "next-session" && a.reason === "loop")).toBe(true);
+    expect(actions.some((a) => a.type === "save" && a.reason === "loop")).toBe(true);
+    expect(tracker.getMutableVideoObjectRef().Watches.length).toBe(2);
+
+  });
+
+  it("does not split short sessions on mid-video backward seek", () => {
+    const tracker = new ShortVideoStatsTracker(createState(true), new NoopLogger());
+
+    tracker.tick({ playerState: 1, currentTimeSeconds: 143.51, playbackRate: 1 }, 0);
+    const actions = tracker.tick({ playerState: 1, currentTimeSeconds: 138.79, playbackRate: 1 }, 750);
+
+    expect(actions.some((a) => a.type === "next-session" && a.reason === "loop")).toBe(false);
+    expect(actions.some((a) => a.type === "save" && a.reason === "loop")).toBe(false);
+    expect(tracker.getMutableVideoObjectRef().Watches.length).toBe(1);
   });
 
   it("emits stopped save only once until resume", () => {
@@ -108,7 +133,7 @@ describe("VideoStatsTracker", () => {
     const resumeActions = tracker.tick({ playerState: 1, currentTimeSeconds: 4, playbackRate: 1 }, 6000);
 
     expect(resumeActions.some((a) => a.type === "next-session" && a.reason === "resume-after-stop")).toBe(true);
-    expect(tracker.getVideoStatsState().Watches.length).toBe(2);
+    expect(tracker.getMutableVideoObjectRef().Watches.length).toBe(2);
     expect(Math.round(tracker.getActiveWatchSeconds())).toBe(0);
   });
 
@@ -119,7 +144,7 @@ describe("VideoStatsTracker", () => {
     const actions = tracker.tick({ playerState: 1, currentTimeSeconds: 1, playbackRate: 1 }, 1000);
 
     expect(actions.some((a) => a.type === "next-session")).toBe(false);
-    expect(tracker.getVideoStatsState().Watches.length).toBe(1);
+    expect(tracker.getMutableVideoObjectRef().Watches.length).toBe(1);
   });
 
   describe("transition matrix", () => {

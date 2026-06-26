@@ -2,9 +2,8 @@ import type {
   PlayerSnapshot,
   TrackerState,
   TrackerTransitionAction,
-  VideoStatsState,
-  WatchSession,
 } from "./WatchSessionTypes";
+import type { VideoObject, WatchEntry } from "../api/ApiService";
 import type { WatchSessionLogger } from "./WatchSessionLogger";
 
 export abstract class VideoStatsTrackerBase {
@@ -18,7 +17,7 @@ export abstract class VideoStatsTrackerBase {
   };
 
   protected constructor(
-    protected readonly videoStatsState: VideoStatsState,
+    protected readonly videoObject: VideoObject,
     protected readonly logger: WatchSessionLogger,
   ) {}
 
@@ -96,35 +95,38 @@ export abstract class VideoStatsTrackerBase {
     return actions;
   }
 
-  getVideoStatsState(): VideoStatsState {
-    return this.videoStatsState;
+  getMutableVideoObjectRef(): VideoObject {
+    return this.videoObject;
   }
 
   getActiveWatchSeconds(): number {
     return this.trackerState.activeWatchSeconds;
   }
 
-  replaceVideoStatsState(nextState: VideoStatsState): void {
-    this.videoStatsState.VideoID = nextState.VideoID;
-    this.videoStatsState.VideoTitle = nextState.VideoTitle;
-    this.videoStatsState.VideoAuthor = nextState.VideoAuthor;
-    this.videoStatsState.VideoLength = nextState.VideoLength;
-    this.videoStatsState.IsShort = nextState.IsShort;
-    this.videoStatsState.Watches = [...nextState.Watches];
+  replaceVideoObject(nextState: VideoObject): void {
+    this.videoObject.VideoID = nextState.VideoID;
+    this.videoObject.VideoTitle = nextState.VideoTitle;
+    this.videoObject.VideoAuthor = nextState.VideoAuthor;
+    this.videoObject.VideoLength = nextState.VideoLength;
+    this.videoObject.IsShort = nextState.IsShort;
+    this.videoObject.Watches = [...nextState.Watches];
   }
 
   setActiveWatchSeconds(value: number): void {
     this.trackerState.activeWatchSeconds = value;
   }
 
-  onAfterSave(): void {
-    this.trackerState.lastSavedWatchSeconds = this.trackerState.activeWatchSeconds;
+  onAfterSave(savedWatchSeconds: number): void {
+    this.trackerState.lastSavedWatchSeconds = Math.max(
+      this.trackerState.lastSavedWatchSeconds,
+      savedWatchSeconds,
+    );
   }
 
   protected beginNextWatchSession(): void {
     const current = this.getCurrentSession();
     if (current == null || current.WatchedLength >= 0) {
-      this.videoStatsState.Watches.push({
+      this.videoObject.Watches.push({
         WatchedLength: -99,
         Date: new Date().toString(),
       });
@@ -142,8 +144,8 @@ export abstract class VideoStatsTrackerBase {
     }
   }
 
-  protected getCurrentSession(): WatchSession | null {
-    const watches = this.videoStatsState.Watches;
+  protected getCurrentSession(): WatchEntry | null {
+    const watches = this.videoObject.Watches;
     if (!Array.isArray(watches) || watches.length === 0) {
       return null;
     }

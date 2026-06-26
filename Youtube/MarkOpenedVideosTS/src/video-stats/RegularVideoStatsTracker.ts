@@ -1,10 +1,11 @@
 import { VideoStatsTrackerBase } from "./VideoStatsTrackerBase";
-import type { PlayerSnapshot, VideoStatsState } from "./WatchSessionTypes";
+import type { PlayerSnapshot } from "./WatchSessionTypes";
+import type { VideoObject } from "../api/ApiService";
 import type { WatchSessionLogger } from "./WatchSessionLogger";
 
 export class RegularVideoStatsTracker extends VideoStatsTrackerBase {
-  constructor(videoStatsState: VideoStatsState, logger: WatchSessionLogger) {
-    super(videoStatsState, logger);
+  constructor(videoObject: VideoObject, logger: WatchSessionLogger) {
+    super(videoObject, logger);
   }
 
   protected shouldSplitSessionOnLoop(_snapshot: PlayerSnapshot): boolean {
