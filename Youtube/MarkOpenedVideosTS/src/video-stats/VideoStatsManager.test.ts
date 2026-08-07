@@ -199,6 +199,30 @@ describe("VideoStatsManager", () => {
     });
   });
 
+  it("persists average playback rate for tracked sessions", async () => {
+    await SilentConsole.run(async () => {
+      const api = new RecordingApi();
+      const manager = new VideoStatsManager(api, new SilentLogger());
+
+      await manager.beginSession({
+        videoId: "avg-rate-1",
+        videoTitle: "Rate Avg",
+        videoAuthor: "Author",
+        videoLength: 600,
+        isShort: false,
+      });
+
+      manager.handleTick({ playerState: 1, currentTimeSeconds: 0, playbackRate: 1.25 }, 0);
+      manager.handleTick({ playerState: 1, currentTimeSeconds: 240, playbackRate: 1.25 }, 240_000);
+      manager.handleTick({ playerState: 1, currentTimeSeconds: 300, playbackRate: 2 }, 300_000);
+      await manager.stopSession();
+
+      const finalSaved = api.savedStates[api.savedStates.length - 1];
+      expect(finalSaved.Watches[0]?.AveragePlaybackRate).toBeCloseTo(1.4, 6);
+      expect(finalSaved.Watches[0]?.AveragePlaybackRate).toBeCloseTo(420 / 300, 6);
+    });
+  });
+
   it("keeps queued save payload snapshots immutable", async () => {
     await SilentConsole.run(async () => {
       const api = new BlockingQueueApi();

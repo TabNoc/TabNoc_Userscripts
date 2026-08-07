@@ -2,6 +2,7 @@ import type { WatchEntry } from "../api/ApiService";
 
 export type TrackerState = {
   activeWatchSeconds: number;
+  observedPlaybackSeconds: number;
   lastTickAtMs: number | null;
   lastPlayerState: number | null;
   lastCurrentTimeSeconds: number | null;

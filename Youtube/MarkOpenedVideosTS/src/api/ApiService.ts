@@ -1,7 +1,15 @@
 import { GM, type GmXmlhttpRequestOption } from "$";
 
-export type WatchEntry = { WatchedLength: number; Date: Date | string | null };
-type WatchEntryPayload = { WatchedLength: number; Date: string | null };
+export type WatchEntry = {
+  WatchedLength: number;
+  Date: Date | string | null;
+  AveragePlaybackRate: number | null;
+};
+type WatchEntryPayload = {
+  WatchedLength: number;
+  Date: string | null;
+  AveragePlaybackRate: number | null;
+};
 type VideoObjectPayload = Omit<VideoObject, "Watches"> & { Watches?: WatchEntryPayload[] };
 //type StringOccasion = { value: string, timestamp: string };
 export type VideoObject = {

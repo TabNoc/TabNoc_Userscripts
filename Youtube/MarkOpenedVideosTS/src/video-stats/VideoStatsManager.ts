@@ -72,6 +72,7 @@ export class VideoStatsManager {
         {
           WatchedLength: -99,
           Date: new Date().toString(),
+          AveragePlaybackRate: null,
         },
       ],
     };
@@ -147,6 +148,7 @@ export class VideoStatsManager {
         tracker.hasObservedPlaybackSnapshot()
       ) {
         currentSession.WatchedLength = Math.max(0, Math.round(tracker.getActiveWatchSeconds()));
+        currentSession.AveragePlaybackRate = tracker.getAveragePlaybackRate();
       }
     }
 

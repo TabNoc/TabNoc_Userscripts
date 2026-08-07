@@ -18,7 +18,7 @@ function createState(isShort: boolean): VideoObject {
     VideoAuthor: "author",
     VideoLength: 60,
     IsShort: isShort,
-    Watches: [{ WatchedLength: -99, Date: "2026-01-01T00:00:00.000Z" }],
+    Watches: [{ WatchedLength: -99, Date: "2026-01-01T00:00:00.000Z", AveragePlaybackRate: null }],
   };
 }
 
@@ -61,6 +61,18 @@ describe("VideoStatsTracker", () => {
     tracker.tick({ playerState: 1, currentTimeSeconds: 300, playbackRate: 2 }, 300_000);
 
     expect(Math.round(tracker.getActiveWatchSeconds())).toBe(420);
+  });
+
+  it("stores session average playback rate as weighted mean", () => {
+    const tracker = new RegularVideoStatsTracker(createState(false), new NoopLogger());
+
+    tracker.tick({ playerState: 1, currentTimeSeconds: 0, playbackRate: 1.25 }, 0);
+    tracker.tick({ playerState: 1, currentTimeSeconds: 240, playbackRate: 1.25 }, 240_000);
+    tracker.tick({ playerState: 1, currentTimeSeconds: 300, playbackRate: 2 }, 300_000);
+
+    const currentSession = tracker.getMutableVideoObjectRef().Watches[0];
+    expect(currentSession?.AveragePlaybackRate).toBeCloseTo(1.4, 6);
+    expect(currentSession?.AveragePlaybackRate).toBeCloseTo(420 / 300, 6);
   });
 
   it("splits short sessions on loop and starts a new watch session", () => {

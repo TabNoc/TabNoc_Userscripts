@@ -9,6 +9,7 @@ import type { WatchSessionLogger } from "./WatchSessionLogger";
 export abstract class VideoStatsTrackerBase {
   protected readonly trackerState: TrackerState = {
     activeWatchSeconds: 0,
+    observedPlaybackSeconds: 0,
     lastTickAtMs: null,
     lastPlayerState: null,
     lastCurrentTimeSeconds: null,
@@ -116,6 +117,10 @@ export abstract class VideoStatsTrackerBase {
     return this.trackerState.activeWatchSeconds;
   }
 
+  getAveragePlaybackRate(): number | null {
+    return this.getCurrentAveragePlaybackRate();
+  }
+
   hasObservedPlaybackSnapshot(): boolean {
     return this.trackerState.lastPlayerState != null;
   }
@@ -146,9 +151,11 @@ export abstract class VideoStatsTrackerBase {
       this.videoObject.Watches.push({
         WatchedLength: -99,
         Date: new Date().toString(),
+        AveragePlaybackRate: null,
       });
     }
     this.trackerState.activeWatchSeconds = 0;
+    this.trackerState.observedPlaybackSeconds = 0;
     this.trackerState.lastTickAtMs = null;
     this.trackerState.lastSavedWatchSeconds = 0;
     this.trackerState.hasSavedOnStoppedState = false;
@@ -158,6 +165,7 @@ export abstract class VideoStatsTrackerBase {
     const current = this.getCurrentSession();
     if (current != null) {
       current.WatchedLength = watchedLength;
+      current.AveragePlaybackRate = this.getCurrentAveragePlaybackRate();
     }
   }
 
@@ -176,7 +184,16 @@ export abstract class VideoStatsTrackerBase {
     const deltaSeconds = Math.max(0, (nowMs - this.trackerState.lastTickAtMs) / 1000);
     const rate = Math.max(0.1, playbackRate || 1);
     this.trackerState.activeWatchSeconds += deltaSeconds * rate;
+    this.trackerState.observedPlaybackSeconds += deltaSeconds;
     this.trackerState.lastTickAtMs = nowMs;
+  }
+
+  protected getCurrentAveragePlaybackRate(): number | null {
+    if (this.trackerState.observedPlaybackSeconds <= 0) {
+      return null;
+    }
+
+    return this.trackerState.activeWatchSeconds / this.trackerState.observedPlaybackSeconds;
   }
 
   protected abstract shouldSplitSessionOnLoop(snapshot: PlayerSnapshot): boolean;

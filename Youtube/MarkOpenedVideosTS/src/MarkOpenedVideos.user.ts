@@ -338,6 +338,7 @@ var apiAdapter = new ApiAdapter();
 const videoStatsManager = new VideoStatsManager(apiAdapter);
 let hasRegisteredPageLeaveSessionStopHandlers = false;
 let isStoppingSessionFromPageLeave = false;
+let isSwitchingVideoSession = false;
 
 function readPlayerSnapshot(movie_player) {
   return {
@@ -395,6 +396,25 @@ function ensurePageLeaveSessionStopHandlersInstalled(): void {
   unsafeWindow.addEventListener("pagehide", () => {
     stopVideoSessionForPageLeave("pagehide");
   });
+}
+
+async function switchToCurrentVideoSession(): Promise<void> {
+  if (isSwitchingVideoSession) {
+    return;
+  }
+
+  isSwitchingVideoSession = true;
+  try {
+    flushCurrentVideoStatsTick();
+    await videoStatsManager.stopSession();
+    TabNoc.Variables.HasInstalledWatchingVideo = false;
+    CheckWatchingVideo("install");
+  } catch (exc) {
+    console.error(exc);
+    alert(exc);
+  } finally {
+    isSwitchingVideoSession = false;
+  }
 }
 
 // ### https://www.youtube.com/ ###
@@ -1104,6 +1124,10 @@ async function startCheckElements(ToggleState:boolean, force?: boolean) {
 
 // ### https://www.youtube.com/watch?v=* ###
 function CheckWatchingVideo(forcedOperation?: "install" | "uninstall" | null) {
+  if (isSwitchingVideoSession && forcedOperation !== "uninstall") {
+    return;
+  }
+
   // if (TabNoc.Settings.Debug === true) {
   var start = new Date().getTime();
   // }
@@ -1499,8 +1523,8 @@ function WatchingVideoIntervalHandler(movie_player) {
     if (
       movie_player.getVideoData().video_id != TabNoc.Variables.CurrentVideoID
     ) {
-      CheckWatchingVideo("uninstall");
-      CheckWatchingVideo("install");
+      void switchToCurrentVideoSession();
+      return;
     }
 
     // ############################### TabNoc.Variables.VideoChangeCheckInterval ###############################
