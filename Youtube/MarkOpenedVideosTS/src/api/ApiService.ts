@@ -47,7 +47,7 @@ export class ApiService {
   baseUrl: string;
   headers: Record<string, string> = { "Content-Type": "application/json" };
 
-  constructor(baseUrl = "http://localhost:5458/") {
+  constructor(baseUrl = "http://truenas1.unify:31017/") {
     this.baseUrl = baseUrl.replace(/\/$/, "");
 
     if (!GM || typeof GM.xmlHttpRequest !== "function") {
